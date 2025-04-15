@@ -73,6 +73,6 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun GreetingPreview() {
     Win模拟器Theme {
-        Greeting("Android")
+        ProotOutputScreen()
     }
 }

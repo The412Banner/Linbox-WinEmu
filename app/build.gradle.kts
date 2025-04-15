@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "org.github.ewt45.winemulator"
+    namespace = "a.io.github.ewt45.winemulator"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "org.github.ewt45.winemulator"
+        applicationId = "a.io.github.ewt45.winemulator"
         minSdk = 26
         //TODO 考虑升到最新？
         //noinspection ExpiredTargetSdkVersion
@@ -65,4 +65,8 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    //termux terminal
+    implementation(libs.com.termux.terminal.view )
+    implementation(libs.com.termux.termux.shared )
 }
