@@ -44,6 +44,8 @@ android {
 dependencies {
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -67,7 +69,13 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     //termux 终端 。。。jitpack真是垃圾啊
-    implementation(libs.com.termux.terminal.view )
-    implementation(libs.com.termux.termux.shared )
-    implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+//    implementation(libs.com.termux.terminal.view )
+//    implementation(libs.com.termux.termux.shared )
+//    implementation(libs.com.google.guava.listenablefuture)
+
+    //termux-x11
+    implementation(files("app-debug.aar"))
+    implementation("androidx.preference:preference:1.2.1")
+//    implementation(project(":tx11"))
+
 }

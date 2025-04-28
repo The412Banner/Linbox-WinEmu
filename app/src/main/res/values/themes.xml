@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+<!--    <style name="Theme.MainTheme" parent="android:Theme.Material.Light.NoActionBar" />-->
+    <style name="Theme.MainTheme" parent="@style/Theme.AppCompat.Light.NoActionBar" />
+<!--    <style name="Theme.MainEmuActivityTheme" parent="@style/Theme.AppCompat.Light.NoActionBar"  />-->
 
-    <style name="Theme.Win模拟器" parent="android:Theme.Material.Light.NoActionBar" />
+
+
 </resources>

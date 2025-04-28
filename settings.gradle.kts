@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Win模拟器"
 include(":app")
- 
+include(":tx11")

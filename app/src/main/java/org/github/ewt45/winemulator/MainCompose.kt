@@ -1,25 +1,33 @@
 package org.github.ewt45.winemulator
 
 import android.util.Log
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,9 +53,18 @@ fun MainScreen(
     val viewModel: MainViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
-    Box(modifier) {
-        ProotTerminalScreen()
+    var minimize by remember { mutableStateOf(false) }
+
+    Column(modifier) {
+        TextButton(onClick = {minimize = !minimize},
+            modifier = Modifier.align(Alignment.End)) {
+            Text("展开/缩小")
+        }
+        if (!minimize) {
+            ProotTerminalScreen()
+        }
     }
+
 
     // 阻塞对话框
     if (uiState.blockDialog) {
@@ -69,8 +86,8 @@ fun MainScreen(
             confirmButton = {}
         )
     }
-
 }
+
 
 
 @Composable
@@ -85,8 +102,8 @@ fun ProotTerminalScreen(
     var execCommand by remember { mutableStateOf("") }
     Column(
         modifier = modifier
-            .fillMaxSize()
-//            .widthIn(min=300.dp,max=700.dp)
+            .fillMaxHeight()
+            .widthIn(max = 700.dp)
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -95,21 +112,27 @@ fun ProotTerminalScreen(
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.titleLarge
         )
-
         Spacer(modifier = Modifier.height(12.dp))
 
         val textVScroll = rememberScrollState()
-        Text(
-            text = output.joinToString(separator = "\n"),
+        Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(textVScroll)
-                //emmm加这个横向滚动 导致文本很短时，Text无法占满宽度了
-//                .horizontalScroll(rememberScrollState())
+                //emmm加这个横向滚动 导致文本很短时，Text无法占满宽度了. 好了，在外层套一个Column就行了。
+                .horizontalScroll(rememberScrollState())
                 .fillMaxWidth(),
-            style = MaterialTheme.typography.bodyMedium,
-            fontFamily = FontFamily.Monospace
-        )
+        ) {
+            SelectionContainer {
+                Text(
+                    text = output.joinToString(separator = "\n"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+
+
         //有内容更新时自动滚动到最底部
         LaunchedEffect(output.size) {
             textVScroll.animateScrollTo(textVScroll.maxValue)
@@ -153,7 +176,7 @@ fun GameScreenPreview() {
                         "1\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\\n\n\n\n\n\n\n\n\n\n\n\nsdfsdfsdfsdfsdfsd\n\n\n\n\n\n\n\n\n\n\n\n\\n\n\n\\n\n\n\n\n\n\\n\n\n\n\n\n\n\n\n\n\nfsdfsdfsdfsdfsdfsd"
             )
 
-            mainViewModel.showBlockDialog("测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框")
+//            mainViewModel.showBlockDialog("测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框测试对话框")
         }
     }
 }
