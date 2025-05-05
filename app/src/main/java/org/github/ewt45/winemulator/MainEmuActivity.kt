@@ -11,8 +11,8 @@ import androidx.lifecycle.lifecycleScope
 import com.termux.x11.MainActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.github.ewt45.winemulator.ui.MainScreen
 import org.github.ewt45.winemulator.ui.theme.MainTheme
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel

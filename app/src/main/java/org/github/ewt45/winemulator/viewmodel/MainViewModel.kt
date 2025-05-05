@@ -38,18 +38,6 @@ class MainViewModel : ViewModel() {
     private var dialogDeferred: CompletableDeferred<Result<Boolean>>? = null
 
 
-//    /**
-//     * 显示阻塞对话框. 该对话框无法关闭，用于执行一些操作，等操作完成后自动关闭
-//     * @param action 要执行的操作。在viewModelScope中运行
-//     */
-//    fun showBlockDialog(msg: String = "加载中，请稍等", action: (suspend () -> Unit)) {
-//        _uiState.update { it.copy(blockDialog = true, blockDialogMsg = msg) }
-//        viewModelScope.launch {
-//            action()
-//            closeBlockDialog()
-//        }
-//    }
-
     /**
      * 显示阻塞对话框. 该对话框无法关闭，用于执行一些操作，等操作完成后自动关闭
      * @param action 要执行的操作。在viewModelScope中运行
@@ -83,6 +71,10 @@ class MainViewModel : ViewModel() {
      */
     fun closeConfirmDialog(confirm:Boolean = true) {
         dialogDeferred?.complete(Result.success(confirm))
+    }
+
+    fun showErrorDialog(msg:String, isFatal:Boolean = false) {
+        TODO()
     }
 
 }

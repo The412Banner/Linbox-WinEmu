@@ -1,19 +1,16 @@
 package org.github.ewt45.winemulator.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandIn
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -29,7 +26,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
@@ -57,24 +54,16 @@ import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 
 @Composable
 fun SettingScreen(modifier: Modifier = Modifier) {
-    val mainViewmodel: MainViewModel = viewModel()
+    val TAG = "SettingScreen"
+    val mainViewModel: MainViewModel = viewModel()
     val settingViewModel: SettingViewModel = viewModel()
-    val proot by settingViewModel.prootState.collectAsState()
     val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+
+    val proot by settingViewModel.prootState.collectAsState()
     //TODO 用LazyColumn?
     Column(modifier) {
-        TopBarActions(
-            modifier = Modifier.align(Alignment.End),
-            onClick = { action ->
-                scope.launch {
-                    val result = if (action == SettingAction.RESET) mainViewmodel.showConfirmDialog("将全部选项恢复为默认。是否执行此操作？")
-                    else Result.success(true)
-                    if (result.getOrNull() == true) {
-                        settingViewModel.onActionClick(SettingAction.RESET)
-                    }
-                }
-            }
-        )
+        TopBarActions(modifier = Modifier.align(Alignment.End),)
         ProotSettings(
             prootNoValueOptions = proot.proot_bool_options,
             onChangeProotNoValueOptions = settingViewModel::onChangeProotBoolOptions,
@@ -90,16 +79,67 @@ fun SettingScreen(modifier: Modifier = Modifier) {
 @Composable
 fun TopBarActions(
     modifier: Modifier = Modifier,
-    onClick: (SettingAction) -> Unit = {}
 ) {
-    Row(
-        modifier = modifier,
+    val mainVM: MainViewModel = viewModel()
+    val settingVM: SettingViewModel = viewModel()
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    //导出时 保存为文件
+    val saveFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val th = settingVM.exportSettings(ctx, uri).exceptionOrNull()
+            val resultStr = if (th != null) "导出失败。错误信息：\n\n${th.stackTraceToString()}" else "导出成功！"
+            mainVM.showConfirmDialog(resultStr)
+        }
+
+    }
+    //导入时 选择文件
+    val readFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val th = settingVM.importSettings(ctx, uri).exceptionOrNull()
+            th?.printStackTrace()
+            val resultStr = if (th != null) "导入失败。错误信息：\n\n${th.stackTraceToString()}" else "导入成功！"
+            mainVM.showConfirmDialog(resultStr)
+        }
+    }
+
+    TopBarActions(
+        modifier,
+        onClick = { action ->
+            scope.launch {
+                when(action) {
+                    SettingAction.EXPORT -> {
+                        if (mainVM.showConfirmDialog("将设置导出为Json文件。请选择文件保存位置。").getOrNull() == true)
+                            saveFileLauncher.launch("preferences.json")
+                    }
+                    SettingAction.IMPORT -> {
+                        if (mainVM.showConfirmDialog("导入本地Json文件更新设置。请选择文件所在位置。").getOrNull() == true)
+                            readFileLauncher.launch(arrayOf("text/*", "application/json"))
+                    }
+                    SettingAction.RESET -> {
+                        if (mainVM.showConfirmDialog("将全部选项恢复为默认。是否执行此操作？").getOrNull() == true)
+                            settingVM.resetSettings()
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun TopBarActions(
+    modifier: Modifier = Modifier,
+    onClick: (SettingAction) -> Unit = {},
     ) {
+    Row(modifier = modifier) {
         TextButton(onClick = { onClick(SettingAction.EXPORT) }) { Text("导出") }
         TextButton(onClick = { onClick(SettingAction.IMPORT) }) { Text("导入") }
         TextButton(onClick = { onClick(SettingAction.RESET) }) { Text("重置") }
     }
 }
+
 
 /**
  * proot设置
@@ -226,7 +266,7 @@ fun CollapsePanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(text = title, style = MaterialTheme.typography.titleLarge)
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                 contentDescription = if (expanded) "收起" else "展开"
@@ -249,36 +289,15 @@ fun CollapsePanel(
     }
 }
 
-@Composable
-fun ExpandablePanelExample() {
-    Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        CollapsePanel(title = "面板一") {
-            Text(text = "这是面板一的展开内容。你可以在这里放置任何你想要显示的内容，例如更长的文本、列表、图片等等。")
-        }
-        HorizontalDivider()
-        CollapsePanel(title = "面板二") {
-            Column {
-                Text(text = "这是面板二的第一行内容。")
-                Text(text = "这是面板二的第二行内容。")
-            }
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 fun PreviewExpandablePanelExample() {
 //    SettingScreen()
     Column {
-        Row(
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(8.dp)
-        ) {
-            TextButton(onClick = {}) { Text("导出") }
-            TextButton(onClick = {}) { Text("导入") }
-            TextButton(onClick = {}) { Text("重置") }
-        }
+        TopBarActions(
+            modifier = Modifier.align(Alignment.End),
+            onClick = {}
+        )
         ProotSettings(
             prootNoValueOptions = setOf(),
             onChangeProotNoValueOptions = { _, _ -> },

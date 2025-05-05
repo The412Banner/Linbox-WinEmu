@@ -81,6 +81,7 @@ dependencies {
 //    implementation(project(":tx11"))
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.preference)
+    implementation(kotlin("reflect"))
 
 
 }

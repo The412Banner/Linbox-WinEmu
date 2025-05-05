@@ -1,10 +1,9 @@
-package org.github.ewt45.winemulator
+package org.github.ewt45.winemulator.ui
 
 import a.io.github.ewt45.winemulator.R
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.MarginLayoutParams
-import android.widget.FrameLayout
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -19,7 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -33,7 +34,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,9 +49,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
-import org.github.ewt45.winemulator.ui.ProotTerminalScreen
-import org.github.ewt45.winemulator.ui.SettingScreen
 import org.github.ewt45.winemulator.viewmodel.DialogType
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
 
@@ -122,7 +121,7 @@ fun MainScreen(
                             .wrapContentHeight(), // 根据内容调整高度
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(uiState.msg)
+                        Text(uiState.msg, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.verticalScroll(rememberScrollState()))
                         if (isBlock) {
                             Spacer(modifier = Modifier.height(16.dp))
                             CircularProgressIndicator()
