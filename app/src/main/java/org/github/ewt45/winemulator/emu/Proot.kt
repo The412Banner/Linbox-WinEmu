@@ -1,15 +1,13 @@
-package org.github.ewt45.winemulator
+package org.github.ewt45.winemulator.emu
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.OutputStreamWriter
+import org.github.ewt45.winemulator.Consts
 
 /**
  * 连接linux的终端。输入命令或获取输出
  */
-class EmulatorTerminal {
+class Proot {
     suspend fun attach(): ProcessBuilder =  withContext(Dispatchers.IO){
         //TODO 每次启动前清空tmpDir？优先bash然后sh？
         val rootfs = Consts.rootfsCurrDir
@@ -31,6 +29,9 @@ class EmulatorTerminal {
             "LC_ALL=en_US.utf8",
 //            "LC_ALL=zh_CN.utf8",
             "DISPLAY=:13",
+            "PULSE_SERVER=tcp:127.0.0.1:4713",
+            //安装了不知道什么？mesa-dri-gallium ? mesa-gles?之后，需要加这个参数否则xfce4不启动了（没输出也不退出）
+//            "LIBGL_ALWAYS_SOFTWARE=1",
             "PATH=/opt/wine/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/usr/lib/arm-linux-gnueabihf",
             "/bin/sh", "-l", // -l: 交互式shell，-c: 执行某命令并退出

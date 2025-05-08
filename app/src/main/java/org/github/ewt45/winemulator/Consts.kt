@@ -34,6 +34,12 @@ object Consts {
     /** proot二进制文件. files/proot  */
     lateinit var prootBin: File
 
+    /** 存储pulseaudio相关文件的文件夹 */
+    lateinit var pulseDir: File
+    /** 运行pulse时环境变量HOME设置为该路径，用于寻找~/.config 等 */
+    lateinit var pulseHomeDir: File
+    lateinit var pulseBin: File
+
     /** 定义在assets中的默认值，此map中的值会优先于代码中的默认值生效。key为datastore的某个key, value为对应value */
     private lateinit var prefInAssets: Map<String, Any>
 
@@ -107,6 +113,16 @@ object Consts {
             Utils.streamCopy(ctx.assets.open("proot"), FileOutputStream(prootBin))
         }
         prootBin.setExecutable(true)
+
+        pulseDir = File(ctx.filesDir, "pulseaudio")
+        pulseHomeDir = File(pulseDir, "homedir")
+        pulseBin = File(pulseDir, "pulseaudio")
+        if (!pulseBin.exists()) {
+            pulseDir.delete()
+            Utils.Archive.decompressTarXz(ctx.assets.open("pulseaudio.tar.xz"), pulseDir)
+            pulseHomeDir.mkdirs()
+        }
+        pulseBin.setExecutable(true)
 
         //优先生效的用户偏好
         val prefInAssetsJson = IOUtils.toString(ctx.assets.open("preferences.json"), StandardCharsets.UTF_8)

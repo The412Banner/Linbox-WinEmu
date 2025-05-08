@@ -5,13 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.github.ewt45.winemulator.EmulatorTerminal
+import org.github.ewt45.winemulator.emu.Proot
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 
 class TerminalViewModel : ViewModel() {
-    private val terminal: EmulatorTerminal = EmulatorTerminal()
+    private val terminal: Proot = Proot()
     private var process : Process? = null
 
     /** 输入 */

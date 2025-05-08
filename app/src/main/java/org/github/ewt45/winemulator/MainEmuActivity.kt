@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.github.ewt45.winemulator.emu.Pulseaudio
 import org.github.ewt45.winemulator.ui.MainScreen
 import org.github.ewt45.winemulator.ui.theme.MainTheme
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
@@ -100,7 +101,8 @@ class MainEmuActivity : MainActivity() {
 
             Utils.Rootfs.makeCurrent(Consts.alpineRootfsDir)
             //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
-//            terminalViewModel.startTerminal(settingViewModel.prootFlow.first().startupCmd)
+            terminalViewModel.startTerminal(settingViewModel.prootFlow.first().startupCmd)
+            Pulseaudio.killAndRun()
         }
 
         //启动xserver
