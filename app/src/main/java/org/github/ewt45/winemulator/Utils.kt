@@ -15,7 +15,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -61,6 +63,7 @@ import java.io.StringWriter
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicReference
 
 
 object Utils {
@@ -339,6 +342,26 @@ object Utils {
                     else -> throw IllegalArgumentException("反序列化时，Any无法转为常见类型: $el")
                 }
             }
+        }
+    }
+}
+
+
+class RateLimiter(val delayMs:Long = 1000L) {
+    private val lastBlock = AtomicReference<(suspend () -> Unit)?>(null)
+    private val scope = CoroutineScope(Dispatchers.Default)
+
+    /**
+     * 延迟一段时间后执行一段代码。
+     * 如果这段时间只内有新代码块，则之前的代码块不会被执行，且重新开始倒计时。
+     * 请在同一线程内调用
+     */
+    fun runDelay(block: suspend () -> Unit) {
+        lastBlock.set(block)
+        scope.launch {
+            delay(delayMs)
+            if (lastBlock.get() == block) //最后一次设置之后，过了一秒没改过
+                block()
         }
     }
 }

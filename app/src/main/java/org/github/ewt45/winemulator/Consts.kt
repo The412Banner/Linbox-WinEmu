@@ -51,6 +51,7 @@ object Consts {
         /** 全部设置项。用于批量操作 例如导出导入，重置 */
         val allItems by lazy { getAllPrefItems() }
 
+        val general_resolution by item("general_resolution", "1280x720")
         val proot_bool_options by item("proot_bool_options", setOf("--root-id", "-L", "--link2symlink", "--kill-on-exit"))
         val proot_startup_cmd by item("proot_startup_cmd", "")
 

@@ -1,11 +1,15 @@
 package org.github.ewt45.winemulator.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.expandIn
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +20,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,18 +28,48 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 /**
+ * 为一个interactionSource 添加 点击监听。
+ * 可以用于TextField（因为modifier.clickable 不生效）
+ */
+@Composable
+fun InteractionSourceOnClick(interactionSource: MutableInteractionSource, onClick:  /*suspend CoroutineScope.*/() -> Unit) {
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { value ->
+            if (value is PressInteraction.Release) {
+                onClick()
+            }
+        }
+    }
+}
+
+/**
  * 从中心放大缩小
  */
 @Composable
-fun AnimatedSizeInCenter(visible: Boolean, content: @Composable () -> Unit) {
+fun AnimatedSizeInCenter(visible: Boolean, modifier: Modifier = Modifier, content: @Composable AnimatedVisibilityScope.() -> Unit) {
     AnimatedVisibility(
         visible,
+        modifier,
         //animationSpec = tween(durationMillis = 300),
         enter = expandIn(expandFrom = Alignment.Center) + fadeIn(),
-        exit = shrinkOut(shrinkTowards = Alignment.Center) + fadeOut()
-    ) {
-        content()
-    }
+        exit = shrinkOut(shrinkTowards = Alignment.Center) + fadeOut(),
+        content = content,
+    )
+}
+
+@Composable
+fun AnimatedVertical(
+    visible: Boolean,
+    modifier: Modifier = Modifier, content: @Composable AnimatedVisibilityScope.() -> Unit
+) {
+    AnimatedVisibility(
+        visible,
+        modifier,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
+        content = content,
+    )
+
 }
 
 /**

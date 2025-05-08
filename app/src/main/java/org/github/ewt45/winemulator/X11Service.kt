@@ -12,12 +12,15 @@ import com.termux.x11.CmdEntryPoint
 import com.termux.x11.LorieView
 import com.termux.x11.MainActivity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 class X11Service : LifecycleService() {
     private val TAG = "X11Service"
     var started = false
+    var job: Job? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -32,7 +35,7 @@ class X11Service : LifecycleService() {
             MainActivity.HOST_PKG_NAME = packageName
 
             started = true
-            lifecycleScope.launch(Dispatchers.IO) {
+            job = lifecycleScope.launch(Dispatchers.IO) {
                 Looper.prepare() //不知为何还要调用prepare()
                 CmdEntryPoint.main(arrayOf(":13")) //,"-xstartup", "touch ${Consts.getX11StartedValidateFile(timestamp)}" 不行，-xstartup执行完毕就会退出
                 Log.d(TAG, "onStartCommand: x11进程结束。停止service")
@@ -44,5 +47,6 @@ class X11Service : LifecycleService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        job?.cancel("service onDestroy, 停止xserver")
     }
 }

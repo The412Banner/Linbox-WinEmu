@@ -1,5 +1,13 @@
 package org.github.ewt45.winemulator
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.SetSerializer
@@ -22,6 +30,8 @@ import org.junit.Test
 import org.junit.Assert.*
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Example local unit test, which will execute on the development machine (host).
@@ -35,13 +45,55 @@ class ExampleUnitTest {
     }
 
 
+    class RateLimiter {
+        private val lastBlock = AtomicReference<(suspend () -> Unit)?>(null)
+        private val scope = CoroutineScope(Dispatchers.Default)
+
+        fun runDelay(key:Int, block: suspend () -> Unit) {
+            lastBlock.set(block)
+            scope.launch {
+                delay(1000)
+                if (lastBlock.get() == block) //最后一次设置之后，过了一秒没改过
+                    block()
+            }
+
+//            scope.launch {
+//                println("$key.1. CoroutineScope(Dispatchers.Default).launch")
+//                mutex.withLock {
+//                    println("$key.2. mutex.withLock")
+//                    currentJob.getAndSet(null)?.cancel() // Cancel previous job if any
+//                    val newJob = launch {
+//                        println("$key.3. newJob = launch")
+//                        delay(1.seconds)
+//                        println("$key.4. newJob = launch after delay")
+//                        block() // Execute the code block after 1 second
+//                    }
+//                    newJob.invokeOnCompletion { th ->
+//                        println(if (th==null) "job$key.执行完成" else "$key.被取消")
+//                    }
+//                    currentJob.set(newJob)
+//                }
+//            }
+        }
+    }
+
+    private val scope = CoroutineScope(Dispatchers.Default)
 
     @Test
     fun fun1() {
-        val str = "{\"proot_bool_options\":[\"--root-id\",\"-L\",\"--link2symlink\",\"--kill-on-exit\",\"--ashmem-memfd\"],\"proot_startup_cmd\":\"\"}"
-        val map = Utils.Pref.deserializeFromJsonToMap(str)
-        print(map)
-        print("可以输出map的类型吗${map::class}")
+        RateLimiter().apply {
+            runDelay(1) { println("输出 1") }
+            runDelay(2) { println("输出 2") }
+            runDelay(3) { println("输出 3") }
+            runDelay(4) { println("输出 4") }
+            runDelay(5) { println("输出 5") }
+        }
+        println("输出？？？？？？？")
+        val curr = System.currentTimeMillis()
+        while (System.currentTimeMillis() - curr < 2000) {
+            continue
+        }
+
     }
 
 
