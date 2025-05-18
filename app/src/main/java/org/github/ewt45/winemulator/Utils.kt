@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,7 +57,7 @@ import org.apache.commons.io.IOUtils
 import org.github.ewt45.winemulator.Consts.Pref.Local.curr_rootfs_name
 import org.github.ewt45.winemulator.Consts.rootfsAllDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrDir
-import org.tukaani.xz.XZ
+import org.github.ewt45.winemulator.Utils.Files.selfExists
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -68,6 +69,7 @@ import java.io.OutputStream
 import java.net.URL
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
+import java.nio.file.LinkOption
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.reflect.KProperty1
@@ -195,7 +197,7 @@ object Utils {
     fun InputStream.isGzip(): Boolean = checkHeaderMagic(byteArrayOf(0x1F.toByte(), 0x8B.toByte()))
 
     /** 判断该文件是否为xz压缩包 */
-    fun InputStream.isXz(): Boolean = checkHeaderMagic(XZ.HEADER_MAGIC)
+    fun InputStream.isXz(): Boolean = checkHeaderMagic(org.tukaani.xz.XZ.HEADER_MAGIC)
 
     /** 打开uri的输入流。等于 contentResolver.openInputStream(uri) */
     fun Context.openInput(uri: Uri): InputStream? = contentResolver.openInputStream(uri)
@@ -250,7 +252,7 @@ object Utils {
         fun File.isGzip(): Boolean = checkHeaderMagic(byteArrayOf(0x1F.toByte(), 0x8B.toByte()))
 
         /** 判断该文件是否为xz压缩包 */
-        fun File.isXz(): Boolean = checkHeaderMagic(XZ.HEADER_MAGIC)
+        fun File.isXz(): Boolean = checkHeaderMagic(org.tukaani.xz.XZ.HEADER_MAGIC)
 
         /** 检查文件头是否为给定标识 */
         private fun File.checkHeaderMagic(header: ByteArray): Boolean {
@@ -266,6 +268,8 @@ object Utils {
             }
         }
 
+        /** 获取自身是否存在。如果为软链接，查看自己而非指向的实际文件是否存在。file.exists()不可靠，用nio的吧 */
+        fun File.selfExists(): Boolean = java.nio.file.Files.exists(toPath(), LinkOption.NOFOLLOW_LINKS)
     }
 
     object Rootfs {
@@ -310,62 +314,64 @@ object Utils {
 
         /**
          * 解压rootfs时，为了解压到指定文件夹d后，d内直接子文件夹就是usr opt 那些，可能需要移除压缩包中文件的路径开头多于的文件夹
+         * @param archiveInput 对应压缩文件的压缩器输入流，如 [XZCompressorInputStream] [GzipCompressorInputStream]
          * @param reportProgress 更新进度。接收参数为当前已读取的文件字节（压缩后大小）
          * @return 返回解压时，文件名需要移除的路径前缀.
          */
-        private suspend fun findRootfsTarXzRemovedPrefix(input: InputStream?, reportProgress: (Long) -> Unit = {}): String =
-            withContext(Dispatchers.IO) {
-                if (input == null) throw IllegalArgumentException("输入流为null")
-                val startTime = System.currentTimeMillis()
+        private suspend fun findRootfsCompressedTarRemovedPrefix(
+            archiveInput: CompressorInputStream, reporter: TaskReporter,
+        ): String = withContext(IO) {
+            val startTime = System.currentTimeMillis()
 
-                /** 要移除的多余前缀路径 如果为空字符串则表示未获取到 */
-                var removedPrefix = ""
-                var readUncompSize = 0L
+            /** 要移除的多余前缀路径 如果为空字符串则表示未获取到 */
+            var removedPrefix = ""
+            var readUncompSize = 0L
 
-                XZCompressorInputStream(input).use { xzIn ->
-                    TarArchiveInputStream(xzIn).use { tis ->
-                        val maxSegmentIdx = 10
-                        val segmentList = mutableListOf<MutableSet<String>>() //每个元素是一个 路径根据 / 分割出来的路径列表
-                        for (i in 0 until maxSegmentIdx) segmentList.add(mutableSetOf())
-                        var maxSegmentedPath = listOf<String>() // 分段最多，也就是最深的路径。等到时候找出第几个idx是rootfs了，就以这个为基准获取idx之前的部分
-                        var entry: TarArchiveEntry
-                        while (tis.nextEntry.also { entry = it } != null) {
-                            readUncompSize += entry.size
-                            reportProgress(xzIn.compressedCount)
-                            val split = entry.name.trim('/').split('/')
-                            if (split.size > maxSegmentedPath.size) maxSegmentedPath = split
-                            for (i in split.indices) {
-                                if (i >= maxSegmentIdx) break
-                                segmentList[i].add(split[i])
-                            }
-                        }
-
-                        val rootfsSubDirs = listOf("etc", "usr")
-                        var segmentIdx = -1
-                        for (i in segmentList.indices) {
-                            if (segmentList[i].containsAll(rootfsSubDirs)) {
-                                segmentIdx = i
-                                break //停止循环时，当前segmentIdx对应的是rootfs的子目录们
-                            }
-                        }
-
-                        if (segmentIdx >= 0 && maxSegmentedPath.isNotEmpty()) {
-                            //不行 现在只知道第几段的那个文件夹名，但前面几段应该是哪些文件夹名不知道了
-                            // 存一个分段最多的路径吧，然后根据idx获取前半部分。但是如果rootfs目录有多个上级目录，那么最深的那个也有很小几率变成非rootfs那个文件夹里的一个文件。小概率事件不管了吧
-                            removedPrefix = maxSegmentedPath.subList(0, segmentIdx).joinToString("/")
-                        } else {
-                            throw RuntimeException("无法找到压缩包内的多余路径前缀。segmentIdx=$segmentIdx, maxSegmentedPath=$maxSegmentedPath")
+            archiveInput.use { aIn ->
+                val statistics = aIn as? InputStreamStatistics
+                TarArchiveInputStream(aIn).use { tis ->
+                    val maxSegmentIdx = 10
+                    val segmentList = mutableListOf<MutableSet<String>>() //每个元素是一个 路径根据 / 分割出来的路径列表
+                    for (i in 0 until maxSegmentIdx) segmentList.add(mutableSetOf())
+                    var maxSegmentedPath = listOf<String>() // 分段最多，也就是最深的路径。等到时候找出第几个idx是rootfs了，就以这个为基准获取idx之前的部分
+                    var entry: TarArchiveEntry
+                    while (tis.nextEntry.also { entry = it } != null) {
+                        readUncompSize += entry.size
+                        statistics?.let { reporter.progressValue(it.compressedCount) }
+                        val split = entry.name.trim('/').split('/')
+                        if (split.size > maxSegmentedPath.size) maxSegmentedPath = split
+                        for (i in split.indices) {
+                            if (i >= maxSegmentIdx) break
+                            segmentList[i].add(split[i])
                         }
                     }
-                }
-                //archlinux(676MB, 32800个文件）36秒 改之前38秒。。。。到底怎么才能读取更快呢？
-                Log.d(
-                    TAG, "findRootfsTarXzRemovedPrefix: 找到多余路径前缀：$removedPrefix " +
-                            "\n 寻找rootfs多余前缀路径耗时${(System.currentTimeMillis() - startTime) / 1000F}秒"
-                )
 
-                return@withContext removedPrefix
+                    val rootfsSubDirs = listOf("etc", "usr")
+                    var segmentIdx = -1
+                    for (i in segmentList.indices) {
+                        if (segmentList[i].containsAll(rootfsSubDirs)) {
+                            segmentIdx = i
+                            break //停止循环时，当前segmentIdx对应的是rootfs的子目录们
+                        }
+                    }
+
+                    if (segmentIdx >= 0 && maxSegmentedPath.isNotEmpty()) {
+                        //不行 现在只知道第几段的那个文件夹名，但前面几段应该是哪些文件夹名不知道了
+                        // 存一个分段最多的路径吧，然后根据idx获取前半部分。但是如果rootfs目录有多个上级目录，那么最深的那个也有很小几率变成非rootfs那个文件夹里的一个文件。小概率事件不管了吧
+                        removedPrefix = maxSegmentedPath.subList(0, segmentIdx).joinToString("/")
+                    } else {
+                        throw RuntimeException("无法找到压缩包内的多余路径前缀。segmentIdx=$segmentIdx, maxSegmentedPath=$maxSegmentedPath")
+                    }
+                }
             }
+            //archlinux(676MB, 32800个文件）36秒 改之前38秒。。。。到底怎么才能读取更快呢？
+            Log.d(
+                TAG, "findRootfsTarXzRemovedPrefix: 找到多余路径前缀：$removedPrefix " +
+                        "\n 寻找rootfs多余前缀路径耗时${(System.currentTimeMillis() - startTime) / 1000F}秒"
+            )
+
+            return@withContext removedPrefix
+        }
 
 
         /**
@@ -383,11 +389,9 @@ object Utils {
             reporter.totalValue = compSize
 
             //先检测是不是gz或xz. 然后复制文件到内部目录
-            val isXz = ctx.openInput(uri)?.use { it.isXz() } ?: false
-            val isGz = ctx.openInput(uri)?.use { it.isGzip() } ?: false
-            if (!isXz && !isGz) {
-                return@withContext reporter.done(RuntimeException("该文件不是 xz 或 gz 压缩包。"))
-            }
+            val compType = if (ctx.openInput(uri)?.use { it.isXz() } ?: false) Archive.CompressedType.XZ
+            else if (ctx.openInput(uri)?.use { it.isGzip() } ?: false) Archive.CompressedType.GZ
+            else return@withContext reporter.done(RuntimeException("该文件不是 xz 或 gz 压缩包。"))
 
             reporter.msg(null, "(1/3) 正在将文件复制到内部存储目录...")
 //            ctx.openInput(uri)?.source()?.buffer()?.use { source ->
@@ -404,18 +408,12 @@ object Utils {
             reporter.msg(null, "(2/3) 正在读取压缩包寻找rootfs根目录...")
 
             //FIXME 在压缩包内读取rootfs多余前缀太费时。先解压出来再移动文件夹？
-            val removedPrefix = findRootfsTarXzRemovedPrefix(
-                ctx.contentResolver.openInputStream(uri),
-                reportProgress = { reporter.progress(it.toFloat() / compSize) })
+            val removedPrefix = findRootfsCompressedTarRemovedPrefix(Archive.getCompressedInput(compType, ctx.openInput(uri)), reporter)
 
             reporter.msg("找到压缩包内rootfs目录: $removedPrefix", "(3/3) 正在解压...")
 //            extractTarXzRootfsInternal(ctx.contentResolver.openInputStream(uri), outDir, removedPrefix, reporter)
             val prefixCount = removedPrefix.trimStart('/').length //去除前缀 没有/开头的长度
-            val compressedTarInput = when {
-                isXz -> XZCompressorInputStream(ctx.openInput(uri))
-                isGz -> GzipCompressorInputStream(ctx.openInput(uri))
-                else -> throw RuntimeException("该文件不是 xz 或 gz 压缩包。")
-            }
+            val compressedTarInput = Archive.getCompressedInput(compType, ctx.openInput(uri))
             Archive.decompressCompressedTarStream(compressedTarInput, outDir, reporter) {
                 if (prefixCount == 0) it
                 else if (it.length < prefixCount) {
@@ -492,6 +490,15 @@ object Utils {
     )
 
     object Archive {
+        enum class CompressedType {
+            XZ, GZ,
+        }
+
+        /** 将一个普通输入流转换为对应的压缩器输入流 如 [XZCompressorInputStream] [GzipCompressorInputStream] */
+        fun getCompressedInput(type: CompressedType, rawInput: InputStream?): CompressorInputStream = when (type) {
+            CompressedType.XZ -> XZCompressorInputStream(rawInput)
+            CompressedType.GZ -> GzipCompressorInputStream(rawInput)
+        }
 
         /**
          * 解压一个压缩包输入流，该压缩包解压后应该是一个tar文件，然后将这个tar文件内容解压到指定目录
@@ -500,21 +507,24 @@ object Utils {
          * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小. 请确保在调用此函数前将[TaskReporter.totalValue]设置为正确的值
          * @param entryNameMapper 一个映射函数，输入压缩包内文件名a，返回修改后的文件名b，最终该文件会解压到 File([outDir], b)
          */
-        fun <T> decompressCompressedTarStream(
-            archiveInput: T,
+        fun decompressCompressedTarStream(
+            archiveInput: CompressorInputStream,
             outDir: File,
             reporter: TaskReporter = TaskReporter.Dummy,
             entryNameMapper: (String) -> String = { it },
-        ) where T : CompressorInputStream, T : InputStreamStatistics {
+        ) {
             if (!outDir.exists()) outDir.mkdirs()
 
             val symLinkList = mutableListOf<SymLink>()
+            var count = 0F
 
             archiveInput.use { zis ->
+                val statistics = zis as? InputStreamStatistics
                 TarArchiveInputStream(zis).use { tis ->
                     var entry: TarArchiveEntry
                     while (tis.nextEntry.also { entry = it } != null) {
-                        reporter.progressValue(zis.compressedCount) //更新解压进度
+                        statistics?.let { reporter.progressValue(statistics.compressedCount) } //更新解压进度
+                        count ++
                         val name = entryNameMapper(entry.name)
                         if (name.isEmpty())
                             continue
@@ -539,6 +549,7 @@ object Utils {
                                 // FileUtils.copyInputStreamToFile(tis, file); //不能用这个，会自动关闭输入流
                             }
                         } catch (e: Exception) {
+                            e.printStackTrace()
                             reporter.msg("解压文件时出错：路径=${outFile.absolutePath} 。错误消息=${e.stackTraceToString()}")
                         }
                     }
@@ -553,6 +564,7 @@ object Utils {
                 try {
                     Os.symlink(item.pointTo, item.symlink)
                 } catch (e: Exception) {
+                    e.printStackTrace()
                     reporter.msg("创建符号链接时出错。文件=$item 。错误消息=${e.stackTraceToString()}")
                 }
             }
@@ -567,20 +579,23 @@ object Utils {
             // /.l2s文件夹下的文件，优先从此处找。没有再从硬链接同目录找
             val l2sDirFiles = File(outDir, ".l2s").listFiles() ?: arrayOf()
             val regex4Dec = "^[0-9]{4}$".toRegex()
-            for ( idx in symLinkList.indices) {
+            for (idx in symLinkList.indices) {
                 val item = symLinkList[idx]
                 //修复 proot l2s文件相关的符号链接指向路径
                 /*
                 - 如果符号链接指向的路径以.l2s.开头，说明该符号链接可能是硬链接模拟，指向的路径可能是中间文件。循环一次获取硬链接模拟到中间文件的 `map<中间文件路径，List<硬链接模拟路径>>`
                 - 如果中间文件是符号链接且指向的路径与自己同目录，且文件名只多了后缀 `.0001` 之类的数字，说明确定了中间文件和最终文件
                 - 注意，解压后的中间文件路径 不等于 硬链接模拟指向的路径，因为硬链接解压到自己包名子目录下了，检查中间文件指向的路径的时候不应该从硬链接指向的路径获取中间文件，而是应该从.l2s文件夹（或者硬链接同目录）寻找文件名相同的作为中间路径，寻找最终文件时同理
+                - 注意，列表中的软链接可能为 硬链接 -> 中间文件，也可能为 中间文件 -> 最终文件
+                - 注意，File.exists()判断软链接自身存在不可靠！用nio的Files.exists 传入NOFOLLOW_LINKS 判断是准确的
                  */
                 reporter.progressValue(idx.toLong())
                 try {
                     //硬链接模拟的文件名
-                    val hardFile = File(item.symlink).takeIf { it.exists() } ?: continue
-                    val hardName = hardFile.name
+                    val hardFile = File(item.symlink).takeIf { it.selfExists() } ?: continue
                     val interPrefix = ".l2s."
+                    if (hardFile.name.startsWith(interPrefix))
+                        continue //该软链接 不是硬链接模拟，而是中间文件，跳过处理
                     // 中间文件 错误指向的 那个不存在路径
                     val interWrongFile = File(item.pointTo)
                     //中间文件名:  .l2s. + 任意文字 + .四位整数
@@ -588,17 +603,18 @@ object Utils {
                         it.startsWith(interPrefix) && it.takeLast(4).matches(regex4Dec)  //中间文件名符合格式
                     } ?: continue
                     //中间文件目前存在路径:  .l2s或同目录下 + 文件名符合格式 + 文件存在
-                    val interExistFile = (l2sDirFiles.find { it.name == interName } ?: File(hardFile.parent!!, interName).takeIf { it.exists() })
+                    val interExistFile = (l2sDirFiles.find { it.name == interName } ?: File(hardFile.parent!!, interName).takeIf { it.selfExists() })
                         ?: throw RuntimeException("存在硬链接模拟文件，但找不到中间文件。")
                     // 最终文件 错误不存在的路径:  中间文件为软链接 + 指向的路径
-                    val finalWrongFile = interExistFile.canonicalFile.takeIf { it.name != interExistFile.name }
+
+                    val finalWrongFile = java.nio.file.Files.readSymbolicLink(interExistFile.toPath()).toFile()
                         ?: throw RuntimeException("存在硬链接模拟文件和中间文件，但中间存在文件不是软链接。")
                     val finalPrefix = "$interName."
                     // 最终文件名： 中间文件.硬链接个数
                     val finalName = finalWrongFile.name.takeIf { it.startsWith(finalPrefix) && it.substring(finalPrefix.length).matches(regex4Dec) }
                         ?: throw RuntimeException("存在硬链接模拟文件和中间文件，但最终文件名格式错误。")
                     //最终文件目前存在路径:  .l2s或同目录下 + 文件名符合格式 + 文件存在
-                    val finalExistFile = (l2sDirFiles.find { it.name == finalName } ?: File(interExistFile.parent!!, finalName).takeIf { it.exists() })
+                    val finalExistFile = (l2sDirFiles.find { it.name == finalName } ?: File(interExistFile.parent!!, finalName).takeIf { it.selfExists() })
                         ?: throw RuntimeException("存在硬链接模拟文件和中间文件，但找不到最终存在文件。")
 
                     //最后一起处理。这里先存起来。如果半道直接处理，后面再读错误路径可能就读到正确路径上了。
@@ -607,6 +623,7 @@ object Utils {
                             .also { interToL2sMap[interWrongFile.absolutePath] = it }
                     l2sInfo.hardPaths.add(hardFile.absolutePath)
                 } catch (e: Exception) {
+                    e.printStackTrace()
                     reporter.msg("寻找l2s文件时出错。数据=$item 。错误消息=${e.stackTraceToString()}")
                 }
             }
@@ -617,15 +634,23 @@ object Utils {
             /** 修复全部刚才找到的错误l2s相关软链接。中间路径 -> 最终路径，硬链接路径 -> 中间路径 */
             interToL2sMap.values.forEachIndexed { idx, info ->
                 reporter.progressValue(idx.toLong())
+                reporter.msg("修复l2s软链接 $info")
                 try {
+                    File(info.interCorrectPath).delete()
                     Os.symlink(info.finalCorrectPath, info.interCorrectPath)
-                    info.hardPaths.forEach { Os.symlink(info.interCorrectPath, it) }
-                }catch (e: Exception) {
+                    info.hardPaths.forEach {
+                        File(it).delete()
+                        Os.symlink(info.interCorrectPath, it)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                     reporter.msg("创建l2s文件正确软链接时出错。数据=$info 。错误消息=${e.stackTraceToString()}")
                 }
             }
 
             reporter.msg(null, "修复l2s文件完成")
+
+            //TODO 要不再检查一遍软链接列表，看看还有没有指向termux的？因为目前检查l2s的时候只检查硬链接，如果是中间文件的话不会做处理。虽然正常情况下有中间文件的话就应该有硬链接？
         }
 
         /**

@@ -49,7 +49,7 @@ fun DebugSettingsImpl(
         dialogText = "尚未实现！"
         showDialog = true
     }
-    CollapsePanel("调试选项") {
+    CollapsePanel("调试选项", initExpanded = false) {
         Button(onClick = sendSigStop) { Text("向终端和x11发送STOP信号") }
         Button(onClick = sendSigCont) { Text("向终端和x11发送CONT信号") }
         Button(onClick = gotoSelectRootfs) { Text("进入选择rootfs界面") }
