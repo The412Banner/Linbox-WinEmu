@@ -38,10 +38,10 @@ class ProotRootfs {
                 e.printStackTrace()
                 returnValue = listOf()
             }
-            returnValue.takeIf { returnValue.find { it.name == "root" } == null }?.let {
+            if (returnValue.find { it.name == "root" } == null)
                 returnValue += (UserInfo.ROOT)
-            }
-            return returnValue
+            //proot-distro 把termux作为用户加进去了。在别的app里用不了所以不显示
+            return returnValue.filter { !it.name.startsWith("aid_") }.sortedBy { it.name }
         }
 
         /**
@@ -63,7 +63,7 @@ class ProotRootfs {
             var foundInfo = find { info -> info.name == lastSelectedUserName }
             if (foundInfo == null) foundInfo = find { info -> info.name != "root" }
             if (foundInfo == null) foundInfo = find { info -> info.name == "root" }
-            if (foundInfo == null) foundInfo = ProotRootfs.UserInfo.ROOT
+            if (foundInfo == null) foundInfo = UserInfo.ROOT
             return@run foundInfo
         }
     }

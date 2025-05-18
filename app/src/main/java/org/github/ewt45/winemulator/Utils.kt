@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
@@ -50,6 +51,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
+import org.github.ewt45.winemulator.Consts.Pref.Local.curr_rootfs_name
 import org.github.ewt45.winemulator.Consts.rootfsAllDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrDir
 import org.tukaani.xz.XZ
@@ -137,7 +139,8 @@ object Utils {
     /** 获取进程的pid */
     fun Process.getPid(): Int {
         try {
-            val property: KProperty1<Process, Int> = this::class.declaredMemberProperties.find { it.name == "pid" } as KProperty1<Process, Int>
+            val property = this::class.declaredMemberProperties.filterIsInstance<KProperty1<Process, Int>>().find { it.name == "pid" }
+            if (property == null) return -1
             property.isAccessible = true
             val pid = property.get(this)
             property.isAccessible = false
@@ -270,7 +273,7 @@ object Utils {
          */
         suspend fun makeCurrent(rootfsDir: File) {
             Files.symlink(rootfsDir, rootfsCurrDir)
-            dataStore.edit { it[Consts.Pref.Local.curr_rootfs_name.key] = rootfsDir.name }
+            dataStore.edit { it[curr_rootfs_name.key] = rootfsDir.name }
         }
 
         /**
@@ -374,20 +377,15 @@ object Utils {
          * 解压后，outDir为 [Consts.rootfsAllDir] 中的一个目录，其内部为 bin etc 这种的目录
          * 解压后会做一些处理操作，参考 [postExtractRootfs]
          * uri不是.tar.xz时会抛出异常
+         * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小. 本函数会将[TaskReporter.totalValue] 设置为压缩文件总大小
          */
-        suspend fun installTarXzRootfs(
-            ctx: Context,
-            uri: Uri,
-            outDir: File,
-            reporter: TaskReporter,
-        ) = withContext(Dispatchers.IO) {
-
+        suspend fun installTarXzRootfs(ctx: Context, uri: Uri, outDir: File, reporter: TaskReporter) = withContext(Dispatchers.IO) {
             val tmpArchiveFile = File(Consts.tmpDir, "archive-rootfs-tmp")
             val compSize = ctx.contentResolver.openFileDescriptor(uri, "r").use { it?.statSize } ?: (1024 * 1024 * 1024L)
-//            var msgTitle = "(1/3) 正在将文件复制到内部存储目录..."
-//            var msg = ""
 
             reporter.progress(0F)
+            reporter.totalValue = compSize
+
             //先检测是不是gz或xz. 然后复制文件到内部目录
             val isXz = ctx.openInput(uri)?.use { it.isXz() } ?: false
             val isGz = ctx.openInput(uri)?.use { it.isGzip() } ?: false
@@ -395,21 +393,19 @@ object Utils {
                 return@withContext reporter.done(RuntimeException("该文件不是 xz 或 gz 压缩包。"))
             }
 
-            reporter.msg("", "(1/3) 正在将文件复制到内部存储目录...")
+            reporter.msg(null, "(1/3) 正在将文件复制到内部存储目录...")
 //            ctx.openInput(uri)?.source()?.buffer()?.use { source ->
 //                tmpArchiveFile.sink().buffer().use { sink ->
 //                    sink.writeAll(source)
 //                }
 //            }
             tmpArchiveFile.delete()
-            ctx.openInput(uri)?.use { input ->
-                tmpArchiveFile.outputStream().use { output -> input.copyTo(output) }
-            }
+            FileUtils.copyInputStreamToFile(ctx.openInput(uri), tmpArchiveFile)
             if (!tmpArchiveFile.exists() || tmpArchiveFile.length() != compSize) {
                 return@withContext reporter.done(RuntimeException("文件复制出错，无法进行解压。"))
             }
 
-            reporter.msg("", "(2/3) 正在读取压缩包寻找rootfs根目录...")
+            reporter.msg(null, "(2/3) 正在读取压缩包寻找rootfs根目录...")
 
             //FIXME 在压缩包内读取rootfs多余前缀太费时。先解压出来再移动文件夹？
             val (removedPrefix, entryNum) = findRootfsTarXzRemovedPrefix(
@@ -417,30 +413,26 @@ object Utils {
                 reportProgress = { reporter.progress(it.toFloat() / compSize) })
 
             reporter.msg("找到压缩包内rootfs目录: $removedPrefix", "(3/3) 正在解压...")
-            var currNum = 0F
-            extractTarXzRootfsInternal(ctx.contentResolver.openInputStream(uri), outDir, removedPrefix) {
-                currNum++
-                if (currNum % 200 == 0F)
-                    reporter.progress(currNum / entryNum)
-            }
+            extractTarXzRootfsInternal(ctx.contentResolver.openInputStream(uri), outDir, removedPrefix, reporter)
             //解压后做一些处理操作
-            reporter.msg("", "解压结束。正在做一些处理...")
+            reporter.msg(null, "解压结束。正在做一些处理...")
             postExtractRootfs(outDir)
         }
 
         /**
          * 参见 [installTarXzRootfs]
          * @param removedPrefix 压缩文件名中 要移除的的路径前缀。不应以'/'开头。 为空字符串时不做移除处理
+         * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小
          */
         private suspend fun extractTarXzRootfsInternal(
-            input: InputStream?, outDir: File, removedPrefix: String, reportProgress: (Long) -> Unit = {},
+            input: InputStream?, outDir: File, removedPrefix: String, reporter: TaskReporter = TaskReporter.Dummy,
         ) = withContext(Dispatchers.IO) {
             if (input == null) throw IllegalArgumentException("输入流为null")
             val prefixCount = removedPrefix.trimStart('/').length //去除前缀 没有/开头的长度
-            Archive.decompressTarXz(input, outDir, reportProgress) {
+            Archive.decompressTarXz(input, outDir, reporter) {
                 if (prefixCount == 0) it
                 else if (it.length < prefixCount) {
-                    Log.w(TAG, "extractTarXzRootfs: 压缩包中文件名长度小于prefix长度：文件名=\"$it\"， prefix=$removedPrefix")
+                    reporter.msg("压缩包中文件名长度小于prefix长度，跳过解压：文件名=\"$it\"， prefix=$removedPrefix")
                     ""
                 } else it.substring(prefixCount + if (it.startsWith('/')) 1 else 0) //如果解压文件有/开头，则去除长度+1
             }
@@ -450,16 +442,11 @@ object Utils {
          * 确保：1. 不为 [rootfsCurrDir] 2. 优先读取上次设置的，如果不存在则随机选一个
          */
         suspend fun getSelectedRootfs(): File? {
-            var selectedRootfs: String? = Consts.Pref.Local.curr_rootfs_name.get()
             val allAvailable = rootfsAllDir.list() ?: arrayOf()
-            if (selectedRootfs.isNullOrEmpty() || !allAvailable.contains(selectedRootfs)) {
-                selectedRootfs = allAvailable.find { it != rootfsCurrDir.name }
-            }
-            if (selectedRootfs.isNullOrEmpty())
-                return null
-            val file = File(rootfsAllDir, selectedRootfs)
-            if (!file.exists()) return null
-            else return file
+            val selectedRootfs = curr_rootfs_name.get().takeUnless { it.isEmpty() || !allAvailable.contains(it) }
+                ?: allAvailable.find { it != rootfsCurrDir.name }
+            return if (selectedRootfs.isNullOrEmpty()) null
+            else File(rootfsAllDir, selectedRootfs).takeIf { it.exists() }
         }
 
         /**
@@ -505,14 +492,14 @@ object Utils {
          * 解压一个.tar.xz压缩文件
          * @param archiveInput 对应压缩文件的输入流
          * @param outDir 解压到的目录，解压后该文件夹下直接子文件夹应该为 usr bin etc 那些
-         * @param reportProgress 每解压一个文件，调用一次该函数传入该文件解压后大小。用于更新解压进度
+         * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小. 请确保在调用此函数前将[TaskReporter.totalValue]设置为正确的值
          * @param entryNameMapper 一个映射函数，输入压缩包内文件名a，返回修改后的文件名b，最终该文件会解压到 File([outDir], b)
          */
         @Throws(IOException::class)
         fun decompressTarXz(
             archiveInput: InputStream?,
             outDir: File,
-            reportProgress: (Long) -> Unit = {},
+            reporter: TaskReporter = TaskReporter.Dummy,
             entryNameMapper: (String) -> String = { it },
         ) {
             if (archiveInput == null) throw IllegalArgumentException("输入流为null")
@@ -523,7 +510,7 @@ object Utils {
                 TarArchiveInputStream(xzis).use { tis ->
                     var entry: TarArchiveEntry
                     while (tis.nextEntry.also { entry = it } != null) {
-                        reportProgress(entry.size) //更新解压进度
+                        reporter.progressValue(xzis.compressedCount) //更新解压进度
                         val name = entryNameMapper(entry.name)
                         if (name.isEmpty())
                             continue
@@ -548,7 +535,7 @@ object Utils {
                                 // FileUtils.copyInputStreamToFile(tis, file); //不能用这个，会自动关闭输入流
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "decompressTarXz: 解压文件时出错。路径=${outFile.absolutePath}", e)
+                            reporter.msg("解压文件时出错：路径=${outFile.absolutePath} 。错误消息=${e.stackTraceToString()}")
                         }
                     }
                 }
@@ -648,7 +635,7 @@ object Utils {
     }
 
     object Pref {
-        private val TAG = "Utils.Pref"
+        private const val TAG = "Utils.Pref"
 
         /**
          * 接收一个存储用户偏好的map,将其序列化为json
@@ -679,7 +666,7 @@ object Utils {
         private object PrefValueSerializer : KSerializer<Any> {
             override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Any")
 
-            private val setSerializer = SetSerializer(String.serializer())
+            private val listSerializer = ListSerializer(String.serializer())
 
             override fun serialize(encoder: Encoder, value: Any) {
                 when (value) {
@@ -690,8 +677,8 @@ object Utils {
                     is Long -> encoder.encodeLong(value)
                     is Double -> encoder.encodeDouble(value)
                     is Set<*> -> {
-                        if (value.first()?.takeIf { it is String } != null)
-                            encoder.encodeSerializableValue(setSerializer, value as Set<String>)
+                        encoder.encodeSerializableValue(listSerializer, value.mapNotNull { it as? String })
+//                        if (value.first()?.takeIf { it is String } != null) encoder.encodeSerializableValue(setSerializer, value as Set<String>)
                     }
 
                     else -> throw IllegalArgumentException("序列化时，Any无法转为常见类型: ${value::class}")
@@ -712,23 +699,40 @@ object Utils {
                         }
                     }
                     //这个数组每个元素是JsonLiteral(JsonPrimitive) 不是直接String
-                    is JsonArray -> el.mapNotNull { (it as? JsonPrimitive)?.takeIf { it.isString }?.content }.toSet()
+                    is JsonArray -> {
+                        el.mapNotNull { item -> (item as? JsonPrimitive)?.takeIf { it.isString }?.content }.toSet()
+                    }
+
                     else -> throw IllegalArgumentException("反序列化时，Any无法转为常见类型: $el")
                 }
             }
         }
     }
 
-    /** 当一个执行一个长时间操作时，传入一个此类的时候一遍在屏幕上显示进度和消息 */
-    interface TaskReporter {
+    /** 当一个执行一个长时间操作时，传入一个此类的时候一遍在屏幕上显示进度和消息
+     * @param totalValue 计算百分比时的分母
+     */
+    abstract class TaskReporter(var totalValue: Long) {
+
         /** 更新进度 */
-        fun progress(percent: Float)
+        abstract fun progress(percent: Float)
+
+        /** 和proress不同，传入参数不是 当前值/总值，而仅仅是 当前值。因为有时候调用环境不知道总值。 */
+        fun progressValue(value: Long) = progress(value.toFloat() / totalValue)
 
         /** 执行此函数表示任务结束. 若 [error] 不为null, 说明失败了。 */
-        fun done(error: Exception? = null)
+        abstract fun done(error: Exception? = null)
 
-        /** 需要显示的文字 */
-        fun msg(text: String, title: String? = null)
+        /** 需要显示的文字. 当本次[title]为null时 应该显示上一次不为null的title. */
+        abstract fun msg(text: String? = null, title: String? = null)
+
+        companion object {
+            val Dummy: TaskReporter = object : TaskReporter(Long.MAX_VALUE) {
+                override fun progress(percent: Float) {}
+                override fun done(error: Exception?) {}
+                override fun msg(text: String?, title: String?) {}
+            }
+        }
     }
 }
 

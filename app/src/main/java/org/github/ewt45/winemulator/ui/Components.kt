@@ -12,13 +12,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -30,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,11 +47,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/** 简易dialog */
+@Composable
+fun SimpleDialog(visible: Boolean, text: String, title: String? = null, onChangeVisibility: (Boolean) -> Unit) {
+    if (visible) {
+        AlertDialog(
+            onDismissRequest = {}, //阻止点击外部区域关闭
+            title = title?.let { { Text(it) } },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth() // 让 Column 填充对话框宽度
+                        .wrapContentHeight(), // 根据内容调整高度
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    SelectionContainer {
+                        Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.verticalScroll(rememberScrollState()))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onChangeVisibility(false) }) { Text(stringResource(android.R.string.ok)) }
+            },
+//        dismissButton = {
+//            TextButton(onClick = { viewModel.closeConfirmDialog(false) }) { Text(stringResource(android.R.string.cancel)) }
+//        }
+        )
+    }
+
+}
 
 
 /**
@@ -68,7 +106,7 @@ fun <T> ComposeSpinner(
     var expanded by remember { mutableStateOf(false) }
     var currIdx = keyList.indexOf(currKey)
     if (currIdx == -1) {
-        Log.e("TAG", "ComposeSpinner: 当前选项不在列表中！$currKey, $keyList", )
+        Log.e("TAG", "ComposeSpinner: 当前选项不在列表中！$currKey, $keyList")
         currIdx = 0
     }
     ExposedDropdownMenuBox(

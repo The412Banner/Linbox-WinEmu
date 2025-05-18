@@ -4,9 +4,12 @@ import a.io.github.ewt45.winemulator.R
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Service.START_NOT_STICKY
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Looper
+import android.system.Os
 import android.util.Log
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
@@ -14,8 +17,10 @@ import androidx.activity.viewModels
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
+import com.termux.x11.CmdEntryPoint
 import com.termux.x11.MainActivity
 import com.termux.x11.Prefs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch

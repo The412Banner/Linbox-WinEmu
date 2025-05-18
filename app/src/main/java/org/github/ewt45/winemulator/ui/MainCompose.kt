@@ -95,28 +95,30 @@ fun MainScreen(
                 modifier/*.padding(innerPadding)*/.fillMaxHeight()
                     .widthIn(max = 600.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (!minimize) {
-                        Text(
-                            "占位标题", modifier = Modifier
-                                .weight(1f)
-                                .padding(8.dp)
-                        )
-                        SettingButton(showSetting, { showSetting = !showSetting })
+                if (isNoRootfs) {
+                    PrepareStageScreen()
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (!minimize) {
+                            Text(
+                                "占位标题", modifier = Modifier
+                                    .weight(1f)
+                                    .padding(8.dp)
+                            )
+                            SettingButton(showSetting, { showSetting = !showSetting })
+                        }
+                        MinimizeButton(minimize, { minimize = !minimize })
                     }
-                    MinimizeButton(minimize, { minimize = !minimize })
-                }
 
-                if (!minimize) {
-                    if (isNoRootfs)
-                        RootfsSelectScreen()
-                    else if (showSetting)
-                        SettingScreen()
-                    else
-                        ProotTerminalScreen()
+                    if (!minimize) {
+                        if (showSetting)
+                            SettingScreen()
+                        else
+                            ProotTerminalScreen()
+                    }
                 }
             }
         }

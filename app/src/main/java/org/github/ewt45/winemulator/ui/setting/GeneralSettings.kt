@@ -56,8 +56,6 @@ import kotlinx.serialization.json.Json
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.FuncOnChange
 import org.github.ewt45.winemulator.FuncOnChangeAction
-import org.github.ewt45.winemulator.emu.Proot
-import org.github.ewt45.winemulator.emu.ProotHelper
 import org.github.ewt45.winemulator.ui.AnimatedVertical
 import org.github.ewt45.winemulator.ui.CollapsePanel
 import org.github.ewt45.winemulator.ui.ComposeSpinner
@@ -85,7 +83,7 @@ fun GeneralSettings(
     val state by settingVM.generalState.collectAsStateWithLifecycle()
 
     /** 当前已设置的rootfs默认登陆用户。 key为rootfs名，value为用户名  */
-    val rootfsUsersCurr:Map<String, String> = Json.decodeFromString(state.localRootfsUsersCurr)
+    val rootfsUsersCurr: Map<String, String> = Json.decodeFromString(state.localRootfsUsersCurr)
 
     CollapsePanel("一般选项", vPadding = 32.dp) {
         GeneralResolution(settingVM.resolutionText, settingVM::onChangeResolutionText)
@@ -99,7 +97,7 @@ fun GeneralSettings(
             settingVM.rootfsUsersOptions.value,
             settingVM::onChangeRootfsName,
             settingVM::onChangeRootfsSelect,
-            {rootfs, user -> scope.launch { settingVM.onChangeRootfsLoginUser(rootfs, user, rootfsUsersCurr) }},
+            { rootfs, user -> scope.launch { settingVM.onChangeRootfsLoginUser(rootfs, user, rootfsUsersCurr) } },
         )
 //        }
     }
@@ -122,7 +120,7 @@ fun GeneralRootfsLang(
  * Rootfs切换，删除，重命名，添加
  * @param rootfsList 用于显示的rootfs名称，对应文件夹名。不应该包含[Consts.rootfsCurrDir]
  * @param currRootfs 当前正在运行的rootfs名，rootfsList中的一项，为 [Consts.rootfsCurrDir] 指向的真实路径，应该将此项禁用禁止编辑
- * @param onRootfsChange 文件夹重命名/删除时
+ * @param onRootfsNameChange 文件夹重命名/删除时
  * @param loginUsersCurr 每个rootfs及其当前选择的登陆用户名。. 参考：[Consts.Pref.Local.rootfs_login_user_json]
  * @param loginUsersOptions 每个rootfs及其对应的全部可使用用户名
  * @param onRootfsSelectChange 当前使用的rootfs变更时
@@ -135,7 +133,7 @@ fun GeneralRootfsSelect(
     currRootfs: String,
     loginUsersCurr: Map<String, String>,
     loginUsersOptions: Map<String, List<String>>,
-    onRootfsChange: suspend (String, String, FuncOnChangeAction) -> String,
+    onRootfsNameChange: suspend (String, String, FuncOnChangeAction) -> String,
     onRootfsSelectChange: suspend (String) -> Unit,
     onUserSelectChange: (String, String) -> Unit,
 ) {
@@ -144,19 +142,29 @@ fun GeneralRootfsSelect(
     val prepareVm: PrepareStageViewModel = viewModel()
 //    TODO 排一下序之后没问题了，之前重命名用list.minus.plus 然后重命名之后rootfs名往上挪了一位，user名还没变。出错原理是什么？
     val sortedRootfsList = rootfsList.sortedWith(compareBy<String> { it != currRootfs }.thenBy { it })
-//    Log.d(TAG, "GeneralRootfsSelect: compose中，列表排序后为 sortedRootfsList=$sortedRootfsList, loginUsersCurr=$loginUsersCurr")
 
-    fun onDoneRootfsName(oldName:String, newNameRaw: String, isCurr: Boolean) {
-        val newName = newNameRaw.replace(" ", "").trim()
-        if (newName.isEmpty()) return
-        scope.launch {
-            val extraTip = if (isCurr) "\n\n该Rootfs当前正在使用，重命名后会退出app，请手动重启。" else ""
-            if (mainVm.showConfirmDialog("是否将该Rootfs重命名为 $newName？$extraTip").getOrNull() == true) {
-                mainVm.showBlockDialogWithErrorConfirm("正在重命名...") {
-                    val result = onRootfsChange(oldName, newName, FuncOnChangeAction.EDIT)
-                    if (isCurr) onRootfsSelectChange(newName)//如果是当前的，保存名称
-                    return@showBlockDialogWithErrorConfirm result
-                }
+//    fun onDoneRootfsName(oldName:String, newNameRaw: String, isCurr: Boolean) {
+//        val newName = newNameRaw.replace(" ", "").trim()
+//        if (newName.isEmpty()) return
+//        scope.launch {
+//            val extraTip = if (isCurr) "\n\n该Rootfs当前正在使用，重命名后会退出app，请手动重启。" else ""
+//            if (mainVm.showConfirmDialog("是否将该Rootfs重命名为 $newName？$extraTip").getOrNull() == true) {
+//                mainVm.showBlockDialogWithErrorConfirm("正在重命名...") {
+//                    val result = onRootfsNameChange(oldName, newName, FuncOnChangeAction.EDIT)
+//                    if (isCurr) onRootfsSelectChange(newName)//如果是当前的，保存名称
+//                    return@showBlockDialogWithErrorConfirm result
+//                }
+//            }
+//        }
+//    }
+    val TYPE_SEL = 0
+    val TYPE_DEL = 1
+    fun onClickBtn(type: Int, rootfsName: String, isCurr: Boolean) = scope.launch {
+        if (type == TYPE_SEL && !isCurr && mainVm.showConfirmDialog("将此文件夹设置为Proot使用的rootfs？\n确定后将退出app, 请手动重启。\n\n$rootfsName").getOrNull() == true) {
+            onRootfsSelectChange(rootfsName)
+        } else if (type == TYPE_DEL && mainVm.showConfirmDialog("确定删除该Rootfs吗？\n其内部所有文件都将被删除，请谨慎操作！\n\n$rootfsName").getOrNull() == true) {
+            mainVm.showBlockDialogWithErrorConfirm("正在删除...") {
+                onRootfsNameChange(rootfsName, rootfsName, FuncOnChangeAction.DEL)
             }
         }
     }
@@ -180,14 +188,15 @@ fun GeneralRootfsSelect(
                     onUserSelectChange(oldStoreUserName, fallbackUserName)
                     continue
                 }
-                val userName =  oldStoreUserName ?: fallbackUserName
+                val userName = oldStoreUserName ?: fallbackUserName
                 Box {
                     Row(Modifier.padding(0.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1F)) {
-                            TextFieldOption(rootfsName, title = "Rootfs名称", outlined = true, maxLines = 1) {
-                                onDoneRootfsName(rootfsName, it, isCurr)
+                            GeneralRootfsSelect_RootfsName(rootfsName, isCurr, mainVm) { oldName, newName, isCurr ->
+                                val result = onRootfsNameChange(oldName, newName, FuncOnChangeAction.EDIT)
+                                if (isCurr) onRootfsSelectChange(newName)//如果是当前的，保存名称
+                                return@GeneralRootfsSelect_RootfsName result
                             }
-
                             Spacer(Modifier.height(8.dp))
                             GeneralRootfsSelect_LoginUserSelect(rootfsName, userName, userNameOptions, onUserSelectChange)
                         }
@@ -198,25 +207,12 @@ fun GeneralRootfsSelect(
                             border = CardDefaults.outlinedCardBorder(),
                         ) {
                             Column(Modifier) {
-                                IconButton(onClick = {
-                                    scope.launch {
-                                        if (!isCurr && mainVm.showConfirmDialog("将此文件夹设置为Proot使用的rootfs？\n确定后将退出app, 请手动重启。\n\n$rootfsName").getOrNull() == true) {
-                                            onRootfsSelectChange(rootfsName)
-                                        }
-                                    }
-                                }) {
+                                IconButton(onClick = { onClickBtn(TYPE_SEL, rootfsName, isCurr) }) {
                                     if (isCurr) Icon(Icons.Filled.Check, null)
                                     else Icon(painterResource(R.drawable.ic_switch), null)
                                 }
-                                IconButton(onClick = {
-                                    scope.launch {
-                                        if (mainVm.showConfirmDialog("确定删除该Rootfs吗？\n其内部所有文件都将被删除，请谨慎操作！\n\n$rootfsName").getOrNull() == true) {
-                                            mainVm.showBlockDialogWithErrorConfirm("正在删除...") {
-                                                onRootfsChange(rootfsName, rootfsName, FuncOnChangeAction.DEL)
-                                            }
-                                        }
-                                    }
-                                }) { Icon(Icons.Filled.Delete, null) }
+                                IconButton(onClick = { onClickBtn(TYPE_DEL, rootfsName, isCurr) })
+                                { Icon(Icons.Filled.Delete, null) }
                             }
                         }
                     }
@@ -232,7 +228,6 @@ fun GeneralRootfsSelect(
 /**
  * [GeneralRootfsSelect] 的子布局。选择该rootfs的登陆用户
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeneralRootfsSelect_LoginUserSelect(
     rootfsName: String,
@@ -240,11 +235,38 @@ fun GeneralRootfsSelect_LoginUserSelect(
     userNameOptions: List<String>,
     onUserSelectChange: (String, String) -> Unit,
 ) {
-    ComposeSpinner(userName, userNameOptions, label = "登陆用户名", modifier=Modifier.fillMaxWidth()) { _, newValue ->
+    ComposeSpinner(userName, userNameOptions, label = "登陆用户名", modifier = Modifier.fillMaxWidth()) { _, newValue ->
         onUserSelectChange(rootfsName, newValue)
     }
 }
 
+/**
+ * [GeneralRootfsSelect] 的子布局。编辑该rootfs的名称
+ * @param isCurr 此rootfs 是否为 [Consts.rootfsCurrDir] 所指向的rootfs
+ * @param onRootfsNameChange (oldName, newName, isCurr) -> result . result参考 [SettingViewModel.onChangeRootfsName].
+ *      当用户点击回车完成编辑 时，先提示用户确认，确认后执行此回调
+ */
+@Composable
+fun GeneralRootfsSelect_RootfsName(
+    rootfsName: String,
+    isCurr: Boolean,
+    mainVm: MainViewModel = viewModel(),
+    onRootfsNameChange: suspend (String, String, Boolean) -> String,
+) {
+    val scope = rememberCoroutineScope()
+    TextFieldOption(rootfsName, title = "Rootfs名称", outlined = true, maxLines = 1) {
+        val newName = it.replace(" ", "").trim()
+        scope.launch {
+            if (newName.isEmpty()) return@launch
+            val extraTip = if (isCurr) "\n\n该Rootfs当前正在使用，重命名后会退出app，请手动重启。" else ""
+            if (mainVm.showConfirmDialog("是否将该Rootfs重命名为 $newName？$extraTip").getOrNull() == true) {
+                mainVm.showBlockDialogWithErrorConfirm("正在重命名...") {
+                    return@showBlockDialogWithErrorConfirm onRootfsNameChange(rootfsName, newName, isCurr)
+                }
+            }
+        }
+    }
+}
 
 /**
  * 显示一个 “更多” 按钮， 点击展开更多内容
@@ -417,7 +439,7 @@ fun GeneralSettingsPreview() {
     val langOptions = listOf("en_US.UTF-8", "zh_CN.UTF-8")
     var lang by remember { mutableStateOf(langOptions[0]) }
     var shareDirSet by remember { mutableStateOf(setOf("/storage/emulated/0/Download", "/storage/emulated/0/MT2")) }
-    val onChangeShareDir:FuncOnChange<String> = { old, new, action ->
+    val onChangeShareDir: FuncOnChange<String> = { old, new, action ->
         if (action == FuncOnChangeAction.DEL) shareDirSet -= new
         if (action == FuncOnChangeAction.ADD) shareDirSet += "/added/path/${Random(1).nextInt()}"
         if (action == FuncOnChangeAction.EDIT) shareDirSet = shareDirSet - old + new

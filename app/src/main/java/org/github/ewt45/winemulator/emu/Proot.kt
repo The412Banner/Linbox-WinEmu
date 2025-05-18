@@ -10,6 +10,7 @@ import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Consts.Pref.general_shared_ext_path
 import org.github.ewt45.winemulator.Consts.Pref.proot_bool_options
 import org.github.ewt45.winemulator.Consts.rootfsCurrDir
+import org.github.ewt45.winemulator.Consts.rootfsCurrL2sDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrTmpDir
 import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.Utils.chmod
@@ -26,13 +27,18 @@ class Proot {
     private val TAG = "Proot"
 
     companion object {
-        /**上次执行proot时的完整命令 */
+        /**上次执行proot时的完整命令, 仅用于显示，可能无法真正用于执行 */
         var lastTimeCmd = ""
     }
 
     suspend fun attach(): ProcessBuilder = withContext(Dispatchers.IO) {
-        //TODO 每次启动前清空tmpDir？优先bash然后sh？
         val rootfs = rootfsCurrDir
+        val tmpdir = Consts.tmpDir
+
+        //每次运行前清空tmp
+        tmpdir.deleteRecursively()
+        tmpdir.mkdirs()
+        chmod(tmpdir, "1777")
 
         //proot命令的参数使用 大量参考Proot-Distro
 
@@ -49,7 +55,7 @@ class Proot {
             "--rootfs=${rootfs.absolutePath}",
             "--change-id=${userInfo.uid}:${userInfo.gid}",
             "--cwd=${userInfo.home}",
-            "--bind=${Consts.tmpDir.absolutePath}:/tmp",
+            "--bind=${tmpdir.absolutePath}:/tmp",
             "--bind=${rootfs.absolutePath}/tmp:/dev/shm",
             "--bind=/sys",
             "--bind=/proc/self/fd:/dev/fd",
@@ -60,13 +66,13 @@ class Proot {
         )
 
         //proot-distro里这三个好像无条件绑定的，但实际上不绑定也已经存在了
-        File("/dev/stderr").takeIf { !it.exists() } ?.let {
+        File("/dev/stderr").takeIf { !it.exists() }?.let {
             prootCmd.add("--bind=/proc/self/fd/2:/dev/stderr")
         }
-        File("/dev/stdout").takeIf { !it.exists() } ?.let {
+        File("/dev/stdout").takeIf { !it.exists() }?.let {
             prootCmd.add("--bind=/proc/self/fd/1:/dev/stdout")
         }
-        File("/dev/stdin").takeIf { !it.exists() } ?.let {
+        File("/dev/stdin").takeIf { !it.exists() }?.let {
             prootCmd.add("--bind=/proc/self/fd/0:/dev/stdin")
         }
 
@@ -82,10 +88,8 @@ class Proot {
                 "/proc/sys/kernel/cap_last_cap" to "/proc/.sysctl_entry_cap_last_cap",
                 "/proc/sys/fs/inotify/max_user_watches" to "/proc/.sysctl_inotify_max_user_watches",
             ).mapNotNull { bindIfNotReadable(it.key, it.value) })
-        if (rootfsCurrTmpDir.notExists()) {
-            rootfsCurrTmpDir.mkdirs()
-            chmod(rootfsCurrTmpDir, "1777")
-        }
+
+
 
         prootCmd.addAll(general_shared_ext_path.get().map { bindPath ->
             File(rootfs, bindPath).runCatching { takeIf { FileUtils.isSymlink(it) }?.delete() }
@@ -118,18 +122,11 @@ class Proot {
         )
 
 
-        val prootCmdProotPart = prootCmd.joinToString(" ")
+        val prootCmdProotPart = prootCmd.toMutableList()
         prootCmd.clear()
-        prootCmd.addAll(
-            listOf(
-                "sh",
-                "-c", //sh -c 之后应该用一个字符串 不应再分割了
-                "umask 0022 ; "
-                        + prootCmdProotPart,
-            )
-        )
-
-        lastTimeCmd = prootCmd.joinToString(" \\\n")
+        //sh -c 之后应该用一个字符串 不应再分割了
+        prootCmd.addAll(listOf("sh", "-c", "umask 0022 ; ${prootCmdProotPart.joinToString(" ")}"))
+        lastTimeCmd = "sh -c umask 0022 ; \\\n" + prootCmdProotPart.joinToString(" \\\n")
         Log.d(TAG, "attach: 最终prootcmd=$lastTimeCmd")
 
         val processBuilder = ProcessBuilder(prootCmd)
@@ -137,7 +134,7 @@ class Proot {
             .also {
                 it.environment()["PROOT_TMP_DIR"] = Consts.tmpDir.absolutePath
                 it.environment()["LD_PRELOAD"] = ""
-                it.environment()["PROOT_L2S_DIR"] = rootfsCurrTmpDir.absolutePath // link2symlink 相关
+                it.environment()["PROOT_L2S_DIR"] = rootfsCurrL2sDir.absolutePath // link2symlink 相关
             }
             .redirectErrorStream(true)
 
