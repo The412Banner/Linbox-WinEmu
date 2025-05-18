@@ -45,10 +45,14 @@ import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 import okio.Buffer
+import okio.GzipSource
 import okio.source
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.CompressorInputStream
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
+import org.apache.commons.compress.utils.InputStreamStatistics
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
 import org.github.ewt45.winemulator.Consts.Pref.Local.curr_rootfs_name
@@ -310,16 +314,15 @@ object Utils {
         /**
          * 解压rootfs时，为了解压到指定文件夹d后，d内直接子文件夹就是usr opt 那些，可能需要移除压缩包中文件的路径开头多于的文件夹
          * @param reportProgress 更新进度。接收参数为当前已读取的文件字节（压缩后大小）
-         * @return 返回解压时，文件名需要移除的路径前缀. 顺带返回压缩包内文件总个数 用于计算解压进度
+         * @return 返回解压时，文件名需要移除的路径前缀.
          */
-        private suspend fun findRootfsTarXzRemovedPrefix(input: InputStream?, reportProgress: (Long) -> Unit = {}): Pair<String, Long> =
+        private suspend fun findRootfsTarXzRemovedPrefix(input: InputStream?, reportProgress: (Long) -> Unit = {}): String =
             withContext(Dispatchers.IO) {
                 if (input == null) throw IllegalArgumentException("输入流为null")
                 val startTime = System.currentTimeMillis()
 
                 /** 要移除的多余前缀路径 如果为空字符串则表示未获取到 */
                 var removedPrefix = ""
-                var entryNum = 0L
                 var readUncompSize = 0L
 
                 XZCompressorInputStream(input).use { xzIn ->
@@ -330,13 +333,8 @@ object Utils {
                         var maxSegmentedPath = listOf<String>() // 分段最多，也就是最深的路径。等到时候找出第几个idx是rootfs了，就以这个为基准获取idx之前的部分
                         var entry: TarArchiveEntry
                         while (tis.nextEntry.also { entry = it } != null) {
-                            entryNum++
                             readUncompSize += entry.size
-                            if (entryNum % 200 == 0L) {
-                                reportProgress(xzIn.compressedCount)
-//                            Log.d(TAG, "findRootfsTarXzRemovedPrefix: xz无法获取总大小吗? ${xzIn.compressedCount}, ${xzIn.uncompressedCount}")
-//                            Log.d(TAG, "findRootfsTarXzRemovedPrefix: 已读取 $entryNum 个文件, 大小 ${readUncompSize / (1024 * 1024)}MB")
-                            }
+                            reportProgress(xzIn.compressedCount)
                             val split = entry.name.trim('/').split('/')
                             if (split.size > maxSegmentedPath.size) maxSegmentedPath = split
                             for (i in split.indices) {
@@ -369,7 +367,7 @@ object Utils {
                             "\n 寻找rootfs多余前缀路径耗时${(System.currentTimeMillis() - startTime) / 1000F}秒"
                 )
 
-                return@withContext Pair(removedPrefix, entryNum)
+                return@withContext removedPrefix
             }
 
 
@@ -409,34 +407,30 @@ object Utils {
             reporter.msg(null, "(2/3) 正在读取压缩包寻找rootfs根目录...")
 
             //FIXME 在压缩包内读取rootfs多余前缀太费时。先解压出来再移动文件夹？
-            val (removedPrefix, entryNum) = findRootfsTarXzRemovedPrefix(
+            val removedPrefix = findRootfsTarXzRemovedPrefix(
                 ctx.contentResolver.openInputStream(uri),
                 reportProgress = { reporter.progress(it.toFloat() / compSize) })
 
             reporter.msg("找到压缩包内rootfs目录: $removedPrefix", "(3/3) 正在解压...")
-            extractTarXzRootfsInternal(ctx.contentResolver.openInputStream(uri), outDir, removedPrefix, reporter)
-            //解压后做一些处理操作
-            reporter.msg(null, "解压结束。正在做一些处理...")
-            postExtractRootfs(outDir)
-        }
-
-        /**
-         * 参见 [installTarXzRootfs]
-         * @param removedPrefix 压缩文件名中 要移除的的路径前缀。不应以'/'开头。 为空字符串时不做移除处理
-         * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小
-         */
-        private suspend fun extractTarXzRootfsInternal(
-            input: InputStream?, outDir: File, removedPrefix: String, reporter: TaskReporter = TaskReporter.Dummy,
-        ) = withContext(Dispatchers.IO) {
-            if (input == null) throw IllegalArgumentException("输入流为null")
+//            extractTarXzRootfsInternal(ctx.contentResolver.openInputStream(uri), outDir, removedPrefix, reporter)
             val prefixCount = removedPrefix.trimStart('/').length //去除前缀 没有/开头的长度
-            Archive.decompressTarXz(input, outDir, reporter) {
+            val compressedTarInput = when {
+                isXz -> XZCompressorInputStream(ctx.openInput(uri))
+                isGz -> GzipCompressorInputStream(ctx.openInput(uri))
+                else -> throw RuntimeException("该文件不是 xz 或 gz 压缩包。")
+            }
+            Archive.decompressCompressedTarStream(compressedTarInput, outDir, reporter) {
                 if (prefixCount == 0) it
                 else if (it.length < prefixCount) {
                     reporter.msg("压缩包中文件名长度小于prefix长度，跳过解压：文件名=\"$it\"， prefix=$removedPrefix")
                     ""
                 } else it.substring(prefixCount + if (it.startsWith('/')) 1 else 0) //如果解压文件有/开头，则去除长度+1
             }
+
+
+            //解压后做一些处理操作
+            reporter.msg(null, "解压结束。正在做一些处理...")
+            postExtractRootfs(outDir)
         }
 
         /** 获取当前选择的rootfs。
@@ -485,31 +479,29 @@ object Utils {
         }
     }
 
+
     object Archive {
 
         /**
-         * 解压一个.tar.xz压缩文件
-         * @param archiveInput 对应压缩文件的输入流
+         * 解压一个压缩包输入流，该压缩包解压后应该是一个tar文件，然后将这个tar文件内容解压到指定目录
+         * @param archiveInput 对应压缩文件的压缩器输入流，如 [XZCompressorInputStream] [GzipCompressorInputStream]
          * @param outDir 解压到的目录，解压后该文件夹下直接子文件夹应该为 usr bin etc 那些
          * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小. 请确保在调用此函数前将[TaskReporter.totalValue]设置为正确的值
          * @param entryNameMapper 一个映射函数，输入压缩包内文件名a，返回修改后的文件名b，最终该文件会解压到 File([outDir], b)
          */
-        @Throws(IOException::class)
-        fun decompressTarXz(
-            archiveInput: InputStream?,
+        fun <T> decompressCompressedTarStream(
+            archiveInput: T,
             outDir: File,
             reporter: TaskReporter = TaskReporter.Dummy,
             entryNameMapper: (String) -> String = { it },
-        ) {
-            if (archiveInput == null) throw IllegalArgumentException("输入流为null")
+        ) where T : CompressorInputStream, T : InputStreamStatistics {
             if (!outDir.exists()) outDir.mkdirs()
 
-            //文件->xz->tar
-            XZCompressorInputStream(archiveInput).use { xzis ->
-                TarArchiveInputStream(xzis).use { tis ->
+            archiveInput.use { zis ->
+                TarArchiveInputStream(zis).use { tis ->
                     var entry: TarArchiveEntry
                     while (tis.nextEntry.also { entry = it } != null) {
-                        reporter.progressValue(xzis.compressedCount) //更新解压进度
+                        reporter.progressValue(zis.compressedCount) //更新解压进度
                         val name = entryNameMapper(entry.name)
                         if (name.isEmpty())
                             continue
@@ -539,6 +531,23 @@ object Utils {
                     }
                 }
             }
+        }
+
+        /**
+         * 解压一个.tar.xz压缩文件
+         * @param archiveInput 对应压缩文件的输入流
+         * @param outDir 解压到的目录，解压后该文件夹下直接子文件夹应该为 usr bin etc 那些
+         * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小. 请确保在调用此函数前将[TaskReporter.totalValue]设置为正确的值
+         * @param entryNameMapper 一个映射函数，输入压缩包内文件名a，返回修改后的文件名b，最终该文件会解压到 File([outDir], b)
+         */
+        @Throws(IOException::class)
+        fun decompressTarXz(
+            archiveInput: InputStream?,
+            outDir: File,
+            reporter: TaskReporter = TaskReporter.Dummy,
+            entryNameMapper: (String) -> String = { it },
+        ) {
+            XZCompressorInputStream(archiveInput).use { decompressCompressedTarStream(it, outDir, reporter, entryNameMapper) }
         }
     }
 
@@ -765,3 +774,4 @@ enum class FuncOnChangeAction {
 typealias FuncOnChangeSync<T> = (oldValue: T, newValue: T, action: FuncOnChangeAction) -> Unit
 /** 增删改的回调 异步函数。当为ADD或DEL时old=new */
 typealias FuncOnChange<T> = suspend (oldValue: T, newValue: T, action: FuncOnChangeAction) -> Unit
+
