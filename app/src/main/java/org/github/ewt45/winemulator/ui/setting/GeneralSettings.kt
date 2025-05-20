@@ -88,7 +88,7 @@ fun GeneralSettings(
 
     CollapsePanel("一般选项", vPadding = 32.dp) {
         GeneralResolution(settingVM.resolutionText, settingVM::onChangeResolutionText)
-        GeneralRootfsLang(state.rootfsLang, listOf("en_US.UTF-8", "zh_CN.UTF-8"), settingVM::onChangeRootfsLang)
+        GeneralRootfsLang(state.rootfsLang, listOf("en_US.utf8", "zh_CN.utf8"), settingVM::onChangeRootfsLang)
         GeneralShareDir(state.sharedExtPath, settingVM::onChangeShareExtPath)
 //        MoreContent {
 
@@ -470,7 +470,7 @@ fun GeneralResolution(
 @Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun GeneralSettingsPreview() {
-    val langOptions = listOf("en_US.UTF-8", "zh_CN.UTF-8")
+    val langOptions = listOf("en_US.utf8", "zh_CN.utf9")
     var lang by remember { mutableStateOf(langOptions[0]) }
     var shareDirSet by remember { mutableStateOf(setOf("/storage/emulated/0/Download", "/storage/emulated/0/MT2")) }
     val onChangeShareDir: FuncOnChange<String> = { old, new, action ->

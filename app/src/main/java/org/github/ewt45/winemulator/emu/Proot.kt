@@ -139,7 +139,7 @@ class Proot {
             .also {
                 it.environment()["PROOT_TMP_DIR"] = Consts.tmpDir.absolutePath
                 it.environment()["LD_PRELOAD"] = ""
-                it.environment()["PROOT_L2S_DIR"] = rootfsCurrL2sDir.absolutePath // link2symlink 相关
+//                it.environment()["PROOT_L2S_DIR"] = rootfsCurrL2sDir.absolutePath // link2symlink 相关
             }
             .redirectErrorStream(true)
 

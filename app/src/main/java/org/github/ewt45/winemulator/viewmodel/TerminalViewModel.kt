@@ -97,7 +97,7 @@ class TerminalViewModel : ViewModel() {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            process!!.waitFor()
+            process?.waitFor()
             closeResources()
         }
 
@@ -108,8 +108,9 @@ class TerminalViewModel : ViewModel() {
 
     /**
      * 执行某个命令
+     * @param display 为false时不显示在屏幕上
      */
-    fun runCommand(command: String) = viewModelScope.launch(Dispatchers.IO){
+    fun runCommand(command: String, display:Boolean=true) = viewModelScope.launch(Dispatchers.IO){
 
         if (processWriter == null || process?.isAlive != true) {
             output.add("进程已关闭。无法执行命令 $command。\n")
@@ -117,7 +118,7 @@ class TerminalViewModel : ViewModel() {
             return@launch
         }
 
-        outputMutex.withLock {
+        outputMutex.takeIf { display }?.withLock {
             val shouldNewLine = output.lastOrNull()?.endsWith('\n') ?: true
             output.add((if (shouldNewLine) "$ "  else "") + "$command\n") //如果当前未换行则添加到当前行结尾，否则新起一行
         }
