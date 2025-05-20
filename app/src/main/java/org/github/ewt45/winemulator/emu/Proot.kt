@@ -1,24 +1,16 @@
 package org.github.ewt45.winemulator.emu
 
-import android.system.Os
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import org.apache.commons.io.FileUtils
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Consts.Pref.general_shared_ext_path
 import org.github.ewt45.winemulator.Consts.Pref.proot_bool_options
-import org.github.ewt45.winemulator.Consts.rootfsCurrDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrL2sDir
-import org.github.ewt45.winemulator.Consts.rootfsCurrTmpDir
-import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.Utils.chmod
-import org.github.ewt45.winemulator.Utils.notExists
 import org.github.ewt45.winemulator.emu.ProotHelper.DEFAULT_FAKE_KERNEL_VERSION
 import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 
 /**
  * 连接linux的终端。输入命令或获取输出
@@ -32,7 +24,7 @@ class Proot {
     }
 
     suspend fun attach(): ProcessBuilder = withContext(Dispatchers.IO) {
-        val rootfs = rootfsCurrDir
+        val rootfs = Consts.rootfsCurrDir
         val tmpdir = Consts.tmpDir
 
         //TODO 每次运行前清空tmp。不对不能在tx11启动后清空 不然和容器连不上了
@@ -85,14 +77,14 @@ class Proot {
         prootCmd.add("--bind=${rootfs.absolutePath}/sys/.empty:/sys/fs/selinux") //假装没有selinux
         prootCmd.addAll(
             mapOf(
-                "/proc/loadavg" to "/proc/.loadavg",
-                "/proc/stat" to "/proc/.stat",
-                "/proc/uptime" to "/proc/.uptime",
-                "/proc/version" to "/proc/.version",
-                "/proc/vmstat" to "/proc/.vmstat",
-                "/proc/sys/kernel/cap_last_cap" to "/proc/.sysctl_entry_cap_last_cap",
-                "/proc/sys/fs/inotify/max_user_watches" to "/proc/.sysctl_inotify_max_user_watches",
-            ).mapNotNull { bindIfNotReadable(it.key, it.value) })
+                "/proc/.loadavg" to "/proc/loadavg",
+                "/proc/.stat" to "/proc/stat",
+                "/proc/.uptime" to "/proc/uptime",
+                "/proc/.version" to "/proc/version",
+                "/proc/.vmstat" to "/proc/vmstat",
+                "/proc/.sysctl_entry_cap_last_cap" to "/proc/sys/kernel/cap_last_cap",
+                "/proc/.sysctl_inotify_max_user_watches" to "/proc/sys/fs/inotify/max_user_watches",
+            ).mapNotNull { bindIfNotReadable(rootfs, it.key, it.value) })
 
 
 
@@ -104,7 +96,7 @@ class Proot {
 
         val loginEnvs = EnvMap()
         //最先读取 etc/environment 里的变量。之后如果有想自己覆盖的，override=true就行了。如果放到后面读，可能会导致拼接而非覆盖，最终值出现问题
-        readEtcEnvironment(loginEnvs)
+        readEtcEnvironment(rootfs, loginEnvs)
 //        loginEnvs.put("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games") // etc/environment 里应该有
 //        loginEnvs.put("LD_LIBRARY_PATH","/usr/lib/aarch64-linux-gnu:/usr/lib/arm-linux-gnueabihf")
 //        loginEnvs.put("LC_ALL", "en_US.UTF-8", true) //LC_ALL仅供调试用，覆盖LANG及所有LC_
@@ -149,9 +141,9 @@ class Proot {
     /**
      * 读取/etc/environment下的环境变量 并添加到 [envMap]
      */
-    private fun readEtcEnvironment(envMap: EnvMap) {
+    private fun readEtcEnvironment(rootfs:File, envMap: EnvMap) {
         try {
-            for (l in File(rootfsCurrDir, "/etc/environment").readLines()) {
+            for (l in File(rootfs, "/etc/environment").readLines()) {
                 val line = l.trim()
                 line.takeIf { !line.startsWith('#') && line.contains('=') }?.let {
                     val split = line.split("=", limit = 2)
@@ -174,13 +166,13 @@ class Proot {
 
 
     /**
-     * 如果[filePath]无法读取的话. 绑定 File(rootfsCurrDir, bindFrom):filePath.
-     * @param filePath 安卓上的绝对路径. 如果该文件不可读，则作为proot 绑定到的rootfs目标路径
-     * @param bindFrom 伪装文件路径， 相对于rootfs的路径
+     * 如果[bindTo]无法读取的话. 绑定 File(rootfsCurrDir, [bindFrom]):filePath.
+     * @param bindTo 安卓上的绝对路径. 如果该文件不可读，则作为proot 绑定到的rootfs目标路径
+     * @param bindFrom rootfs中某个文件的安卓绝对路径
      * @return --bind 的字符串，未绑定时返回null
      */
-    private fun bindIfNotReadable(filePath: String, bindFrom: String): String? {
-        return File(filePath).takeIfCantRead()?.let { "--bind=${File(rootfsCurrDir, bindFrom).absolutePath}:$filePath" }
+    private fun bindIfNotReadable(rootfs: File,  bindFrom: String, bindTo: String,): String? {
+        return File(bindTo).takeIfCantRead()?.let { "--bind=${File(rootfs, bindFrom).absolutePath}:$bindTo" }
     }
 
 
