@@ -473,8 +473,10 @@ object Utils {
             if (!outDir.exists()) outDir.mkdirs()
 
             val symLinkList = mutableListOf<SymLink>()
+            val dirModeList = mutableListOf<Pair<String, Int>>()  //压缩包内文件夹权限
             var extractCount = 0F //解压出的文件个数
 
+            reporter.msg("正在解压文件...")
             archiveInput.use { zis ->
                 val statistics = zis as? InputStreamStatistics
                 TarArchiveInputStream(zis).use { tis ->
@@ -492,7 +494,8 @@ object Utils {
                             //如果是目录，创建目录
                             if (entry.isDirectory) {
                                 outFile.mkdirs()
-                                Os.chmod(outFile.absolutePath, entry.mode)
+                                dirModeList.add(outFile.absolutePath to entry.mode)
+//                                Os.chmod(outFile.absolutePath, entry.mode) //解压途中修改可能导致丢失写权限，所以全部解压后再处理。
                             }
                             //如果是符号链接
                             else if (entry.isSymbolicLink) {
@@ -507,15 +510,14 @@ object Utils {
                             }
                         } catch (e: Exception) {
                             e.printStackTrace()
-                            reporter.msg("解压文件时出错：路径=${outFile.absolutePath} 。错误消息=${e.stackTraceToString()}")
+                            reporter.msg("解压文件时出错：路径=${outFile.absolutePath.substring(outDir.absolutePath.length)} 。错误消息=${e.stackTraceToString()}")
                         }
                     }
                 }
             }
 
-            reporter.msg(null, "文件和文件夹解压完毕，开始创建符号链接...")
+            reporter.msg( "正在创建符号链接...")
             reporter.totalValue = symLinkList.size.toLong()
-
             symLinkList.forEachIndexed { idx, item ->
                 reporter.progressValue(idx.toLong())
                 try {
@@ -529,6 +531,19 @@ object Utils {
 
             //FIXME 由于目前设置PROOT_L2S_DIR为.l2s文件夹时 locale-gen无法创建语言文件，而目前修复l2s又会将文件都放到.l2s文件夹，所以先不处理了，
             fixL2sFiles(outDir, symLinkList, reporter, skipProcess = true)
+
+            // 文件夹权限应该在全部文件和符号链接处理完之后进行。
+            reporter.msg("正在恢复文件夹权限...")
+            reporter.totalValue = dirModeList.size.toLong()
+            dirModeList.forEachIndexed{ idx, item ->
+                reporter.progressValue(idx.toLong())
+                try {
+                    Os.chmod(item.first, item.second)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    reporter.msg("恢复文件夹权限时出错")
+                }
+            }
         }
 
         /**
@@ -537,7 +552,7 @@ object Utils {
          */
         private fun fixL2sFiles(outDir: File, symLinkList: List<SymLink>, reporter: TaskReporter, skipProcess: Boolean = false) {
             if (skipProcess) {
-                reporter.msg("跳过修复l2s文件")
+                reporter.msg("跳过修复l2s文件, 全部删除...")
                 fun delL2s(files: List<File>, reporter: TaskReporter) =
                     files.forEach { if (it.delete()) reporter.msg("删除l2s文件：${it.absolutePath}") }
 
@@ -616,7 +631,7 @@ object Utils {
                 }
             }
 
-            reporter.msg(null, "寻找l2s文件完成。开始修复l2s文件...")
+            reporter.msg("寻找l2s文件完成。开始修复l2s文件...")
             reporter.totalValue = interToL2sMap.size.toLong()
 
             /** 修复全部刚才找到的错误l2s相关软链接。中间路径 -> 最终路径，硬链接路径 -> 中间路径 */
@@ -642,7 +657,7 @@ object Utils {
                 }
             }
 
-            reporter.msg(null, "修复l2s文件完成")
+            reporter.msg("修复l2s文件完成")
             //TODO 要不再检查一遍软链接列表，看看还有没有指向termux的？因为目前检查l2s的时候只检查硬链接，如果是中间文件的话不会做处理。虽然正常情况下有中间文件的话就应该有硬链接？
 
         }
