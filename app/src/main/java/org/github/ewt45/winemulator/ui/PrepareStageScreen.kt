@@ -95,17 +95,12 @@ fun RootfsSelectScreen(
         if (uri == null) return@rememberLauncherForActivityResult
         isProcessing = true
         scope.launch {
-            // 选择一个目录
-            val existed = Consts.rootfsAllDir.list()
-            var num = 1
-            while (existed != null && existed.contains("rootfs-$num")) num++
-            rootfsName = "rootfs-$num"
             extractProgress = 0F
             processingMsgTitle = ""
             processingMsg = "日志："
             isError = false
             try {
-                Utils.Rootfs.installRootfsArchive(ctx, uri, File(Consts.rootfsAllDir, rootfsName), processReporter)
+                rootfsName = Utils.Rootfs.installRootfsArchive(ctx, uri, processReporter).name
                 processingMsgTitle = "解压成功，点击按钮将退出。请手动重启。"
                 isFinished = true
             } catch (e: Throwable) {

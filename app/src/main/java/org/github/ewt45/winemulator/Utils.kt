@@ -303,27 +303,6 @@ object Utils {
 
         }
 
-        private data class FileEntry(
-            var name: String, val fullPath: String, val id: Long = nextId(),
-            val subs: MutableSet<FileEntry> = mutableSetOf()
-        ) {
-            companion object {
-                private var currentId = 0L
-                private fun nextId(): Long = currentId++
-            }
-
-            override fun equals(other: Any?): Boolean = (this === other || (other is FileEntry && other.id == id))
-            override fun hashCode(): Int = id.hashCode()
-            fun add(subName: String, fullPath: String): FileEntry {
-                var sub = subs.find { it.name == subName }
-                if (sub == null) {
-                    sub = FileEntry(subName, fullPath)
-                    subs.add(sub)
-                }
-                return sub
-            }
-        }
-
         /**
          * 解压一个压缩包(目前支持.tar.xz 和 .tar.gz) ，其内含一个rootfs, 将其解压到outDir.
          * 解压后，outDir为 [Consts.rootfsAllDir] 中的一个目录，其内部为 bin etc 这种的目录
@@ -331,9 +310,9 @@ object Utils {
          * uri不是.tar.xz时会抛出异常
          * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小. 本函数会将[TaskReporter.totalValue] 设置为压缩文件总大小
          */
-        suspend fun installRootfsArchive(ctx: Context, uri: Uri, targetOutDir: File, reporter: TaskReporter) = withContext(IO) {
+        suspend fun installRootfsArchive(ctx: Context, uri: Uri, reporter: TaskReporter):File = withContext(IO) {
             val tmpArchiveFile = File(Consts.tmpDir, "archive-rootfs-tmp").also { it.delete() }
-            val tmpOutDir = File(Consts.tmpDir, "extract-rootfs-tmp").also {
+            val tmpOutDir = File(Consts.tmpDir, "extracted-rootfs").also {
                 FileUtils.deleteDirectory(it)
                 it.mkdirs()
             }
@@ -345,7 +324,7 @@ object Utils {
             //先检测是不是gz或xz. 然后复制文件到内部目录
             val compType = if (ctx.openInput(uri)?.use { it.isXz() } == true) CompressedType.XZ
             else if (ctx.openInput(uri)?.use { it.isGzip() } == true) CompressedType.GZ
-            else return@withContext reporter.done(RuntimeException("该文件不是 xz 或 gz 压缩包。"))
+            else throw RuntimeException("该文件不是 xz 或 gz 压缩包。")
 
             reporter.msg(null, "(1/3) 正在解压到临时文件夹...")
             reporter.totalValue = compSize
@@ -364,10 +343,14 @@ object Utils {
                 nowDir.listFiles()?.let { searchDirs.addAll(it) }
             }
             if (foundRootfsDir == null)
-                return@withContext reporter.done(RuntimeException("无法在解压内容中找到rootfs根目录（包含 etc usr 的文件夹）"))
-            foundRootfsDir.absolutePath.substring(tmpOutDir.absolutePath.length).takeIf { it.isNotBlank() }.let {
-                reporter.msg("找到解压后多余的内层文件夹：$it")
-            }
+                throw RuntimeException("无法在解压内容中找到rootfs根目录（包含 etc usr 的文件夹）")
+
+            //确保目标目录没有同名文件夹
+            var num = 1
+            rootfsAllDir.list()?.let { while (it.contains("${foundRootfsDir.name}-$num")) num++ }
+            val targetOutDir = File(rootfsAllDir, "${foundRootfsDir.name}-$num")
+            reporter.msg("移动rootfs: $foundRootfsDir -> $targetOutDir")
+
             FileUtils.moveDirectory(foundRootfsDir, targetOutDir)
 
             tmpArchiveFile.delete()
@@ -376,6 +359,8 @@ object Utils {
             //解压后做一些处理操作
             reporter.msg(null, "解压结束。正在做一些处理...")
             postExtractRootfs(targetOutDir)
+
+            return@withContext targetOutDir
         }
 
         /**
