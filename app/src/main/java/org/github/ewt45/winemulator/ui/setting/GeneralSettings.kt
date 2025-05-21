@@ -45,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,6 +68,8 @@ import org.github.ewt45.winemulator.emu.ProotRootfs
 import org.github.ewt45.winemulator.ui.AnimatedVertical
 import org.github.ewt45.winemulator.ui.CollapsePanel
 import org.github.ewt45.winemulator.ui.ComposeSpinner
+import org.github.ewt45.winemulator.ui.ProgressDisplay
+import org.github.ewt45.winemulator.ui.ProgressStage
 import org.github.ewt45.winemulator.ui.TextFieldOption
 import org.github.ewt45.winemulator.ui.TitleAndContent
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
@@ -234,45 +237,55 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
         val compMimeTypes = mapOf(CompressedType.GZ to getMimeType("gz"), CompressedType.XZ to getMimeType("xz"))
         val ctx = LocalContext.current
         val scope = rememberCoroutineScope()
+        var stage by remember { mutableStateOf(ProgressStage.NOT_STARTED) }
+        val progress = remember { mutableIntStateOf(0) }
+        val msgTitle = remember { mutableStateOf("将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。") }
+        val msg = remember { mutableStateOf("") }
+        val reporter = Utils.TaskReporter.createTaskReporter(progress, msgTitle, msg)
 
         Log.d(TAG, "GeneralRootfsSelect_ExportRootfs: 能否获取到mimetype? $compMimeTypes")
         val launcher  = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(compMimeTypes[currCompType] ?: "*/*")) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
+            stage = ProgressStage.PROCESSING
+            progress.intValue = 0
+            msgTitle.value = "正在压缩中"
+            msg.value = "日志："
             scope.launch {
-                Utils.Rootfs.exportRootfsArchive(ctx, uri, File(Consts.rootfsAllDir, rootfsName), currCompType, object: Utils.TaskReporter() {
-                    override fun progress(percent: Float) {
-                        TODO("写一个create 传入state和onDone返回reporter对象")
-                    }
-
-                    override fun done(error: Exception?) {
-                        TODO("Not yet implemented")
-                    }
-
-                    override fun msg(text: String?, title: String?) {
-                        TODO("Not yet implemented")
-                    }
-
-                })
+                try {
+                    Utils.Rootfs.exportRootfsArchive(ctx, uri, File(Consts.rootfsAllDir, rootfsName), currCompType, reporter)
+                    reporter.msg("导出成功。", "导出成功！已保存到指定目录。\n（日志可点击展开查看）")
+                    stage  = ProgressStage.DONE_SUCCESS
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    reporter.msg("压缩rootfs过程中出现错误，结束。错误：${e.stackTraceToString()}", "导出失败！\n日志可点击展开查看）")
+                    stage = ProgressStage.DONE_FAILURE
+                }
             }
-            TODO("实现解压逻辑")
-
         }
         AlertDialog(
             onDismissRequest = {},
             confirmButton = { },
             dismissButton = { },
-            modifier = Modifier.padding(16.dp),
+            icon = { Icon(painterResource(R.drawable.ic_archive_save), null) },
             text = {
                 Column(
                     Modifier.verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。")
+                    ProgressDisplay(stage, progress.intValue, msgTitle.value, msg.value)
                     Spacer(Modifier.height(16.dp))
-                    ComposeSpinner(currCompType, compSuffix.keys.toList(), compSuffix.values.toList(), label = "压缩格式") { _, new -> currCompType = new }
-                    Spacer(Modifier.height(24.dp))
-                    Button({launcher.launch(rootfsName+compSuffix[currCompType]!!)}) { Text("导出到...") }
-                    TextButton({ showDialog = false }) { Text("取消") }
+                    // 只有在最初的时候可以设置并导出
+                    if (stage == ProgressStage.NOT_STARTED) {
+                        ComposeSpinner(currCompType, compSuffix.keys.toList(), compSuffix.values.toList(), label = "压缩格式") { _, new -> currCompType = new }
+                        Spacer(Modifier.height(24.dp))
+                        Button({launcher.launch(rootfsName+compSuffix[currCompType]!!)}) { Text("导出到...") }
+                        TextButton({ showDialog = false }) { Text("取消") }
+                    }
+                    // 压缩结束后 显示关闭按钮
+                    if (stage == ProgressStage.DONE_SUCCESS || stage == ProgressStage.DONE_FAILURE) {
+                        Button({ showDialog = false }) { Text("关闭") }
+                    }
+
                 }
             }
         )

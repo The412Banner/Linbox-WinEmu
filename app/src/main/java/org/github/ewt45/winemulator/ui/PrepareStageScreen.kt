@@ -89,7 +89,7 @@ fun RootfsSelectScreen(
             msg.value = "日志："
             try {
                 rootfsName = Utils.Rootfs.installRootfsArchive(ctx, uri, reporter).name
-                reporter.msg("解压rootfs成功。", "解压成功，点击按钮将退出。请手动重启。（日志可点击展开查看）")
+                reporter.msg("解压rootfs成功。", "解压成功，点击按钮将退出。请手动重启。\n（日志可点击展开查看）")
                 stage = ProgressStage.DONE_SUCCESS
             } catch (e: Throwable) {
                 e.printStackTrace()
