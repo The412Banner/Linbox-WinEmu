@@ -4,14 +4,21 @@ package org.github.ewt45.winemulator.ui
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -21,16 +28,18 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,13 +52,17 @@ import org.github.ewt45.winemulator.emu.ProotRootfs
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_LoginUserSelect
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_RootfsName
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
-import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 import java.io.File
 
 @Composable
 fun PrepareStageScreen() {
     val setting: SettingViewModel = viewModel()
     RootfsSelectScreen(setting::onChangeRootfsLoginUser, setting::onChangeRootfsName)
+}
+
+
+private enum class ProcessState {
+    NOT_SELECTED, PROCESSING, DONE_SUCCESS, DONE_FAILURE
 }
 
 /**
@@ -65,23 +78,20 @@ fun RootfsSelectScreen(
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    var extractProgress by remember { mutableFloatStateOf(0F) }
-    val displayProgress by remember { derivedStateOf { (extractProgress * 100).toInt() } }
-    var isError by remember { mutableStateOf(false) }      // 完成结果是 成功还是失败。
-    var isProcessing by remember { mutableStateOf(false) } // 是否正在处理选择的压缩包。
-    var isFinished by remember { mutableStateOf(false) } //是否完成。解压成功后提示重启
-
-    var processingMsgTitle by remember { mutableStateOf("") }
+    var processState by remember { mutableStateOf(ProcessState.NOT_SELECTED) }
+    var extractProgress by remember { mutableIntStateOf(0) } //0-100
+    var processingMsgTitle by remember { mutableStateOf("缺少Rootfs。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。") }
     var processingMsg by remember { mutableStateOf("") }
     var rootfsName by remember { mutableStateOf("") }
     var isSetCurrent by remember { mutableStateOf(true) }
 
     val processReporter = object : Utils.TaskReporter(-1) {
         override fun progress(percent: Float) {
-            extractProgress = percent
+            extractProgress = (percent * 100).toInt()
         }
 
         override fun done(error: Exception?) {
+            extractProgress = 100
             if (error != null) throw error
         }
 
@@ -93,106 +103,111 @@ fun RootfsSelectScreen(
 
     val readFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        isProcessing = true
+        processState = ProcessState.PROCESSING
         scope.launch {
-            extractProgress = 0F
-            processingMsgTitle = ""
+            extractProgress = 0
+            processingMsgTitle = "正在解压中，请等待完成。"
             processingMsg = "日志："
-            isError = false
             try {
                 rootfsName = Utils.Rootfs.installRootfsArchive(ctx, uri, processReporter).name
-                processingMsgTitle = "解压成功，点击按钮将退出。请手动重启。"
-                isFinished = true
+                processReporter.msg("解压rootfs成功。", "解压成功，点击按钮将退出。请手动重启。（日志可点击展开查看）")
+                processState = ProcessState.DONE_SUCCESS
             } catch (e: Throwable) {
                 e.printStackTrace()
-                processingMsg += "\n出现错误，请重新选择压缩包\n" + e.stackTraceToString()
-                isError = true
+                processReporter.msg(
+                    "解压rootfs过程中出现错误，结束。\n" + e.stackTraceToString(),
+                    "解压失败。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。\n（日志可点击展开查看）"
+                )
+                processState = ProcessState.DONE_FAILURE
             }
-            isProcessing = false
-        }
-    }
-
-    val onClickFinish:() -> Unit = {
-        if (isFinished) {
-            scope.launch {
-                if (isSetCurrent) MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
-                else MainEmuActivity.instance.finish()
-            }
-        } else {
-            readFileLauncher.launch(arrayOf("application/x-xz", "*/*"))
+            extractProgress = 100
         }
     }
 
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (!isFinished) {
-            Text("缺少Rootfs. 请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。", Modifier.padding(vertical = 16.dp))
-            Spacer(Modifier.height(16.dp))
-        }
-
-        if (processingMsgTitle.isNotBlank()) {
+        Column(
+            Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // 标题
             Text(processingMsgTitle)
-            Spacer(Modifier.height(16.dp))
-        }
 
-        if (isProcessing) {
-            LinearProgressIndicator(progress = { displayProgress / 100F })
-            Text("${displayProgress}%")
-            Spacer(Modifier.height(16.dp))
-        } else {
-            Button(onClick = onClickFinish) { Text(if (isFinished) "完成" else "选择") }
-            Spacer(Modifier.height(16.dp))
-        }
-
-        if (isFinished && !isError && rootfsName.isNotEmpty()) {
-            Log.e(TAG, "RootfsSelectScreen: 解压完成后进入这里检查可登陆用户列表。平时不会进入吧？")
-
-            Text("退出之前，您还可以编辑以下内容")
-            Spacer(Modifier.height(16.dp))
-            GeneralRootfsSelect_RootfsName(rootfsName, false) { oldRootfsName, newRootfsName, _ ->
-                onRootfsNameChange(oldRootfsName, newRootfsName, FuncOnChangeAction.EDIT)
-            }
-
-            val userList = ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfsName)).map { it.name }
-            val nonRootUser = userList.find { it != "root" }
-            if (nonRootUser != null) {
-                var userName by remember { mutableStateOf(nonRootUser) }
-                Spacer(Modifier.height(16.dp))
-                GeneralRootfsSelect_LoginUserSelect(rootfsName, userName, userList) { rootfsName, newUserName ->
-                    userName = newUserName
-                    scope.launch { onChangeUser(rootfsName, newUserName) }
+            // 只有处理过程中显示进度条
+            if (processState == ProcessState.PROCESSING) {
+               Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    LinearProgressIndicator(progress = { extractProgress / 100F })
+                    Text("$extractProgress%")
                 }
             }
-            Spacer(Modifier.height(16.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("下次启动app运行该容器")
-                Checkbox(isSetCurrent, { isSetCurrent = it })
+            // 处理时或处理后显示日志。解压成功后折叠
+            var msgExpanded by remember(processState) { mutableStateOf(processState == ProcessState.PROCESSING) }
+            if (processState != ProcessState.NOT_SELECTED) {
+                // weight 占据剩余空间，保证优先满足按钮的高度。否则会把按钮挤没。然后高度过高时可滚动。这俩modifier要加到包裹column上，加到text自身没用
+                // 但是weight会在内容没那么高的时候还是占据所有剩余空间 导致空出来一大块。
+                Text(
+                    processingMsg,
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { msgExpanded = !msgExpanded }
+                        .horizontalScroll(rememberScrollState()),
+                    color = MaterialTheme.colorScheme.run { if (processState == ProcessState.DONE_FAILURE) error else onSurface },
+                    maxLines = if (msgExpanded) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
-            Spacer(Modifier.height(16.dp))
+
+            // 需要解压时显示选择按钮
+            if (processState == ProcessState.NOT_SELECTED || processState == ProcessState.DONE_FAILURE) {
+                Button({ readFileLauncher.launch(arrayOf("application/x-xz", "*/*")) })
+                { Text("选择") }
+            }
+            // 解压成功后显示完成按钮
+            else if (processState == ProcessState.DONE_SUCCESS) {
+                Button({
+                    scope.launch {
+                        if (isSetCurrent) MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
+                        else MainEmuActivity.instance.finish()
+                    }
+                }) { Text("完成") }
+            }
+
+            // 解压成功后后的其他选项，重命名，登陆用户，下次启动该容器。
+            if (processState == ProcessState.DONE_SUCCESS && rootfsName.isNotEmpty()) {
+                Log.e(TAG, "RootfsSelectScreen: 解压完成后进入这里检查可登陆用户列表。平时不会进入吧？")
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                Text("退出之前，您还可以编辑以下内容")
+
+                GeneralRootfsSelect_RootfsName(rootfsName, false) { oldRootfsName, newRootfsName, _ ->
+                    onRootfsNameChange(oldRootfsName, newRootfsName, FuncOnChangeAction.EDIT)
+                }
+
+                val userList = ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfsName)).map { it.name }
+                userList.find { it != "root" }?.let { nonRootUser ->
+                    var userName by remember { mutableStateOf(nonRootUser) }
+                    GeneralRootfsSelect_LoginUserSelect(rootfsName, userName, userList) { rootfsName, newUserName ->
+                        userName = newUserName
+                        scope.launch { onChangeUser(rootfsName, newUserName) }
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("下次启动app运行该容器")
+                    Checkbox(isSetCurrent, { isSetCurrent = it })
+                }
+            }
         }
-
-        // 解压过程中的输出信息
-        HorizontalDivider(Modifier.padding(vertical = 24.dp))
-        Text(
-            processingMsg, Modifier
-                .padding(top = 24.dp)
-                .horizontalScroll(rememberScrollState()),
-            color = MaterialTheme.colorScheme.run { if (isError) error else onSurface },
-            style = MaterialTheme.typography.bodySmall
-        )
-        Spacer(Modifier.height(16.dp))
-
     }
 }
 
-@Preview(widthDp = 300, heightDp = 600)
+//@Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun PrepareStageScreenFinishPreview() {
     Column(
@@ -219,7 +234,7 @@ fun PrepareStageScreenFinishPreview() {
     }
 }
 
-//@Preview(widthDp = 300, heightDp = 600)
+@Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun PrepareStageScreenPreview() {
     RootfsSelectScreen({ _, _ -> }, { _, _, _ -> "" })

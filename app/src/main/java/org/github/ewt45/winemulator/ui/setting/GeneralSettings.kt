@@ -51,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -61,6 +62,7 @@ import org.github.ewt45.winemulator.CompressedType
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.FuncOnChange
 import org.github.ewt45.winemulator.FuncOnChangeAction
+import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.emu.ProotRootfs
 import org.github.ewt45.winemulator.ui.AnimatedVertical
 import org.github.ewt45.winemulator.ui.CollapsePanel
@@ -229,10 +231,29 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
     if (showDialog) {
         var currCompType = CompressedType.GZ
         val compSuffix = mapOf(CompressedType.GZ to ".tar.gz", CompressedType.XZ to ".tar.xz")
-        val compMimeTypes = mapOf(CompressedType.GZ to getMimeType("tar.gz"), CompressedType.XZ to getMimeType("tar.xz"))
+        val compMimeTypes = mapOf(CompressedType.GZ to getMimeType("gz"), CompressedType.XZ to getMimeType("xz"))
+        val ctx = LocalContext.current
+        val scope = rememberCoroutineScope()
+
         Log.d(TAG, "GeneralRootfsSelect_ExportRootfs: 能否获取到mimetype? $compMimeTypes")
         val launcher  = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(compMimeTypes[currCompType] ?: "*/*")) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                Utils.Rootfs.exportRootfsArchive(ctx, uri, File(Consts.rootfsAllDir, rootfsName), currCompType, object: Utils.TaskReporter() {
+                    override fun progress(percent: Float) {
+                        TODO("写一个create 传入state和onDone返回reporter对象")
+                    }
+
+                    override fun done(error: Exception?) {
+                        TODO("Not yet implemented")
+                    }
+
+                    override fun msg(text: String?, title: String?) {
+                        TODO("Not yet implemented")
+                    }
+
+                })
+            }
             TODO("实现解压逻辑")
 
         }

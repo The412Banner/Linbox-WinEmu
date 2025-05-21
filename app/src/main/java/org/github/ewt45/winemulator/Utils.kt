@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.MutableState
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
@@ -73,14 +74,22 @@ import java.io.OutputStream
 import java.net.URL
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.LinkOption
+import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.attribute.PosixFileAttributes
+import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.io.path.deleteExisting
-import kotlin.io.path.deleteIfExists
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.inputStream
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.isSymbolicLink
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
+import kotlin.io.path.pathString
+import kotlin.io.path.readSymbolicLink
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
@@ -214,6 +223,15 @@ object Utils {
     /** 打开uri的输出流。等于 contentResolver.openOutputStream(uri) */
     fun Context.openOutput(uri: Uri): OutputStream? = contentResolver.openOutputStream(uri)
 
+    /** 遍历这些Path及其子Path，广度优先 */
+    inline fun MutableList<Path>.walk(callback: (Path) -> Unit) {
+        while (isNotEmpty()) {
+            val path = removeAt(0)
+            callback(path)
+            if (path.isDirectory(LinkOption.NOFOLLOW_LINKS)) addAll(path.listDirectoryEntries())
+        }
+    }
+
     object Files {
         suspend fun writeToUri(ctx: Context, uri: Uri, content: String): Result<Unit> = withContext(Dispatchers.IO) {
             kotlin.runCatching {
@@ -310,7 +328,7 @@ object Utils {
          * uri不是.tar.xz时会抛出异常
          * @param reporter 调用[TaskReporter.progressValue] 时传入的是某文件压缩后大小. 本函数会将[TaskReporter.totalValue] 设置为压缩文件总大小
          */
-        suspend fun installRootfsArchive(ctx: Context, uri: Uri, reporter: TaskReporter):File = withContext(IO) {
+        suspend fun installRootfsArchive(ctx: Context, uri: Uri, reporter: TaskReporter): File = withContext(IO) {
             val tmpArchiveFile = File(Consts.tmpDir, "archive-rootfs-tmp").also { it.delete() }
             val tmpOutDir = File(Consts.tmpDir, "extracted-rootfs").also {
                 FileUtils.deleteDirectory(it)
@@ -363,22 +381,71 @@ object Utils {
             return@withContext targetOutDir
         }
 
+        /** 根据[path]创建TarArchiveEntry. 将path路径去掉rootfs父目录的路径([removeLen]个字符）作为名字。如果为文件夹在末尾加上 / */
+        private fun getTarEntry(path: Path, removeLen: Int) = path.absolutePathString().substring(removeLen).trim('/')
+            .let { if (path.isDirectory(LinkOption.NOFOLLOW_LINKS)) "$it/" else it }
+            .let { TarArchiveEntry(path, it, LinkOption.NOFOLLOW_LINKS) }
+
         /**
          * 将指定rootfs压缩为压缩包并导出。压缩包内第一层是该rootfs文件夹，再内部是各基本目录
          */
-        suspend fun exportRootfsArchive(ctx: Context, uri: Uri, rootfsFile: File, compType: CompressedType, reporter: TaskReporter) = withContext(IO) {
-            /** 压缩包内文件去掉rootfs父目录的路径 */
-            TODO("实现解压逻辑")
-            val pathPrefix = rootfsFile.parentFile!!.absolutePath
-            Archive.getCompressedOutput(compType, ctx.openOutput(uri)).use { zOut ->
-                TarArchiveOutputStream(zOut).use { tOut ->
+        suspend fun exportRootfsArchive(ctx: Context, uri: Uri, rootfsDir: File, compType: CompressedType, reporter: TaskReporter) = withContext(IO) {
+            // 压缩包内文件去掉rootfs父目录的路径
+            val parentPrefixLen = rootfsDir.parentFile!!.absolutePath.length
+            // proot绑定的那些目录 内容不添加到压缩包
+            val ignoreRootfsSubDirs = setOf("dev", "proc", "tmp", "storage", "sys")
+            val rootfsContents = rootfsDir.toPath().listDirectoryEntries().filter { !ignoreRootfsSubDirs.contains(it.name) }
+            var fileCount = 0
 
-//                    for (file in rootfsFile..walkTopDown()) {
-//                        val entryName = if (parentPath.isNotEmpty()) "$parentPath/${file.name}" else file.name
-//                        val tarEntry = TarArchiveEntry(file, entryName)
-//                    }
+            reporter.msg("忽略以下文件夹：${ignoreRootfsSubDirs.joinToString(", ")}")
+            reporter.msg(null, "正在读取文件夹内容...")
+            reporter.totalValue = -1L
+            rootfsContents.toMutableList().walk { fileCount++ }
+            reporter.msg("共找到${fileCount}个文件")
+
+            reporter.msg(null, "正在压缩全部文件...")
+            TarArchiveOutputStream(Archive.getCompressedOutput(compType, ctx.openOutput(uri))).use { tOut ->
+                // 长文件名
+                tOut.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU)
+                //添加rootfs目录
+                tOut.putArchiveEntry(getTarEntry(rootfsDir.toPath(), parentPrefixLen))
+                tOut.closeArchiveEntry()
+                var tmpCount = 0L
+                rootfsContents.toMutableList().walk { filePath ->
+                    try {
+                        tmpCount++
+                        reporter.progressValue(tmpCount)
+                        val tarEntry = getTarEntry(filePath, parentPrefixLen)
+                        //符号链接
+                        //TODO 符号链接不设置linkFlag 会正常读取本地的存入吗？符号链接解压是否正常？
+                        if (filePath.isSymbolicLink()) {
+                            tarEntry.linkName = filePath.readSymbolicLink().pathString
+                            if (!tarEntry.isSymbolicLink) {
+                                reporter.msg("文件符号链接状态读取错误：tarEntry.isSymbolicLink=false!, ${tarEntry.name}")
+                            }
+                        }
+                        //TODO mode设置会成功吗？
+                        val attrs = java.nio.file.Files.readAttributes(filePath, PosixFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
+                        tarEntry.mode = PosixFilePermissions.toString(attrs.permissions()).toInt(8)
+                        tOut.putArchiveEntry(tarEntry)
+                        //文件
+                        if (filePath.isRegularFile(LinkOption.NOFOLLOW_LINKS)) {
+                            filePath.inputStream().use { it.copyTo(tOut) }
+                        }
+                        tOut.closeArchiveEntry()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        reporter.msg("压缩时出现错误。文件=${filePath.pathString} 。 错误=${e.stackTraceToString()}")
+                    }
+                }
+                // 绑定文件夹变为空文件夹放进压缩包
+                for (dir in ignoreRootfsSubDirs.filter { it != "storage" }) {
+                    val path = Paths.get(dir)
+                    tOut.putArchiveEntry(getTarEntry(path, parentPrefixLen))
+                    tOut.closeArchiveEntry()
                 }
             }
+            reporter.msg(null, "压缩包导出完成！")
         }
 
         /** 获取当前选择的rootfs。
@@ -516,7 +583,7 @@ object Utils {
                 }
             }
 
-            reporter.msg( "正在创建符号链接...")
+            reporter.msg("正在创建符号链接...")
             reporter.totalValue = symLinkList.size.toLong()
             symLinkList.forEachIndexed { idx, item ->
                 reporter.progressValue(idx.toLong())
@@ -535,7 +602,7 @@ object Utils {
             // 文件夹权限应该在全部文件和符号链接处理完之后进行。
             reporter.msg("正在恢复文件夹权限...")
             reporter.totalValue = dirModeList.size.toLong()
-            dirModeList.forEachIndexed{ idx, item ->
+            dirModeList.forEachIndexed { idx, item ->
                 reporter.progressValue(idx.toLong())
                 try {
                     Os.chmod(item.first, item.second)
@@ -869,8 +936,10 @@ object Utils {
                 override fun done(error: Exception?) {}
                 override fun msg(text: String?, title: String?) {}
             }
+
         }
     }
+
 }
 
 
