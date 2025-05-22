@@ -101,10 +101,10 @@ fun ProgressDisplay(
                     }
 
                 ProgressStage.DONE_SUCCESS ->
-                    Icon(Icons.Rounded.CheckCircle, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.secondary)
+                    Icon(Icons.Rounded.CheckCircle, null, Modifier.size(80.dp), tint = MaterialTheme.colorScheme.secondary)
 
                 ProgressStage.DONE_FAILURE ->
-                    Icon(Icons.Rounded.Warning, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Rounded.Warning, null, Modifier.size(80.dp), tint = MaterialTheme.colorScheme.error)
             }
 
 

@@ -4,27 +4,19 @@ package org.github.ewt45.winemulator.ui
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -54,19 +45,25 @@ import java.io.File
 @Composable
 fun PrepareStageScreen() {
     val setting: SettingViewModel = viewModel()
-    RootfsSelectScreen(setting::onChangeRootfsLoginUser, setting::onChangeRootfsName)
+    RootfsSelectScreen(
+        getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
+        setting::onChangeRootfsLoginUser, setting::onChangeRootfsName
+    )
 }
 
 
 /**
+ * @param getAvailableUsers 传入rootfs名，返回该rootfs可选择的用户列表
  * @param onChangeUser 参考 [SettingViewModel.onChangeRootfsLoginUser]
  * @param onRootfsNameChange 参考 [SettingViewModel.onChangeRootfsName]
  */
 @Composable
 fun RootfsSelectScreen(
+    getAvailableUsers: (String) -> List<String>,
     onChangeUser: suspend (String, String) -> Unit,
     onRootfsNameChange: suspend (String, String, FuncOnChangeAction) -> String,
     initStage: ProgressStage = ProgressStage.NOT_STARTED,
+    initRootfsName: String = "",
 ) {
     val TAG = "RootfsSelectScreen"
     val scope = rememberCoroutineScope()
@@ -77,7 +74,7 @@ fun RootfsSelectScreen(
     val msgTitle = remember { mutableStateOf("缺少Rootfs。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。") }
     val msg = remember { mutableStateOf("") }
     val reporter = Utils.TaskReporter.createTaskReporter(progress, msgTitle, msg)
-    var rootfsName by remember { mutableStateOf("") }
+    var rootfsName by remember { mutableStateOf(initRootfsName) }
     var isSetCurrent by remember { mutableStateOf(true) }
 
     val readFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -143,7 +140,7 @@ fun RootfsSelectScreen(
                     onRootfsNameChange(oldRootfsName, newRootfsName, FuncOnChangeAction.EDIT)
                 }
 
-                val userList = ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfsName)).map { it.name }
+                val userList = getAvailableUsers(rootfsName)
                 userList.find { it != "root" }?.let { nonRootUser ->
                     var userName by remember { mutableStateOf(nonRootUser) }
                     GeneralRootfsSelect_LoginUserSelect(rootfsName, userName, userList) { rootfsName, newUserName ->
@@ -194,8 +191,8 @@ fun PrepareStageScreenFinishPreview() {
 @Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun PrepareStageScreenPreview() {
-    val stage = ProgressStage.NOT_STARTED
-    RootfsSelectScreen({ _, _ -> }, { _, _, _ -> "" }, stage)
+    val stage = ProgressStage.DONE_SUCCESS
+    RootfsSelectScreen({ listOf("iuser", "root") }, { _, _ -> }, { _, _, _ -> "" }, stage, "rootfs-1")
 
     Spacer(Modifier.height(32.dp))
 }
