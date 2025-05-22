@@ -7,17 +7,17 @@ junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 kotlinxSerializationJson = "1.8.1"
-lifecycle = "2.8.7"
+lifecycle = "2.9.0"
 activityCompose = "1.10.1"
-composeBom = "2025.04.00"
-#termux = "v0.118.1"
+composeBom = "2025.05.01"
+termux = "v0.118.1"
+#termux = "9ee1c9d5ad"
 preference = "1.2.1"
-datastorePreferences = "1.1.4" # 逆天谷歌 1.1.5 一堆api没了
-termux = "9ee1c9d5ad"
+datastorePreferences = "1.1.4" # 逆天谷歌 1.1.5 一堆api没了。是真的逆天，1.1.6还是有bug
 guavaListenablefuture = "9999.0-empty-to-avoid-conflict-with-guava"
 xz = "1.10"
 appcompat = "1.7.0"
-material = "1.10.0"
+material = "1.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -45,8 +45,9 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 org-tukaani-xz = { module = "org.tukaani:xz", version.ref = "xz" }
 
-com-termux-terminal-view = { module = "com.termux.termux-app:terminal-view", version.ref = "termux" }
-com-termux-termux-shared = { module = "com.termux.termux-app:termux-shared", version.ref = "termux" }
+# com.github.termux.termux-app 可以， com.termux.termux-app 会401
+com-termux-terminal-view = { module = "com.github.termux.termux-app:terminal-view", version.ref = "termux" }
+com-termux-termux-shared = { module = "com.github.termux.termux-app:termux-shared", version.ref = "termux" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 

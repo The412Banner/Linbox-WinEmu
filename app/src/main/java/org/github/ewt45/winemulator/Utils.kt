@@ -2,11 +2,13 @@ package org.github.ewt45.winemulator
 
 import android.Manifest
 import android.animation.ValueAnimator
+import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Bundle
 import android.system.Os
 import android.util.Log
 import android.view.View
@@ -79,9 +81,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.nio.file.attribute.PosixFileAttributes
-import java.nio.file.attribute.PosixFilePermission
-import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.absolutePathString
@@ -98,7 +97,6 @@ import kotlin.math.pow
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
-
 
 object Utils {
     private const val TAG = "Utils"
@@ -246,6 +244,11 @@ object Utils {
         }
         return result
     }
+
+    /** 在[Activity.onSaveInstanceState] 中设置。在 [Activity.onCreate] 中获取判断 */
+    var Bundle.activityRecreate: Boolean
+        get() = this.getBoolean("activityRecreate", false)
+        set(value) = this.putBoolean("activityRecreate", value)
 
     object Files {
         suspend fun writeToUri(ctx: Context, uri: Uri, content: String): Result<Unit> = withContext(Dispatchers.IO) {

@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.github.ewt45.winemulator.Consts.Pref.general_rootfs_lang
 import org.github.ewt45.winemulator.Consts.Pref.proot_startup_cmd
+import org.github.ewt45.winemulator.Utils.activityRecreate
 import org.github.ewt45.winemulator.Utils.getX11ServicePid
 import org.github.ewt45.winemulator.emu.X11Service
 import org.github.ewt45.winemulator.emu.manager.EmuManager
@@ -45,7 +46,6 @@ class MainEmuActivity : MainActivity() {
     companion object {
         private val getInstanceRef = ::getInstance
 
-        @JvmStatic
         val instance: MainEmuActivity
             get() = getInstanceRef() as MainEmuActivity // val instance: MainEmuActivity by lazy { getInstance() as MainEmuActivity }
     }
@@ -58,12 +58,16 @@ class MainEmuActivity : MainActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        Log.d(TAG, "-1 进入onCreate 进入onSaveInstanceState1")
+        outState.activityRecreate = true
+        Log.d(TAG, "进入onSaveInstanceState1, 保存数据")
 
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Log.d(TAG, "0 进入onCreate 是否重启？bundle=$savedInstanceState")
+        if (savedInstanceState?.activityRecreate == true) {
+            Log.e(TAG, "进入onCreate 本次为重启。或许应该特殊处理。")
+        }
+
         //设置包名
         MainActivity.HOST_PKG_NAME = packageName
         startX11Intent = createStartX11Intent()
@@ -103,7 +107,6 @@ class MainEmuActivity : MainActivity() {
         if (!noRootfs && haveStoragePermission)
             prepareAndStart()
 
-
 //        setContent {
 //            MainTheme {
 //                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -118,16 +121,8 @@ class MainEmuActivity : MainActivity() {
             Log.w(TAG, "prepareAndStart: emuStarted为true, 模拟器已经启动。不再执行逻辑")
             return
         }
+        // TODO 这里launch切换到IO协程会不会好一点？
         lifecycleScope.launch {
-//            val result = viewModel.showBlockDialog("解压alpine rootfs") {
-//                Utils.Rootfs.ensureAlpineRootfs(this@MainEmuActivity)
-//            }
-//            if (result.isFailure) {
-//                result.exceptionOrNull()!!.printStackTrace()
-//                viewModel.showConfirmDialog("错误：解压alpine rootfs 失败！").run { finish() }
-//                return@launch
-//            }
-
 //            Log.d(TAG, "prepareAndStart: 测试process输出？${Utils.readLinesProcessOutput(Runtime.getRuntime().exec(arrayOf("sh",
 //                "-c",
 //                "umask 0022 ; ls /storage/emulated/0",//sh -c 之后应该用一个字符串 不应再分割了
