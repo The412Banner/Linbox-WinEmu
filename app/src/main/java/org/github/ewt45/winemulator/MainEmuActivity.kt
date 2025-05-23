@@ -26,6 +26,8 @@ import org.github.ewt45.winemulator.Utils.activityRecreate
 import org.github.ewt45.winemulator.Utils.getX11ServicePid
 import org.github.ewt45.winemulator.emu.X11Service
 import org.github.ewt45.winemulator.emu.manager.EmuManager
+import org.github.ewt45.winemulator.terminal.SessionClientAImpl
+import org.github.ewt45.winemulator.terminal.ViewClientImpl
 import org.github.ewt45.winemulator.ui.MainScreen
 import org.github.ewt45.winemulator.ui.theme.MainTheme
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
@@ -42,12 +44,11 @@ class MainEmuActivity : MainActivity() {
     val prepareViewModel: PrepareStageViewModel by viewModels()
     private lateinit var startX11Intent: Intent
     private var emuStarted: Boolean = false
+    val sessionClient: SessionClientAImpl = SessionClientAImpl(this)
+    val viewClient: ViewClientImpl = ViewClientImpl(this, sessionClient)
 
     companion object {
-        private val getInstanceRef = ::getInstance
-
-        val instance: MainEmuActivity
-            get() = getInstanceRef() as MainEmuActivity // val instance: MainEmuActivity by lazy { getInstance() as MainEmuActivity }
+        val instance get() = getInstance() as MainEmuActivity // val instance: MainEmuActivity by lazy { getInstance() as MainEmuActivity }
     }
 
     fun getPref(): Prefs = prefs
@@ -72,12 +73,6 @@ class MainEmuActivity : MainActivity() {
         MainActivity.HOST_PKG_NAME = packageName
         startX11Intent = createStartX11Intent()
         super.onCreate(savedInstanceState)
-
-//        if (!prefs.fullscreen.get()) {
-//            prefs.fullscreen.put(true)
-//            Log.w(TAG, "onCreate: 修改prefs.fullscreen. 由于稍后会recreate() 重建activity, 本次onCreate先不做其他操作")
-//            return
-//        }
 
         //偏好设置
         prefs.displayResolutionMode.put("custom")
@@ -104,8 +99,11 @@ class MainEmuActivity : MainActivity() {
         val noRootfs = Utils.Rootfs.haveNoRootfs()
         val haveStoragePermission = Utils.Permissions.checkStoragePermission(this)
         prepareViewModel.setNoRootfs(noRootfs)
-        if (!noRootfs && haveStoragePermission)
-            prepareAndStart()
+        if (!noRootfs && haveStoragePermission) {
+//            startEmu()
+
+            //尝试termux终端
+        }
 
 //        setContent {
 //            MainTheme {
@@ -116,7 +114,7 @@ class MainEmuActivity : MainActivity() {
 //        }
     }
 
-    fun prepareAndStart() {
+    fun startEmu() {
         if (emuStarted) {
             Log.w(TAG, "prepareAndStart: emuStarted为true, 模拟器已经启动。不再执行逻辑")
             return
@@ -155,13 +153,13 @@ class MainEmuActivity : MainActivity() {
             //添加observer时会立刻发送一遍从头到现在的状态，所以onCreate会触发
             lifecycle.addObserver(EmuManager(lifecycleScope))
             val LANG = general_rootfs_lang.get()
-//            terminalViewModel.runCommand("echo \$LANG")
-//            terminalViewModel.runCommand("locale-gen") //在Proot中修改etc/locale.gen中对应语言。此处不添加参数
             // grep的$LANG应该还是从环境变量获取 因为有时候如果没生效的话LANG会被还原会C,可以用这个判断是否需要
             terminalViewModel.runCommand("""if [ "$(locale -a | grep ${'$'}LANG)" != $LANG ]; then locale-gen; fi; export LANG=$LANG""")
             proot_startup_cmd.get().takeIf { it.isNotBlank() }?.let {
                 terminalViewModel.runCommand("$it &")
             }
+
+
         }
     }
 

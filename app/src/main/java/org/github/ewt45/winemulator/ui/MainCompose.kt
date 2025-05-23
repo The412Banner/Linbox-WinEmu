@@ -114,10 +114,9 @@ fun MainScreen(
                     }
 
                     if (!minimize) {
-                        if (showSetting)
-                            SettingScreen()
-                        else
-                            ProotTerminalScreen()
+                        if (showSetting) SettingScreen()
+                        else ProotTerminalScreen()
+//                        else TerminalScreen()
                     }
                 }
             }

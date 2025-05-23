@@ -842,7 +842,7 @@ object Utils {
                     }
                 } else {
                     //获取权限后 启动模拟器
-                    MainEmuActivity.instance.prepareAndStart()
+                    MainEmuActivity.instance.startEmu()
                 }
             }
         }
