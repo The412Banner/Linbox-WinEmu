@@ -51,13 +51,6 @@ fun ProotTerminalScreen(
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            text = "Proot 终端",
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleLarge
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
         val textVScroll = rememberScrollState()
         Column(
             modifier = Modifier

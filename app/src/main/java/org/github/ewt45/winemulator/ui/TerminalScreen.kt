@@ -10,18 +10,23 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.view.TerminalView
 import org.github.ewt45.winemulator.MainEmuActivity
+import org.github.ewt45.winemulator.terminal.ViewClientImpl
 
 /**
  * 使用termux的TerminalView显示终端和交互
  */
 @Composable
 fun TerminalScreen() {
-    TerminalScreenImpl()
+    val activity = LocalActivity.current as MainEmuActivity
+    TerminalScreenImpl(
+        getViewClient = { activity.viewClient }
+    )
 }
 
 @Composable
-private fun TerminalScreenImpl() {
-    val activity = LocalActivity.current as MainEmuActivity
+private fun TerminalScreenImpl(
+    getViewClient: () -> ViewClientImpl?,
+) {
     Column(
         Modifier.fillMaxSize(),
     ) {
@@ -39,7 +44,7 @@ private fun TerminalScreenImpl() {
          */
         AndroidView({ ctx ->
             TerminalView(ctx, null).apply {
-                setTerminalViewClient(activity.viewClient)
+                getViewClient()?.let { setTerminalViewClient(it) }
                 isFocusableInTouchMode = true
                 isVerticalScrollBarEnabled = true
             }
@@ -50,5 +55,5 @@ private fun TerminalScreenImpl() {
 @Preview
 @Composable
 fun TerminalScreenPreview() {
-    TerminalScreenImpl()
+    TerminalScreenImpl({ null })
 }

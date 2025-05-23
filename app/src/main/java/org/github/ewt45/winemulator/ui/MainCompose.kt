@@ -5,7 +5,9 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.MarginLayoutParams
 import androidx.activity.compose.LocalActivity
+import androidx.collection.mutableIntListOf
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,19 +28,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,6 +57,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,6 +69,7 @@ import org.github.ewt45.winemulator.viewmodel.MainViewModel
 import org.github.ewt45.winemulator.viewmodel.PrepareStageViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
@@ -68,15 +78,15 @@ fun MainScreen(
     val viewModel: MainViewModel = viewModel()
     val settingVM: SettingViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
-    val rootfsVM: PrepareStageViewModel = viewModel()
+    val prepareVM: PrepareStageViewModel = viewModel()
 
-    var minimize by remember { mutableStateOf(false) }
-    var showSetting by remember { mutableStateOf(false) }
-    val isNoRootfs by remember { rootfsVM.isNoRootfs }
+    val (minimize, setMinimize) = remember { mutableStateOf(false) }
+    val (showSetting, setShowSetting) = remember { mutableStateOf(false) }
+    val isPreparing by remember { prepareVM.isNoRootfs }
 
     //进入设置时手动更新一些可能过期的数据，比如文件列表。 这个不能直接放下面的if里，不然会频繁执行
     LaunchedEffect(showSetting) {
-        if (showSetting)  settingVM.updateValuesWhenEnterSettings()
+        if (showSetting) settingVM.updateValuesWhenEnterSettings()
     }
 
     Scaffold(
@@ -84,43 +94,35 @@ fun MainScreen(
             .fillMaxSize()
 //        .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .then(if (minimize) Modifier.clip(RoundedCornerShape(100.dp)) else Modifier),
+        topBar = {
+            if (!isPreparing) {
+                TopAppBar(minimize, setMinimize, showSetting, setShowSetting)
+            }
+        },
     ) { innerPadding ->
-        //FIXME tx11已经处理键盘高度变更了，这里应该不用innerPadding 否则会有空白
-        val ignoreSystemInsets = Modifier.padding(innerPadding)
+        // FIXME tx11已经处理键盘高度变更了，这里应该不用innerPadding 否则会有空白
+        //  但是使用了scaffold的topbar之后需要应用顶部padding
+//            val ignoreSystemInsets = Modifier.padding(innerPadding)
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding()),
             contentAlignment = Alignment.Center,
         ) {
             Column(
-                modifier/*.padding(innerPadding)*/.fillMaxHeight()
+                Modifier/*.padding(innerPadding)*/.fillMaxHeight()
                     .widthIn(max = 600.dp)
             ) {
-                if (isNoRootfs) {
+                if (isPreparing) {
                     PrepareStageScreen()
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (!minimize) {
-                            Text(
-                                "占位标题", modifier = Modifier
-                                    .weight(1f)
-                                    .padding(8.dp)
-                            )
-                            SettingButton(showSetting, { showSetting = !showSetting })
-                        }
-                        MinimizeButton(minimize, { minimize = !minimize })
-                    }
-
-                    if (!minimize) {
-                        if (showSetting) SettingScreen()
-                        else ProotTerminalScreen()
-//                        else TerminalScreen()
-                    }
+                } else if (!minimize)  {
+                    if (showSetting) SettingScreen()
+//                    else ProotTerminalScreen()
+                    else TerminalScreen()
                 }
             }
         }
+
 
         // 对话框
         val dialogType = uiState.dialogType
@@ -159,6 +161,46 @@ fun MainScreen(
             )
         }
     }
+}
+
+
+/**
+ * 顶部的AppBar
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TopAppBar(
+    minimize: Boolean,
+    setMinimize: (Boolean) -> Unit,
+    showSetting: Boolean,
+    setShowSetting: (Boolean) -> Unit,
+) {
+    var selectIdx by remember { mutableIntStateOf(0) }
+    TopAppBar(
+        title = {
+            if (!minimize) {
+                //TODO 改为 navigation  参考 https://developer.android.com/develop/ui/compose/components/tabs?hl=zh-cn
+                PrimaryScrollableTabRow(selectIdx, divider = {}) {
+                    Tab(
+                        selected = selectIdx == 0,
+                        onClick = { selectIdx = 0 },
+                        text = {
+                            Text(
+                                text = "终端",
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    )
+                }
+            }
+        },
+        actions = {
+            SettingButton(showSetting) { setShowSetting(!showSetting) }
+            MinimizeButton(minimize, { setMinimize(!minimize) })
+        },
+        scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
+    )
 }
 
 /** 按钮。点击可将compose部分的视图展开或折叠。
@@ -246,11 +288,51 @@ fun SettingButton(show: Boolean, onClick: () -> Unit) {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun GameScreenPreview() {
+private fun MainScreenPreview() {
+    val (minimize, setMinimize) = remember { mutableStateOf(false) }
+    val (showSetting, setShowSetting) = remember { mutableStateOf(false) }
+    val isPreparing by remember { mutableStateOf(false) }
+
     MainTheme {
-        MainScreen()
+        Scaffold(
+            modifier = Modifier
+                .fillMaxSize()
+//        .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+                .then(if (minimize) Modifier.clip(RoundedCornerShape(100.dp)) else Modifier),
+            topBar = {
+                if (!isPreparing) {
+                    TopAppBar(minimize, setMinimize, showSetting, setShowSetting)
+                }
+            },
+        ) { innerPadding ->
+            // FIXME tx11已经处理键盘高度变更了，这里应该不用innerPadding 否则会有空白
+            //  但是使用了scaffold的topbar之后需要应用顶部padding
+//            val ignoreSystemInsets = Modifier.padding(innerPadding)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = innerPadding.calculateTopPadding()),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    Modifier/*.padding(innerPadding)*/.fillMaxHeight()
+                        .widthIn(max = 600.dp)
+                ) {
+                    if (isPreparing) {
+                        PrepareStageScreen()
+                    } else {
+                        if (!minimize) {
+                            if (showSetting) SettingScreenPreview()
+//                            else ProotTerminalScreen()
+                            else TerminalScreenPreview()
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

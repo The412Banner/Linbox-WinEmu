@@ -132,7 +132,7 @@ fun TopBarActions(
 
 @Preview(showBackground = true)
 @Composable
-fun PreviewExpandablePanelExample() {
+fun SettingScreenPreview() {
 //    SettingScreen()
     var resolution by remember { mutableStateOf("800x600") }
     Column(
