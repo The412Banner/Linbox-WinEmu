@@ -23,7 +23,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,17 +32,15 @@ import org.github.ewt45.winemulator.Utils.getX11ServicePid
 import org.github.ewt45.winemulator.emu.X11Service
 import org.github.ewt45.winemulator.ui.CollapsePanel
 import org.github.ewt45.winemulator.ui.ComposeSpinner
+import org.github.ewt45.winemulator.ui.Destination
 import org.github.ewt45.winemulator.ui.rememberNotImplDialog
-import org.github.ewt45.winemulator.viewmodel.PrepareStageViewModel
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 import java.io.File
 import java.nio.file.Files
 import kotlin.io.path.pathString
 
 @Composable
-fun DebugSettings() {
-    val terminalViewModel: TerminalViewModel = viewModel()
-    val prepareStageViewModel: PrepareStageViewModel = viewModel()
+fun DebugSettings(terminalVM: TerminalViewModel, navigateTo: (Destination) -> Unit) {
     val ctx: Context = LocalContext.current
 
     var showFilterSymlink by filterSymlinkDialog()
@@ -51,14 +48,14 @@ fun DebugSettings() {
 
     DebugSettingsImpl(
         sendSigStop = {
-            terminalViewModel.pauseTerminal()
+            terminalVM.pauseTerminal()
             android.os.Process.sendSignal(ctx.getX11ServicePid(), SIGSTOP)
         },
         sendSigCont = {
-            terminalViewModel.resumeTerminal()
+            terminalVM.resumeTerminal()
             android.os.Process.sendSignal(ctx.getX11ServicePid(), SIGCONT)
         },
-        gotoSelectRootfs = { prepareStageViewModel.setNoRootfs(true) },
+        gotoSelectRootfs = { navigateTo(Destination.Prepare) },
         findSymlinkToTermux = { showFilterSymlink = true },
         startX11Service = { MainEmuActivity.instance.startService(Intent(MainEmuActivity.instance, X11Service::class.java)) },
         compareRootfsDir = { showCompareDir = true },
@@ -132,7 +129,13 @@ private fun compareRootfsDirDialog(): MutableState<Boolean> {
                         }
                     }) { Text("开始") }
                     if (finished) Button({ visibility.value = false }) { Text("关闭") }
-                    Text(infoText, modifier = Modifier.verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        infoText,
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .horizontalScroll(rememberScrollState()),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         )

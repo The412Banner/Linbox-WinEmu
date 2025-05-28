@@ -9,14 +9,11 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
 import com.termux.x11.MainActivity
@@ -33,8 +30,8 @@ import org.github.ewt45.winemulator.emu.X11Service
 import org.github.ewt45.winemulator.emu.manager.EmuManager
 import org.github.ewt45.winemulator.terminal.SessionClientAImpl
 import org.github.ewt45.winemulator.terminal.ViewClientImpl
+import org.github.ewt45.winemulator.ui.Destination
 import org.github.ewt45.winemulator.ui.MainScreen
-import org.github.ewt45.winemulator.ui.theme.MainTheme
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
 import org.github.ewt45.winemulator.viewmodel.PrepareStageViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
@@ -43,7 +40,7 @@ import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 
 class MainEmuActivity : MainActivity() {
     private val TAG = "MainEmuActivity"
-    val viewModel: MainViewModel by viewModels()
+    val mainViewModel: MainViewModel by viewModels()
     val terminalViewModel: TerminalViewModel by viewModels()
     val settingViewModel: SettingViewModel by viewModels()
     val prepareViewModel: PrepareStageViewModel by viewModels()
@@ -103,7 +100,7 @@ class MainEmuActivity : MainActivity() {
         (frm.parent as? ViewGroup)?.removeView(frm)
         setContent {
             Box {
-                MainScreen(tx11Content = { frm })
+                MainScreen(Modifier,{ frm }, Destination.ExceptX11, mainViewModel, terminalViewModel, settingViewModel, prepareViewModel)
             }
         }
 
@@ -150,7 +147,7 @@ class MainEmuActivity : MainActivity() {
                     waitForXStartedWithDialog() // 等待x11启动完成
                 }
             } else {
-                viewModel.showConfirmDialog("rootfs下缺少xkb文件夹，x11不会启动。可以安装类似 ' libxkbcommon-x11 ' 的软件包来补全。")
+                mainViewModel.showConfirmDialog("rootfs下缺少xkb文件夹，x11不会启动。可以安装类似 ' libxkbcommon-x11 ' 的软件包来补全。")
             }
 
             //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
@@ -195,7 +192,7 @@ class MainEmuActivity : MainActivity() {
     }
 
     suspend fun waitForXStartedWithDialog() {
-        viewModel.showBlockDialog("xserver启动中") {
+        mainViewModel.showBlockDialog("xserver启动中") {
             waitForXStarted()
         }
     }

@@ -5,12 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipBox
@@ -24,11 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.ui.ChipOption
 import org.github.ewt45.winemulator.ui.CollapsePanel
@@ -39,8 +32,7 @@ import org.github.ewt45.winemulator.viewmodel.SettingViewModel
  * proot设置
  */
 @Composable
-fun ProotSettings() {
-    val settingVM: SettingViewModel = viewModel()
+fun ProotSettings(settingVM: SettingViewModel) {
     val proot by settingVM.prootState.collectAsState()
 
     CollapsePanel("PRoot参数") {
@@ -72,9 +64,10 @@ fun ProotNoValueOptions(
         ) {
             Box {
                 FilterChip(false, onClick = {}, label = { Text("--root-id") }, enabled = false)
-                Box(Modifier
-                    .clickable { scope.launch { if (!tooltipState.isVisible) tooltipState.show() else tooltipState.dismiss() } }
-                    .matchParentSize()) {}
+                Box(
+                    Modifier
+                        .clickable { scope.launch { if (!tooltipState.isVisible) tooltipState.show() else tooltipState.dismiss() } }
+                        .matchParentSize()) {}
             }
         }
 

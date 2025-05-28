@@ -57,7 +57,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.CompressedType
 import org.github.ewt45.winemulator.Consts
@@ -68,15 +67,16 @@ import org.github.ewt45.winemulator.emu.ProotRootfs
 import org.github.ewt45.winemulator.ui.AnimatedVertical
 import org.github.ewt45.winemulator.ui.CollapsePanel
 import org.github.ewt45.winemulator.ui.ComposeSpinner
+import org.github.ewt45.winemulator.ui.Destination
 import org.github.ewt45.winemulator.ui.ProgressDisplay
 import org.github.ewt45.winemulator.ui.ProgressStage
 import org.github.ewt45.winemulator.ui.TextFieldOption
 import org.github.ewt45.winemulator.ui.TitleAndContent
-import org.github.ewt45.winemulator.viewmodel.MainViewModel
-import org.github.ewt45.winemulator.viewmodel.PrepareStageViewModel
+import org.github.ewt45.winemulator.ui.components.ConfirmDialog
+import org.github.ewt45.winemulator.ui.components.ConfirmDialogState
+import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import java.io.File
-import java.nio.file.Files
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Random
@@ -86,10 +86,10 @@ private val TAG = "GeneralSettings"
 
 @Composable
 fun GeneralSettings(
+    settingVM: SettingViewModel,
+    navigateTo: (Destination) -> Unit,
 ) {
 
-    val settingVM: SettingViewModel = viewModel()
-    val mainViewModel: MainViewModel = viewModel()
     val state by settingVM.generalState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
@@ -107,6 +107,7 @@ fun GeneralSettings(
             settingVM::onChangeRootfsName,
             settingVM::onChangeRootfsSelect,
             { rootfs, user -> scope.launch { settingVM.onChangeRootfsLoginUser(rootfs, user) } },
+            { navigateTo(Destination.Prepare) },
         )
 //        }
     }
@@ -139,28 +140,32 @@ fun GeneralRootfsSelect(
     currRootfs: String,
     rootfsToLoginUserMap: Map<String, String>,
     loginUsersOptions: Map<String, List<String>>,
-    onRootfsNameChange: suspend (String, String, FuncOnChangeAction) -> String,
+    onRootfsNameChange: suspend (String, String, FuncOnChangeAction) -> Unit,
     onRootfsSelectChange: suspend (String) -> Unit,
     onUserSelectChange: (String, String) -> Unit,
+    navigateToNewRootfs: () -> Unit,
 ) {
 
     val scope = rememberCoroutineScope()
-    val mainVm: MainViewModel = viewModel()
-    val prepareVm: PrepareStageViewModel = viewModel()
 //    TODO 排一下序之后没问题了，之前重命名用list.minus.plus 然后重命名之后rootfs名往上挪了一位，user名还没变。出错原理是什么？
     val sortedRootfsList = loginUsersOptions.keys.sortedWith(compareBy<String> { it != currRootfs }.thenBy { it })
+    val dialogState = rememberConfirmDialogState()
 
     val TYPE_SEL = 0 // 切换
     val TYPE_DEL = 1 // 删除
-    fun onClickBtn(type: Int, rootfsName: String, isCurr: Boolean) = scope.launch {
-        if (type == TYPE_SEL && !isCurr && mainVm.showConfirmDialog("将此文件夹设置为Proot使用的rootfs？\n确定后将退出app, 请手动重启。\n\n$rootfsName").getOrNull() == true) {
-            onRootfsSelectChange(rootfsName)
-        } else if (type == TYPE_DEL && mainVm.showConfirmDialog("确定删除该Rootfs吗？\n其内部所有文件都将被删除，请谨慎操作！\n\n$rootfsName").getOrNull() == true) {
-            mainVm.showBlockDialogWithErrorConfirm("正在删除...") {
+    fun onClickBtn(type: Int, rootfsName: String, isCurr: Boolean, newRootfsName: String? = null) = scope.launch {
+        if (type == TYPE_SEL && !isCurr) {
+            dialogState.showConfirm("将此文件夹设置为Proot使用的rootfs？\n确定后将退出app, 请手动重启。\n\n$rootfsName") {
+                onRootfsSelectChange(rootfsName)
+            }
+        } else if (type == TYPE_DEL) {
+            dialogState.showConfirm("确定删除该Rootfs吗？\n其内部所有文件都将被删除，请谨慎操作！\n\n$rootfsName") {
                 onRootfsNameChange(rootfsName, rootfsName, FuncOnChangeAction.DEL)
             }
         }
     }
+
+    ConfirmDialog(dialogState)
 
     TitleAndContent("Rootfs切换", "切换Proot使用的rootfs，添加/重命名/删除。修改后需要重启app生效。") {
         Column(
@@ -169,7 +174,7 @@ fun GeneralRootfsSelect(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             //添加
-            FilledTonalIconButton(onClick = { prepareVm.setNoRootfs(true) }) { Icon(Icons.Filled.Add, null) }
+            FilledTonalIconButton(onClick = navigateToNewRootfs) { Icon(Icons.Filled.Add, null) }
 
             for (rootfsName in sortedRootfsList) {
                 val isCurr = rootfsName == currRootfs
@@ -186,10 +191,9 @@ fun GeneralRootfsSelect(
                 Box {
                     Row(Modifier.padding(0.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1F)) {
-                            GeneralRootfsSelect_RootfsName(rootfsName, isCurr, mainVm) { oldName, newName, isCurr ->
-                                val result = onRootfsNameChange(oldName, newName, FuncOnChangeAction.EDIT)
-                                if (isCurr) onRootfsSelectChange(newName)//如果是当前的，保存名称
-                                return@GeneralRootfsSelect_RootfsName result
+                            GeneralRootfsSelect_RootfsName(rootfsName, isCurr, dialogState) { old, new ->
+                                onRootfsNameChange(old, new, FuncOnChangeAction.EDIT)
+                                if (isCurr) onRootfsSelectChange(new)
                             }
                             Spacer(Modifier.height(8.dp))
                             GeneralRootfsSelect_LoginUserSelect(rootfsName, userName, userNameOptions, onUserSelectChange)
@@ -316,28 +320,25 @@ fun GeneralRootfsSelect_LoginUserSelect(
 
 /**
  * [GeneralRootfsSelect] 的子布局。编辑该rootfs的名称
- * @param isCurr 此rootfs 是否为 [Consts.rootfsCurrDir] 所指向的rootfs
- * @param onRootfsNameChange (oldName, newName, isCurr) -> result . result参考 [SettingViewModel.onChangeRootfsName].
+ * @param onRootfsNameChange 传入oldRootfsName 和 newRootfsName
  *      当用户点击回车完成编辑 时，先提示用户确认，确认后执行此回调
  */
 @Composable
 fun GeneralRootfsSelect_RootfsName(
     rootfsName: String,
     isCurr: Boolean,
-    mainVm: MainViewModel = viewModel(),
-    onRootfsNameChange: suspend (String, String, Boolean) -> String,
+    dialogState: ConfirmDialogState,
+    onRootfsNameChange: suspend (String, String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     TextFieldOption(rootfsName, title = "Rootfs名称", outlined = true) {
 
         val newName = it.filter { ch -> !ch.isWhitespace() }
         scope.launch {
-            if (newName.isBlank()) return@launch
+            if (newName.isBlank() || newName == rootfsName) return@launch
             val extraTip = if (isCurr) "\n\n该Rootfs当前正在使用，重命名后会退出app，请手动重启。" else ""
-            if (mainVm.showConfirmDialog("是否将该Rootfs重命名为 $newName？$extraTip").getOrNull() == true) {
-                mainVm.showBlockDialogWithErrorConfirm("正在重命名...") {
-                    return@showBlockDialogWithErrorConfirm onRootfsNameChange(rootfsName, newName, isCurr)
-                }
+            dialogState.showConfirm("是否将该Rootfs重命名为 $newName？$extraTip") {
+                onRootfsNameChange(rootfsName, newName)
             }
         }
     }
@@ -369,10 +370,9 @@ fun GeneralShareDir(
     bindSet: Set<String>,
     onPathChange: FuncOnChange<String>,//suspend (String, Boolean) -> Unit,
 ) {
-    val mainVm: MainViewModel = viewModel()
-
     val scope = rememberCoroutineScope()
     val bindList = bindSet.sorted()
+    val dialogState = rememberConfirmDialogState()
     val selectFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         Log.d(TAG, "GeneralShareDir: 获取到uri $uri \npath=${uri.path}")
@@ -380,14 +380,16 @@ fun GeneralShareDir(
         val fullPath = if (path != null) "/storage/emulated/0/$path" else ""
         scope.launch {
             if (fullPath.isEmpty()) {
-                mainVm.showConfirmDialog("添加失败！无法获取该文件夹路径。\n\nuri: $uri")
+                dialogState.showConfirm("添加失败！无法获取该文件夹路径。\n\nuri: $uri")
             } else if (!File(fullPath).exists()) {
-                mainVm.showConfirmDialog("添加失败！该文件夹不存在。\n\npath: $fullPath \n\nuri: $uri")
+                dialogState.showConfirm("添加失败！该文件夹不存在。\n\npath: $fullPath \n\nuri: $uri")
             } else {
                 onPathChange(fullPath, fullPath, FuncOnChangeAction.ADD)
             }
         }
     }
+
+    ConfirmDialog(dialogState)
 
     TitleAndContent("共享文件夹", "在此处添加安卓上的文件夹。模拟器启动后可在容器内部访问这些文件夹。") {
         Column(
@@ -408,14 +410,14 @@ fun GeneralShareDir(
                     TextFieldOption(bind, Modifier.weight(1F), outlined = true) { newPath ->
                         scope.launch {
                             if (!File(newPath).exists())
-                                mainVm.showConfirmDialog("添加失败！该文件夹不存在。\n\npath: $newPath")
+                                dialogState.showConfirm("添加失败！该文件夹不存在。\n\npath: $newPath")
                             else
                                 onPathChange(bind, newPath, FuncOnChangeAction.EDIT)
                         }
                     }
                     IconButton(onClick = {
                         scope.launch {
-                            if (mainVm.showConfirmDialog("确定取消该文件夹共享吗？\n\n$bind").getOrNull() == true) {
+                            dialogState.showConfirm("确定取消该文件夹共享吗？\n\n$bind") {
                                 onPathChange(bind, bind, FuncOnChangeAction.DEL)
                             }
                         }
@@ -526,7 +528,7 @@ fun GeneralSettingsPreview() {
 //        GeneralRootfsLang(lang, langOptions, { lang = it })
 //        GeneralShareDir(shareDirSet, onChangeShareDir)
         GeneralRootfsSelect(
-            "rootfs-3", rootfsToLoginUserMap, loginUsersOptions, { _, _, _ -> "" }, { _ -> }, { _, _ -> })
+            "rootfs-3", rootfsToLoginUserMap, loginUsersOptions, { _, _, _ -> "" }, { _ -> }, { _, _ -> }, {})
     }
 }
 

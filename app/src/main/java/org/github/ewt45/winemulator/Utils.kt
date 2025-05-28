@@ -837,7 +837,7 @@ object Utils {
             storageLauncher = a.registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
                 if (!isGranted) {
                     CoroutineScope(Dispatchers.Default).launch {
-                        a.viewModel.showConfirmDialog("未获取存储权限!")
+                        a.mainViewModel.showConfirmDialog("未获取存储权限!")
                         requestStoragePermission()
                     }
                 } else {

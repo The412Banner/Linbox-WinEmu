@@ -2,7 +2,6 @@ package org.github.ewt45.winemulator.ui
 
 import a.io.github.ewt45.winemulator.R
 import android.content.Context
-import android.util.Log
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.MarginLayoutParams
@@ -40,14 +39,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,15 +55,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.withCreated
-import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
-import kotlinx.serialization.Serializable
+import androidx.navigation.navigation
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
 import org.github.ewt45.winemulator.ui.theme.MainTheme
@@ -76,16 +69,7 @@ import org.github.ewt45.winemulator.viewmodel.MainUiState
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
 import org.github.ewt45.winemulator.viewmodel.PrepareStageViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
-import kotlin.reflect.KClass
-
-@Serializable
-data object RouteTerminal
-
-@Serializable
-data object RouteX11
-
-@Serializable
-data object RouteSettings
+import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,34 +77,30 @@ data object RouteSettings
 fun MainScreen(
     modifier: Modifier = Modifier,
     tx11Content: (Context) -> View,
-    startDest: Destination = Destination.Terminal,
+    startDest: Destination = Destination.ExceptX11,
+    mainVM: MainViewModel,
+    terminalVM: TerminalViewModel,
+    settingVM: SettingViewModel,
+    prepareVM: PrepareStageViewModel,
 ) {
     val TAG = "MainScreen"
-    val viewModel: MainViewModel = viewModel()
-    val settingVM: SettingViewModel = viewModel()
-    val uiState by viewModel.uiState.collectAsState()
-    val prepareVM: PrepareStageViewModel = viewModel()
-
     val navController = rememberNavController()
 
+    val uiState by mainVM.uiState.collectAsState()
     val (minimize, setMinimize) = remember { mutableStateOf(false) }
-    val (showSetting, setShowSetting) = remember { mutableStateOf(false) }
     val isPreparing by remember { prepareVM.isNoRootfs }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currDestination = navBackStackEntry?.destination
-    navController.currentDestination
-//    val showAppBar = !isPreparing && currDestination?.hasRoute(RouteX11::class) == false
+    val currDestination = appbarDestList.find { navBackStackEntry?.destination?.hasRoute(it.route::class) == true }
 
-    //进入设置时手动更新一些可能过期的数据，比如文件列表。 这个不能直接放下面的if里，不然会频繁执行
-    LaunchedEffect(showSetting) {
-        if (showSetting) settingVM.updateValuesWhenEnterSettings()
-    }
+    val navigateTo: (Destination) -> Unit = { navController.navigate(it.route) }
+
+    //进入设置时手动更新一些可能过期的数据，比如文件列表。 这个不能直接放下面的if里，不然会频繁执行 （放到SettingScreen内部了）
+//    LaunchedEffect(currDestination) {
+//        if (currDestination == Destination.Settings) settingVM.updateValuesWhenEnterSettings()
+//    }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize(),
-//        .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
-//            .then(if (minimize) Modifier.clip(RoundedCornerShape(100.dp)) else Modifier),
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             MyTopAppBar(currDestination, { navController.navigate(it.route) })
         },
@@ -134,26 +114,19 @@ fun MainScreen(
                 .padding(top = innerPadding.calculateTopPadding()),
             contentAlignment = Alignment.Center,
         ) {
-            Column(
-                Modifier/*.padding(innerPadding)*/.fillMaxHeight()
-                    .widthIn(max = 600.dp)
-            ) {
-                if (isPreparing) {
-                    PrepareStageScreen()
-                } else if (!minimize) {
-                    NavHost(navController, startDest.route) {
-                        composable<RouteTerminal> { ProotTerminalScreen() }
+//            Column(Modifier.fillMaxHeight().widthIn(max = 600.dp)) { }
+            NavHost(navController, startDest.route) {
+                composable<RoutePrepare> { PrepareStageScreen(settingVM) }
+                composable<RouteX11> { X11Screen(tx11Content, navigateTo) }
+                navigation<RouteExceptX11>(startDestination = RouteTerminal) {
+                    composable<RouteTerminal> { ProotTerminalScreen(viewModel = terminalVM) }
 //                        composable<NavDest.Terminal> { TerminalScreen() }
-                        composable<RouteX11> {
-                            X11Screen(tx11Content, { navController.navigate(RouteTerminal) })
-                        }
-                        composable<RouteSettings> { SettingScreen() }
-                    }
+                    composable<RouteSettings> { SettingScreen(settingVM, terminalVM, navigateTo) }
                 }
             }
         }
 
-        MainDialog(uiState) { viewModel.closeConfirmDialog(it) }
+        MainDialog(uiState) { mainVM.closeConfirmDialog(it) }
 
     }
 }
@@ -205,10 +178,10 @@ private fun MainDialog(uiState: MainUiState, onClose: (Boolean) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MyTopAppBar(
-    currDestination: NavDestination?,
+    currDestination: Destination?,
     setDestination: (Destination) -> Unit,
 ) {
-    val selectIdx = appbarDestList.find { currDestination?.hasRoute(it.route::class) == true }?.let { appbarDestList.indexOf(it) }
+    val selectIdx = currDestination?.let{appbarDestList.indexOf(it)}
     if (selectIdx != null) {
         TopAppBar(
             title = {
@@ -330,12 +303,10 @@ private fun MainScreenPreview() {
     val (minimize, setMinimize) = remember { mutableStateOf(false) }
     val (showSetting, setShowSetting) = remember { mutableStateOf(false) }
     val isPreparing by remember { mutableStateOf(false) }
-    val destList = listOf(
-        RouteTerminal to "终端",
-        RouteSettings to "设置",
-    )
+
     val navController = rememberNavController()
     val navBackEntry by navController.currentBackStackEntryAsState()
+    val currDestination = appbarDestList.find { navBackEntry?.destination?.hasRoute(it.route::class) == true }
     MainTheme {
         Scaffold(
             modifier = Modifier
@@ -344,7 +315,7 @@ private fun MainScreenPreview() {
                 .then(if (minimize) Modifier.clip(RoundedCornerShape(100.dp)) else Modifier),
             topBar = {
                 if (!isPreparing) {
-                    MyTopAppBar(navBackEntry?.destination, { navController.navigate(it.route) })
+                    MyTopAppBar(currDestination, { navController.navigate(it.route) })
                 }
             },
         ) { innerPadding ->
@@ -359,7 +330,7 @@ private fun MainScreenPreview() {
                         .widthIn(max = 600.dp)
                 ) {
                     if (isPreparing) {
-                        PrepareStageScreen()
+                        PrepareStageScreenPreview()
                     } else {
                         if (!minimize) {
                             if (showSetting) SettingScreenPreview()

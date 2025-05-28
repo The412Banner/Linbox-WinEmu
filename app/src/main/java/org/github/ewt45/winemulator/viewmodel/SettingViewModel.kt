@@ -191,34 +191,31 @@ class SettingViewModel : ViewModel() {
     /**
      * 修改某rootfs文件夹名，或删除
      * 确保：重命名时，新名称不为 [Consts.rootfsCurrDir] 或其他已有名称。 删除时：[rootfsCurrDir] 链接不指向该rootfs
-     * @return 成功时为空字符串，失败时为失败原因
+     * @throws Exception 失败时抛出异常
      */
-    suspend fun onChangeRootfsName(oldName: String, newName: String, action: FuncOnChangeAction): String = withContext(Dispatchers.IO) {
-        val catchResult = runCatching {
-            when (action) {
-                FuncOnChangeAction.EDIT -> {
-                    if (newName == rootfsCurrDir.name || File(rootfsAllDir, newName).exists())
-                        return@runCatching "该文件已存在，无法重命名"
-                    File(rootfsAllDir, oldName).renameTo(File(rootfsAllDir, newName))
-                    // rootfs重命名后，登陆用户map中的rootfs键也要重命名
-                    onChangeRootfsLoginUser(newName, ProotRootfs.getPreferredUser(newName).name)
-                }
-
-                FuncOnChangeAction.ADD -> Unit
-                FuncOnChangeAction.DEL -> {
-                    if (newName == rootfsCurrDir.name || newName == rootfsCurrDir.canonicalFile.name)
-                        return@runCatching "该Rootfs当前正在运行，无法删除"
-                    //不知为绑定的那些（dev, proc）文件夹用java方法无法删除。用rm -r 倒是可以
-                    val output = Utils.readLinesProcessOutput(ProcessBuilder(listOf("sh","-c", "rm -r ${File(rootfsAllDir, oldName).absolutePath}"))
-                        .redirectErrorStream(true).start())
-                    if (output.isNotBlank()) throw RuntimeException(output)
-                    // rootfs删除后，登陆用户map中的rootfs键也要删除 随便给一个不存在userName 会被删掉
-                    onChangeRootfsLoginUser(newName, "stub")
-                }
+    @Throws(Exception::class)
+    suspend fun onChangeRootfsName(oldName: String, newName: String, action: FuncOnChangeAction) = withContext(IO) {
+        when (action) {
+            FuncOnChangeAction.EDIT -> {
+                if (newName == rootfsCurrDir.name || File(rootfsAllDir, newName).exists())
+                    throw RuntimeException("该文件已存在，无法重命名")
+                File(rootfsAllDir, oldName).renameTo(File(rootfsAllDir, newName))
+                // rootfs重命名后，登陆用户map中的rootfs键也要重命名
+                onChangeRootfsLoginUser(newName, ProotRootfs.getPreferredUser(newName).name)
             }
-            return@runCatching ""
+
+            FuncOnChangeAction.ADD -> Unit
+            FuncOnChangeAction.DEL -> {
+                if (newName == rootfsCurrDir.name || newName == rootfsCurrDir.canonicalFile.name)
+                    throw RuntimeException("该Rootfs当前正在运行，无法删除")
+                //不知为绑定的那些（dev, proc）文件夹用java方法无法删除。用rm -r 倒是可以
+                val output = Utils.readLinesProcessOutput(ProcessBuilder(listOf("sh","-c", "rm -r ${File(rootfsAllDir, oldName).absolutePath}"))
+                    .redirectErrorStream(true).start())
+                if (output.isNotBlank()) throw RuntimeException(output)
+                // rootfs删除后，登陆用户map中的rootfs键也要删除 随便给一个不存在userName 会被删掉
+                onChangeRootfsLoginUser(newName, "stub")
+            }
         }
-        return@withContext if (catchResult.isSuccess) catchResult.getOrNull()!! else catchResult.exceptionOrNull()!!.stackTraceToString()
     }
 
     /** 使用[ProotRootfs.getUserInfos]从本地读取rootfs全部可用的用户列表. rootfs 不包含 [rootfsCurrDir] */

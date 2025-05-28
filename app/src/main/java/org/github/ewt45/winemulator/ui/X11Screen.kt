@@ -38,14 +38,14 @@ import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
 
 @Composable
-fun X11Screen(x11Content: (Context) -> View, onNavigateToOthers: () -> Unit) {
+fun X11Screen(x11Content: (Context) -> View, onNavigateToOthers: (Destination) -> Unit) {
     X11ScreenImpl(x11Content, onNavigateToOthers)
 }
 
 @Composable
 private fun X11ScreenImpl(
     x11Content: (Context) -> View,
-    onNavigateToOthers: () -> Unit,
+    onNavigateToOthers: (Destination) -> Unit,
 ) {
     var currOffset by remember { mutableStateOf(Offset(0f, 0f)) }
     var isDragging by remember { mutableStateOf(false) }
@@ -69,9 +69,8 @@ private fun X11ScreenImpl(
                             // 这里我们不做吸附，保持在最后释放的位置
                         }
                     )
-                }
-                ,
-            onExpand = onNavigateToOthers,
+                },
+            onExpand = { onNavigateToOthers(Destination.ExceptX11) },
         )
     }
 }

@@ -1,5 +1,6 @@
 package org.github.ewt45.winemulator.ui
 
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +14,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,41 +25,48 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.Consts
+import org.github.ewt45.winemulator.ui.components.ConfirmDialog
+import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
 import org.github.ewt45.winemulator.ui.setting.DebugSettings
 import org.github.ewt45.winemulator.ui.setting.DebugSettingsImpl
 import org.github.ewt45.winemulator.ui.setting.GeneralSettings
 import org.github.ewt45.winemulator.ui.setting.GeneralSettingsPreview
 import org.github.ewt45.winemulator.ui.setting.ProotSettings
 import org.github.ewt45.winemulator.ui.setting.ProotSettingsPreview
-import org.github.ewt45.winemulator.viewmodel.MainViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingAction
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
+import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 
 @Composable
-fun SettingScreen(modifier: Modifier = Modifier) {
+fun SettingScreen(
+    settingVm: SettingViewModel,
+    terminalVM: TerminalViewModel,
+    navigateTo: (Destination) -> Unit
+) {
     val TAG = "SettingScreen"
-    val mainViewModel: MainViewModel = viewModel()
-    val settingViewModel: SettingViewModel = viewModel()
     val scope = rememberCoroutineScope()
+    //进入设置时手动更新一些可能过期的数据，比如文件列表。
+    SideEffect {
+        Log.e(TAG, "SettingScreen: 如果在SettingScreen内部刷新的话会重复执行吗")
+        settingVm.updateValuesWhenEnterSettings()
+    }
     Column(
-        modifier.verticalScroll(rememberScrollState()),
+        Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        TopBarActions(modifier = Modifier.align(Alignment.End))
+        TopBarActions(modifier = Modifier.align(Alignment.End), settingVm)
         if (Consts.isDebug) {
-            DebugSettings()
+            DebugSettings(terminalVM, navigateTo)
             HorizontalDivider()
         }
-        GeneralSettings()
+        GeneralSettings(settingVm, navigateTo)
         HorizontalDivider()
-        ProotSettings()
+        ProotSettings(settingVm)
         Spacer(Modifier.height(16.dp))
     }
 }
-
 
 
 /**
@@ -67,18 +75,18 @@ fun SettingScreen(modifier: Modifier = Modifier) {
 @Composable
 fun TopBarActions(
     modifier: Modifier = Modifier,
+    settingVM: SettingViewModel,
 ) {
-    val mainVM: MainViewModel = viewModel()
-    val settingVM: SettingViewModel = viewModel()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val dialogState = rememberConfirmDialogState()
     //导出时 保存为文件
     val saveFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val th = settingVM.exportSettings(ctx, uri).exceptionOrNull()
             val resultStr = if (th != null) "导出失败。错误信息：\n\n${th.stackTraceToString()}" else "导出成功！"
-            mainVM.showConfirmDialog(resultStr)
+            dialogState.showConfirm(resultStr)
         }
 
     }
@@ -89,31 +97,24 @@ fun TopBarActions(
             val th = settingVM.importSettings(ctx, uri).exceptionOrNull()
             th?.printStackTrace()
             val resultStr = if (th != null) "导入失败。错误信息：\n\n${th.stackTraceToString()}" else "导入成功！"
-            mainVM.showConfirmDialog(resultStr)
+            dialogState.showConfirm(resultStr)
         }
     }
 
     val onClick: (SettingAction) -> Unit = { action ->
-        scope.launch {
-            when (action) {
-                SettingAction.EXPORT -> {
-                    if (mainVM.showConfirmDialog("将设置导出为Json文件。请选择文件保存位置。").getOrNull() == true)
-                        saveFileLauncher.launch("preferences.json")
-                }
+        when (action) {
+            SettingAction.EXPORT ->
+                dialogState.showConfirm("将设置导出为Json文件。请选择文件保存位置。") { saveFileLauncher.launch("preferences.json") }
 
-                SettingAction.IMPORT -> {
-                    if (mainVM.showConfirmDialog("导入本地Json文件更新设置。请选择文件所在位置。").getOrNull() == true)
-                        readFileLauncher.launch(arrayOf("text/*", "application/json"))
-                }
+            SettingAction.IMPORT ->
+                dialogState.showConfirm("导入本地Json文件更新设置。请选择文件所在位置。") { readFileLauncher.launch(arrayOf("text/*", "application/json")) }
 
-                SettingAction.RESET -> {
-                    if (mainVM.showConfirmDialog("将全部选项恢复为默认。是否执行此操作？").getOrNull() == true)
-                        settingVM.resetSettings()
-                }
-            }
+            SettingAction.RESET ->
+                dialogState.showConfirm("导入本地Json文件更新设置。请选择文件所在位置。") { settingVM.resetSettings() }
         }
     }
 
+    ConfirmDialog(dialogState)
     TopBarActions(modifier, onClick = onClick)
 }
 

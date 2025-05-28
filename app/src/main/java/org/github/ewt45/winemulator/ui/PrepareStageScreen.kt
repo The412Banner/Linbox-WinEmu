@@ -37,17 +37,18 @@ import org.github.ewt45.winemulator.FuncOnChangeAction
 import org.github.ewt45.winemulator.MainEmuActivity
 import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.emu.ProotRootfs
+import org.github.ewt45.winemulator.ui.components.ConfirmDialog
+import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_LoginUserSelect
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_RootfsName
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import java.io.File
 
 @Composable
-fun PrepareStageScreen() {
-    val setting: SettingViewModel = viewModel()
+fun PrepareStageScreen(settingVm: SettingViewModel) {
     RootfsSelectScreen(
         getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
-        setting::onChangeRootfsLoginUser, setting::onChangeRootfsName
+        settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName
     )
 }
 
@@ -61,7 +62,7 @@ fun PrepareStageScreen() {
 fun RootfsSelectScreen(
     getAvailableUsers: (String) -> List<String>,
     onChangeUser: suspend (String, String) -> Unit,
-    onRootfsNameChange: suspend (String, String, FuncOnChangeAction) -> String,
+    onRootfsNameChange: suspend (String, String, FuncOnChangeAction) -> Unit,
     initStage: ProgressStage = ProgressStage.NOT_STARTED,
     initRootfsName: String = "",
 ) {
@@ -76,6 +77,7 @@ fun RootfsSelectScreen(
     val reporter = Utils.TaskReporter.createTaskReporter(progress, msgTitle, msg)
     var rootfsName by remember { mutableStateOf(initRootfsName) }
     var isSetCurrent by remember { mutableStateOf(true) }
+    val dialogState = rememberConfirmDialogState()
 
     val readFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -101,6 +103,7 @@ fun RootfsSelectScreen(
         }
     }
 
+    ConfirmDialog(dialogState)
     Column(
         Modifier
             .fillMaxSize()
@@ -136,7 +139,7 @@ fun RootfsSelectScreen(
                 HorizontalDivider(Modifier.padding(16.dp), 2.dp)
                 Text("退出之前，您还可以编辑以下内容")
 
-                GeneralRootfsSelect_RootfsName(rootfsName, false) { oldRootfsName, newRootfsName, _ ->
+                GeneralRootfsSelect_RootfsName(rootfsName, false, dialogState) { oldRootfsName, newRootfsName ->
                     onRootfsNameChange(oldRootfsName, newRootfsName, FuncOnChangeAction.EDIT)
                 }
 
@@ -161,6 +164,8 @@ fun RootfsSelectScreen(
 //@Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun PrepareStageScreenFinishPreview() {
+    val dialogState = rememberConfirmDialogState()
+    ConfirmDialog(dialogState)
     ElevatedCard(Modifier.padding(16.dp)) {
         Column(
             Modifier.padding(16.dp),
@@ -170,7 +175,7 @@ fun PrepareStageScreenFinishPreview() {
             Text("退出之前，您还可以编辑以下内容。。")
 
             Spacer(Modifier.height(16.dp))
-            GeneralRootfsSelect_RootfsName("rootfs-1", false) { _, _, _ -> "" }
+            GeneralRootfsSelect_RootfsName("rootfs-1", false, dialogState) { _,_-> }
 
             val userList = listOf("root", "aid_u0_a287", "iuser").filter { !it.startsWith("aid_") }.sorted()
             val nonRootUser = userList.find { it != "root" }

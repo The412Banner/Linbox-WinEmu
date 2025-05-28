@@ -38,7 +38,7 @@ import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 @Composable
 fun ProotTerminalScreen(
     modifier: Modifier = Modifier,
-    viewModel: TerminalViewModel = viewModel(),
+    viewModel: TerminalViewModel,
 ) {
     val TAG = "ProotOutputScreen"
     val output = viewModel.output
@@ -95,7 +95,7 @@ fun ProotTerminalScreen(
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = {onSend()})
+            keyboardActions = KeyboardActions(onSend = { onSend() })
         )
     }
 }
