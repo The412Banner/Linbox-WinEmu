@@ -860,6 +860,11 @@ object Utils {
                 override fun parseResult(resultCode: Int, intent: Intent?) =
                     NotificationManagerCompat.from(MainEmuApplication.i).areNotificationsEnabled()
 
+                override fun getSynchronousResult(context: Context, input: String): SynchronousResult<Boolean>? {
+                    val granted = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                    return if (granted) SynchronousResult(true) else null
+                }
+
             }, callback = onActivityResult)
 
             // 手动在onDestroy时调用unregister

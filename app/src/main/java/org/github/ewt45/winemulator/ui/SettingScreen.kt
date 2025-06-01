@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +34,8 @@ import org.github.ewt45.winemulator.ui.setting.DebugSettings
 import org.github.ewt45.winemulator.ui.setting.DebugSettingsImpl
 import org.github.ewt45.winemulator.ui.setting.GeneralSettings
 import org.github.ewt45.winemulator.ui.setting.GeneralSettingsPreview
+import org.github.ewt45.winemulator.ui.setting.MiscSettings
+import org.github.ewt45.winemulator.ui.setting.MiscSettingsPreview
 import org.github.ewt45.winemulator.ui.setting.ProotSettings
 import org.github.ewt45.winemulator.ui.setting.ProotSettingsPreview
 import org.github.ewt45.winemulator.viewmodel.SettingAction
@@ -53,7 +56,7 @@ fun SettingScreen(
         settingVm.updateValuesWhenEnterSettings()
     }
     Column(
-        Modifier.verticalScroll(rememberScrollState()),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TopBarActions(modifier = Modifier.align(Alignment.End), settingVm)
@@ -64,6 +67,7 @@ fun SettingScreen(
         GeneralSettings(settingVm, navigateTo)
         HorizontalDivider()
         ProotSettings(settingVm)
+        MiscSettings(navigateTo)
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -131,11 +135,9 @@ fun TopBarActions(
 }
 
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, widthDp = 350, heightDp = 600)
 @Composable
 fun SettingScreenPreview() {
-//    SettingScreen()
-    var resolution by remember { mutableStateOf("800x600") }
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -150,9 +152,7 @@ fun SettingScreenPreview() {
         GeneralSettingsPreview()
         HorizontalDivider()
         ProotSettingsPreview()
+        MiscSettingsPreview()
     }
-
-//    var finalCmd by remember { mutableStateOf("") }
-//    ProotStartupCmd(finalCmd) {finalCmd = it.replace("\n", " ").trim().trimEnd('&').trim()}
 }
 

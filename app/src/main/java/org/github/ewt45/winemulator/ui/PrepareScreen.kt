@@ -23,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -70,7 +71,7 @@ fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navi
 fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
     val state by prepareVm.uiState.collectAsStateWithLifecycle()
     // 准备完成 退出prepareScreen
-    if (state.prepareFinished()) {
+    if (state.isPrepareFinished) {
         LaunchedEffect(Unit) {
             if (state.shouldRestart) MainEmuActivity.instance.finish()
             else navigateToMainScreen()
@@ -84,31 +85,26 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
     }
     // 显示对应内容
     else {
-        val lackPermissions = state.unGrantedPermissions.isNotEmpty()
-        val title = if (lackPermissions) "权限" else if (state.noRootfs) "Rootfs" else ""
+        val lackPermissions = !(state.skipPermissions || state.unGrantedPermissions.isEmpty())
         var isRequestingPermission by remember { mutableStateOf(false) } // 禁止重复点击授予按钮
         Column(
             Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CenterAlignedTopAppBar(title = { Text(title) })
-            Spacer(Modifier.height(16.dp))
-            Box(Modifier.padding(16.dp)) {
-                if (lackPermissions) {
-                    PermissionGrant(isRequestingPermission, state.unGrantedPermissions) { permission ->
-                        if (isRequestingPermission) return@PermissionGrant
-                        isRequestingPermission = true
-                        Utils.Permissions.request(permission.permission) { isGranted ->
-                            if (isGranted) prepareVm.onGrantedPermission(permission);
-                            isRequestingPermission = false
-                        }
+            if (lackPermissions) {
+                PermissionGrant(isRequestingPermission, state.unGrantedPermissions, { prepareVm.onSkipPermissions() }) { permission ->
+                    if (isRequestingPermission) return@PermissionGrant
+                    isRequestingPermission = true
+                    Utils.Permissions.request(permission.permission) { isGranted ->
+                        if (isGranted) prepareVm.onGrantedPermission(permission);
+                        isRequestingPermission = false
                     }
-                } else if (state.noRootfs || state.forceNoRootfs) {
-                    RootfsSelect(
-                        getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
-                        settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName
-                    )
                 }
+            } else if (state.noRootfs || state.forceNoRootfs) {
+                RootfsSelect(
+                    getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
+                    settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName
+                )
             }
         }
     }
@@ -118,13 +114,20 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
  * 显示用户应该授予的权限
  * @param onRequest 用户点击“授权按钮”的回调
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PermissionGrant(
     isRequestingPermission: Boolean,
     permissions: List<RequiredPermissions>,
+    onSkip: () -> Unit,
     onRequest: (RequiredPermissions) -> Unit
 ) {
-    Column(Modifier.fillMaxSize()) {
+    CenterAlignedTopAppBar(
+        title = { Text("权限") },
+        actions = { TextButton(onSkip) { Text("跳过") } }
+    )
+    Spacer(Modifier.height(16.dp))
+    Column(Modifier.padding(16.dp)) {
         Text("为确保app正常运行，请授予以下权限。或者点击“跳过”，不授予权限。")
         Spacer(Modifier.height(32.dp))
         permissions.forEach { item ->
@@ -151,6 +154,7 @@ private fun PermissionGrant(
  * @param onChangeUser 参考 [SettingViewModel.onChangeRootfsLoginUser]
  * @param onRootfsNameChange 参考 [SettingViewModel.onChangeRootfsName]
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RootfsSelect(
     getAvailableUsers: (String) -> List<String>,
@@ -197,11 +201,14 @@ private fun RootfsSelect(
     }
 
     ConfirmDialog(dialogState)
+
+    CenterAlignedTopAppBar(title = { Text("Rootfs") })
+    Spacer(Modifier.height(16.dp))
     Column(
         Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.Center,
+//        verticalArrangement = Arrangement.Center,
     ) {
         Column(
             Modifier.verticalScroll(rememberScrollState()),
@@ -255,9 +262,10 @@ private fun RootfsSelect(
 }
 
 @Preview
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PrepareScreenPreview2() {
+fun PrepareScreenPreview(
+    initLackPermissions: Boolean = true,
+) {
     val isLoading = false
     val noRootfs = true
     val forceNoRootfs = false
@@ -269,7 +277,7 @@ private fun PrepareScreenPreview2() {
             )
         )
     }
-
+    var skipPermissions by remember { mutableStateOf(false) }
     // 加载中
     if (isLoading) {
         Box(Modifier.fillMaxSize()) {
@@ -278,32 +286,26 @@ private fun PrepareScreenPreview2() {
     }
     // 显示对应内容
     else {
-        val lackPermissions = unGrantedPermissions.isNotEmpty()
-        val title = if (lackPermissions) "权限" else if (noRootfs) "Rootfs" else ""
+        val lackPermissions = !(skipPermissions || unGrantedPermissions.isEmpty()) && initLackPermissions
         var isRequestingPermission by remember { mutableStateOf(false) } // 禁止重复点击授予按钮
         Column(
             Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CenterAlignedTopAppBar(title = { Text(title) })
-            Spacer(Modifier.height(16.dp))
-            Box(Modifier.padding(16.dp)) {
-                if (lackPermissions) {
-                    PermissionGrant(isRequestingPermission, unGrantedPermissions) { permission ->
-                        if (!isRequestingPermission) {
-                            isRequestingPermission = true
-                            CoroutineScope(Dispatchers.Default).launch {
-                                delay(1000)
-                                unGrantedPermissions = unGrantedPermissions - permission
-                                isRequestingPermission = false
-                            }
-
+            if (lackPermissions) {
+                PermissionGrant(isRequestingPermission, unGrantedPermissions, { skipPermissions = true }) { permission ->
+                    if (!isRequestingPermission) {
+                        isRequestingPermission = true
+                        CoroutineScope(Dispatchers.Default).launch {
+                            delay(1000)
+                            unGrantedPermissions = unGrantedPermissions - permission
+                            isRequestingPermission = false
                         }
                     }
-                } else if (noRootfs || forceNoRootfs) {
-                    val stage = ProgressStage.DONE_SUCCESS
-                    RootfsSelect({ listOf("iuser", "root") }, { _, _ -> }, { _, _, _ -> "" }, stage, "rootfs-1")
                 }
+            } else if (noRootfs || forceNoRootfs) {
+                val stage = ProgressStage.DONE_SUCCESS
+                RootfsSelect({ listOf("iuser", "root") }, { _, _ -> }, { _, _, _ -> "" }, stage, "rootfs-1")
             }
         }
     }
@@ -339,13 +341,4 @@ private fun PrepareStageScreenFinishPreview() {
             }
         }
     }
-}
-
-//@Preview(widthDp = 300, heightDp = 600)
-@Composable
-fun PrepareStageScreenPreview() {
-    val stage = ProgressStage.DONE_SUCCESS
-    RootfsSelect({ listOf("iuser", "root") }, { _, _ -> }, { _, _, _ -> "" }, stage, "rootfs-1")
-
-    Spacer(Modifier.height(32.dp))
 }

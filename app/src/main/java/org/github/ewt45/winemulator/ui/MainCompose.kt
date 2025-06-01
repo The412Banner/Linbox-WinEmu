@@ -56,6 +56,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -87,20 +88,20 @@ fun MainScreen(
     val navController = rememberNavController()
 
     val uiState by mainVM.uiState.collectAsState()
+    val prepareUiState by prepareVM.uiState.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currDestination = appbarDestList.find { navBackStackEntry?.destination?.hasRoute(it.route::class) == true }
+    val currDestination = appbarDestList.find { navBackStackEntry?.destination?.hasRoute(it.route::class) == true } ?: startDest
 
     val navigateTo: (Destination) -> Unit = { navController.navigate(it.route) }
 
-    //进入设置时手动更新一些可能过期的数据，比如文件列表。 这个不能直接放下面的if里，不然会频繁执行 （放到SettingScreen内部了）
-//    LaunchedEffect(currDestination) {
-//        if (currDestination == Destination.Settings) settingVM.updateValuesWhenEnterSettings()
-//    }
     // acitivty通过viewmodel修改目的地时，触发跳转
     LaunchedEffect(Unit) {
-        mainVM.navigateToEvent.collect { dest ->
-            navController.navigate(dest.route)
-        }
+        mainVM.navigateToEvent.collect { dest -> navController.navigate(dest.route) }
+    }
+    // 开头或中途 需要进入准备屏幕时
+    LaunchedEffect(prepareUiState.isPrepareFinished) {
+        if (!prepareUiState.isPrepareFinished && currDestination != Destination.Prepare)
+            navigateTo(Destination.Prepare)
     }
 
     Scaffold(
@@ -194,7 +195,7 @@ private fun MyTopAppBar(
     setDestination: (Destination) -> Unit,
 ) {
     val selectIdx = currDestination?.let { appbarDestList.indexOf(it) }
-    if (selectIdx != null) {
+    if (selectIdx != null && selectIdx != -1) {
         TopAppBar(
             title = {
                 //TODO 改为 navigation  参考 https://developer.android.com/develop/ui/compose/components/tabs?hl=zh-cn
@@ -227,7 +228,7 @@ private fun MyTopAppBar(
  * 可拖动: 由于x11的acitivity是View视图，所以拖动还是要用view的layoutParam实现。
  */
 @Composable
-fun MinimizeButton(
+private fun MinimizeButton(
     minimize: Boolean,
     onClick: () -> Unit,
 ) {
@@ -342,7 +343,7 @@ private fun MainScreenPreview() {
                         .widthIn(max = 600.dp)
                 ) {
                     if (isPreparing) {
-                        PrepareStageScreenPreview()
+                        PrepareScreenPreview(initLackPermissions = true)
                     } else {
                         if (!minimize) {
                             if (showSetting) SettingScreenPreview()

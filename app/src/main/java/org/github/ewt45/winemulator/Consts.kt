@@ -99,6 +99,8 @@ object Consts {
             val curr_rootfs_name by item("local_curr_rootfs_name", "")
             /** 记录当前存在的rootfs 如果要使用该rootfs, 应该登陆哪个用户。 存为json字符串。转换时应该变成一个map, key是rootfs文件夹名, value是用户名  */
             val rootfs_login_user_json by item("local_rootfs_login_user", "{}")
+            /** 跳过权限申请 */
+            val skip_permissions by item("skip_permissions", false)
         }
 
         /**
