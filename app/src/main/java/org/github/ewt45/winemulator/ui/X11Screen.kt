@@ -48,23 +48,19 @@ private fun X11ScreenImpl(
     onNavigateToOthers: (Destination) -> Unit,
 ) {
     var currOffset by remember { mutableStateOf(Offset(0f, 0f)) }
-    var isDragging by remember { mutableStateOf(false) }
 
     Box(Modifier.onGloballyPositioned { }) {
         AndroidView(x11Content, Modifier.fillMaxSize())
-        Text(if (isDragging) "正在拖拽" else "没在拖拽", Modifier.align(Alignment.BottomEnd))
         MiniButton2(
             Modifier
                 .size(Consts.Ui.minimizedIconSize.dp)
                 .offset { IntOffset(currOffset.x.toInt(), currOffset.y.toInt()) } // 要先offset再pointerInput...不然可触摸区域不会变
                 .pointerInput(Unit) {
                     detectDragGestures(
-                        onDragStart = { isDragging = true },
                         onDrag = { change, dragAmount ->
                             currOffset += dragAmount
                         },
                         onDragEnd = {
-                            isDragging = false
                             // 拖拽结束时可以执行一些操作，例如吸附到边缘等
                             // 这里我们不做吸附，保持在最后释放的位置
                         }

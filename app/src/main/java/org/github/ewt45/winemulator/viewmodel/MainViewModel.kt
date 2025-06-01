@@ -3,12 +3,16 @@ package org.github.ewt45.winemulator.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.FuncOnChangeAction
+import org.github.ewt45.winemulator.ui.Destination
 
 /**
  * 用于 MainViewModel 的state
@@ -34,6 +38,13 @@ sealed interface DialogType {
 class MainViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    private val _navigateToEvent = MutableSharedFlow<Destination>()
+    val navigateToEvent: SharedFlow<Destination> = _navigateToEvent.asSharedFlow()
+
+    fun navigateToPrepareScreen() {
+        _navigateToEvent.tryEmit(Destination.Prepare)
+    }
 
     //用法：起始位置赋值为CompletableDeferred()，然后执行.await()等待。 结束位置调用.complete()，然后起始位置那里.await()会返回
     private var dialogDeferred: CompletableDeferred<Result<Boolean>>? = null

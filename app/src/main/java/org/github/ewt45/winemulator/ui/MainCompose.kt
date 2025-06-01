@@ -6,6 +6,8 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.MarginLayoutParams
 import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +56,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -67,7 +68,7 @@ import org.github.ewt45.winemulator.ui.theme.MainTheme
 import org.github.ewt45.winemulator.viewmodel.DialogType
 import org.github.ewt45.winemulator.viewmodel.MainUiState
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
-import org.github.ewt45.winemulator.viewmodel.PrepareStageViewModel
+import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 
@@ -75,20 +76,17 @@ import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    modifier: Modifier = Modifier,
     tx11Content: (Context) -> View,
-    startDest: Destination = Destination.ExceptX11,
+    startDest: Destination,
     mainVM: MainViewModel,
     terminalVM: TerminalViewModel,
     settingVM: SettingViewModel,
-    prepareVM: PrepareStageViewModel,
+    prepareVM: PrepareViewModel,
 ) {
     val TAG = "MainScreen"
     val navController = rememberNavController()
 
     val uiState by mainVM.uiState.collectAsState()
-    val (minimize, setMinimize) = remember { mutableStateOf(false) }
-    val isPreparing by remember { prepareVM.isNoRootfs }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currDestination = appbarDestList.find { navBackStackEntry?.destination?.hasRoute(it.route::class) == true }
 
@@ -98,6 +96,12 @@ fun MainScreen(
 //    LaunchedEffect(currDestination) {
 //        if (currDestination == Destination.Settings) settingVM.updateValuesWhenEnterSettings()
 //    }
+    // acitivty通过viewmodel修改目的地时，触发跳转
+    LaunchedEffect(Unit) {
+        mainVM.navigateToEvent.collect { dest ->
+            navController.navigate(dest.route)
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -115,8 +119,16 @@ fun MainScreen(
             contentAlignment = Alignment.Center,
         ) {
 //            Column(Modifier.fillMaxHeight().widthIn(max = 600.dp)) { }
-            NavHost(navController, startDest.route) {
-                composable<RoutePrepare> { PrepareStageScreen(settingVM) }
+            NavHost(
+                navController, startDest.route,
+                enterTransition = { scaleIn() },
+                exitTransition = { scaleOut() },
+            ) {
+                composable<RoutePrepare> {
+                    PrepareScreen(
+                        prepareVM, settingVM,
+                        { navController.navigate(Destination.ExceptX11.route) { popUpTo(Destination.Prepare.route) { inclusive = true } } })
+                }
                 composable<RouteX11> { X11Screen(tx11Content, navigateTo) }
                 navigation<RouteExceptX11>(startDestination = RouteTerminal) {
                     composable<RouteTerminal> { ProotTerminalScreen(viewModel = terminalVM) }
@@ -181,7 +193,7 @@ private fun MyTopAppBar(
     currDestination: Destination?,
     setDestination: (Destination) -> Unit,
 ) {
-    val selectIdx = currDestination?.let{appbarDestList.indexOf(it)}
+    val selectIdx = currDestination?.let { appbarDestList.indexOf(it) }
     if (selectIdx != null) {
         TopAppBar(
             title = {

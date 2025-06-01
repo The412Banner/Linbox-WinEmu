@@ -9,16 +9,24 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.system.Os
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.core.app.NotificationManagerCompat
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
@@ -832,30 +840,58 @@ object Utils {
     }
 
     object Permissions {
-        lateinit var storageLauncher: ActivityResultLauncher<String>
+        private var requestLauncher: ActivityResultLauncher<String>? = null
+        private var notificationRequestLauncher: ActivityResultLauncher<String>? = null
+
+        /** 在授予结果返回时 执行一次 */
+        private var requestLauncherCallback: ((Boolean) -> Unit)? = null
         fun registerForActivityResult(a: MainEmuActivity) {
-            storageLauncher = a.registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-                if (!isGranted) {
-                    CoroutineScope(Dispatchers.Default).launch {
-                        a.mainViewModel.showConfirmDialog("未获取存储权限!")
-                        requestStoragePermission()
-                    }
-                } else {
-                    //获取权限后 启动模拟器
-                    MainEmuActivity.instance.startEmu()
-                }
+            val onActivityResult: (Boolean) -> Unit = { isGranted ->
+                requestLauncherCallback?.invoke(isGranted)
+                requestLauncherCallback = null
             }
+            requestLauncher = a.registerForActivityResult(ActivityResultContracts.RequestPermission(), onActivityResult)
+            notificationRequestLauncher = a.registerForActivityResult(object : ActivityResultContract<String, Boolean>() {
+                override fun createIntent(context: Context, input: String) = Intent().apply {
+                    action = android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                    putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, MainEmuApplication.i.packageName)
+                }
+
+                override fun parseResult(resultCode: Int, intent: Intent?) =
+                    NotificationManagerCompat.from(MainEmuApplication.i).areNotificationsEnabled()
+
+            }, callback = onActivityResult)
+
+            // 手动在onDestroy时调用unregister
+            a.lifecycle.addObserver(object : DefaultLifecycleObserver {
+                override fun onDestroy(owner: LifecycleOwner) {
+                    requestLauncher?.unregister()
+                    requestLauncher = null
+                    notificationRequestLauncher?.unregister()
+                    notificationRequestLauncher = null
+                }
+            })
         }
 
-        /** 检查是否有存储权限。如果没有则申请。返回当前是否有权限 */
-        fun checkStoragePermission(a: MainEmuActivity): Boolean {
-            val granted = a.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-            if (!granted) requestStoragePermission()
-            return granted
+        /** 检查一个权限是否已经获取 */
+        fun isGranted(ctx: Context, permission: String): Boolean {
+            if (permission == android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS) {
+                return NotificationManagerCompat.from(ctx).areNotificationsEnabled()
+            }
+            return ctx.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
         }
 
-        private fun requestStoragePermission() {
-            storageLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        /**
+         * 申请一个权限。注意请勿在上一个申请结果返回时再次调用，否则onResult会被覆盖为本次的函数
+         * @param onResult [requestLauncher] 申请权限后的回调，参数为isGranted
+         */
+        fun request(permission: String, onResult: (Boolean) -> Unit) {
+            requestLauncherCallback = onResult
+            if (permission == android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS) {
+                notificationRequestLauncher?.launch(permission)
+            } else {
+                requestLauncher?.launch(permission)
+            }
         }
     }
 

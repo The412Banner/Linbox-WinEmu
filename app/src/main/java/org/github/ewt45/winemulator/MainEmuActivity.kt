@@ -35,7 +35,7 @@ import org.github.ewt45.winemulator.terminal.ViewClientImpl
 import org.github.ewt45.winemulator.ui.Destination
 import org.github.ewt45.winemulator.ui.MainScreen
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
-import org.github.ewt45.winemulator.viewmodel.PrepareStageViewModel
+import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 
@@ -45,7 +45,7 @@ class MainEmuActivity : MainActivity() {
     val mainViewModel: MainViewModel by viewModels()
     val terminalViewModel: TerminalViewModel by viewModels()
     val settingViewModel: SettingViewModel by viewModels()
-    val prepareViewModel: PrepareStageViewModel by viewModels()
+    val prepareViewModel: PrepareViewModel by viewModels()
     private lateinit var startX11Intent: Intent
     private var emuStarted: Boolean = false
     val sessionClient: SessionClientAImpl = SessionClientAImpl(this)
@@ -105,20 +105,28 @@ class MainEmuActivity : MainActivity() {
                 val x11ViewFactory:(Context) -> View = {
                     frm.also { (frm.parent as? ViewGroup)?.removeView(frm) }
                 }
-                MainScreen(Modifier,x11ViewFactory, Destination.ExceptX11, mainViewModel, terminalViewModel, settingViewModel, prepareViewModel)
+                MainScreen(
+                    tx11Content = { frm.also { (frm.parent as? ViewGroup)?.removeView(frm) } },
+                    startDest = Destination.Prepare,
+                    mainVM = mainViewModel,
+                    terminalVM = terminalViewModel,
+                    settingVM = settingViewModel,
+                    prepareVM = prepareViewModel
+                )
             }
         }
 
         enableEdgeToEdge()
 
-        val noRootfs = Utils.Rootfs.haveNoRootfs()
-        val haveStoragePermission = Utils.Permissions.checkStoragePermission(this)
-        prepareViewModel.setNoRootfs(noRootfs)
-        if (!noRootfs && haveStoragePermission) {
-            startEmu()
-
-            //尝试termux终端
-        }
+        //TODO 这里改到PrepareVieModel
+//        val noRootfs = Utils.Rootfs.haveNoRootfs()
+//         val haveStoragePermission = Utils.Permissions.checkStoragePermission(this)
+//        prepareViewModel.setNoRootfs(noRootfs)
+//        if (!noRootfs && haveStoragePermission) {
+//            startEmu()
+//
+//            //尝试termux终端
+//        }
     }
 
     fun startEmu() {
@@ -136,6 +144,7 @@ class MainEmuActivity : MainActivity() {
             val selectedRootfs = Utils.Rootfs.getSelectedRootfs()
             if (selectedRootfs == null) {
                 prepareViewModel.setNoRootfs(true)
+                mainViewModel.navigateToPrepareScreen()
                 Log.e(TAG, "prepareAndStart: 未找到可用的rootfs，请在执行此函数前提醒用户选择rootfs")
                 return@launch
             }

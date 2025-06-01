@@ -5,20 +5,27 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,26 +37,112 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.FuncOnChangeAction
 import org.github.ewt45.winemulator.MainEmuActivity
 import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.emu.ProotRootfs
+import org.github.ewt45.winemulator.permissions.RequiredPermissions
 import org.github.ewt45.winemulator.ui.components.ConfirmDialog
 import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_LoginUserSelect
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_RootfsName
+import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import java.io.File
 
 @Composable
-fun PrepareStageScreen(settingVm: SettingViewModel) {
-    RootfsSelectScreen(
-        getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
-        settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName
-    )
+fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
+    //初次进入时 刷新状态
+    LaunchedEffect(Unit) {
+        prepareVm.updateState()
+    }
+    PrepareScreenImpl(prepareVm, settingVm, navigateToMainScreen)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
+    val state by prepareVm.uiState.collectAsStateWithLifecycle()
+    // 准备完成 退出prepareScreen
+    if (state.prepareFinished()) {
+        LaunchedEffect(Unit) {
+            if (state.shouldRestart) MainEmuActivity.instance.finish()
+            else navigateToMainScreen()
+        }
+    }
+    // 加载中
+    else if (state.loading) {
+        Box(Modifier.fillMaxSize()) {
+            Text("加载中...", Modifier.align(Alignment.Center))
+        }
+    }
+    // 显示对应内容
+    else {
+        val lackPermissions = state.unGrantedPermissions.isNotEmpty()
+        val title = if (lackPermissions) "权限" else if (state.noRootfs) "Rootfs" else ""
+        var isRequestingPermission by remember { mutableStateOf(false) } // 禁止重复点击授予按钮
+        Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CenterAlignedTopAppBar(title = { Text(title) })
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.padding(16.dp)) {
+                if (lackPermissions) {
+                    PermissionGrant(isRequestingPermission, state.unGrantedPermissions) { permission ->
+                        if (isRequestingPermission) return@PermissionGrant
+                        isRequestingPermission = true
+                        Utils.Permissions.request(permission.permission) { isGranted ->
+                            if (isGranted) prepareVm.onGrantedPermission(permission);
+                            isRequestingPermission = false
+                        }
+                    }
+                } else if (state.noRootfs || state.forceNoRootfs) {
+                    RootfsSelect(
+                        getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
+                        settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 显示用户应该授予的权限
+ * @param onRequest 用户点击“授权按钮”的回调
+ */
+@Composable
+private fun PermissionGrant(
+    isRequestingPermission: Boolean,
+    permissions: List<RequiredPermissions>,
+    onRequest: (RequiredPermissions) -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
+        Text("为确保app正常运行，请授予以下权限。或者点击“跳过”，不授予权限。")
+        Spacer(Modifier.height(32.dp))
+        permissions.forEach { item ->
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(item.displayName, style = MaterialTheme.typography.titleMedium)
+                    if (item.description.isNotBlank())
+                        Text(item.description, Modifier.padding(top = 8.dp))
+                }
+                Button({ onRequest(item) }, enabled = !isRequestingPermission) { Text("授予") }
+            }
+            if (permissions.last() != item)
+                HorizontalDivider(Modifier.padding(24.dp))
+        }
+    }
 }
 
 
@@ -59,7 +152,7 @@ fun PrepareStageScreen(settingVm: SettingViewModel) {
  * @param onRootfsNameChange 参考 [SettingViewModel.onChangeRootfsName]
  */
 @Composable
-fun RootfsSelectScreen(
+private fun RootfsSelect(
     getAvailableUsers: (String) -> List<String>,
     onChangeUser: suspend (String, String) -> Unit,
     onRootfsNameChange: suspend (String, String, FuncOnChangeAction) -> Unit,
@@ -161,9 +254,64 @@ fun RootfsSelectScreen(
     }
 }
 
+@Preview
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PrepareScreenPreview2() {
+    val isLoading = false
+    val noRootfs = true
+    val forceNoRootfs = false
+    var unGrantedPermissions by remember {
+        mutableStateOf(
+            listOf<RequiredPermissions>(
+                RequiredPermissions.Storage,
+                RequiredPermissions.Notification
+            )
+        )
+    }
+
+    // 加载中
+    if (isLoading) {
+        Box(Modifier.fillMaxSize()) {
+            Text("加载中...", Modifier.align(Alignment.Center))
+        }
+    }
+    // 显示对应内容
+    else {
+        val lackPermissions = unGrantedPermissions.isNotEmpty()
+        val title = if (lackPermissions) "权限" else if (noRootfs) "Rootfs" else ""
+        var isRequestingPermission by remember { mutableStateOf(false) } // 禁止重复点击授予按钮
+        Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CenterAlignedTopAppBar(title = { Text(title) })
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.padding(16.dp)) {
+                if (lackPermissions) {
+                    PermissionGrant(isRequestingPermission, unGrantedPermissions) { permission ->
+                        if (!isRequestingPermission) {
+                            isRequestingPermission = true
+                            CoroutineScope(Dispatchers.Default).launch {
+                                delay(1000)
+                                unGrantedPermissions = unGrantedPermissions - permission
+                                isRequestingPermission = false
+                            }
+
+                        }
+                    }
+                } else if (noRootfs || forceNoRootfs) {
+                    val stage = ProgressStage.DONE_SUCCESS
+                    RootfsSelect({ listOf("iuser", "root") }, { _, _ -> }, { _, _, _ -> "" }, stage, "rootfs-1")
+                }
+            }
+        }
+    }
+}
+
 //@Preview(widthDp = 300, heightDp = 600)
 @Composable
-fun PrepareStageScreenFinishPreview() {
+private fun PrepareStageScreenFinishPreview() {
     val dialogState = rememberConfirmDialogState()
     ConfirmDialog(dialogState)
     ElevatedCard(Modifier.padding(16.dp)) {
@@ -175,7 +323,7 @@ fun PrepareStageScreenFinishPreview() {
             Text("退出之前，您还可以编辑以下内容。。")
 
             Spacer(Modifier.height(16.dp))
-            GeneralRootfsSelect_RootfsName("rootfs-1", false, dialogState) { _,_-> }
+            GeneralRootfsSelect_RootfsName("rootfs-1", false, dialogState) { _, _ -> }
 
             val userList = listOf("root", "aid_u0_a287", "iuser").filter { !it.startsWith("aid_") }.sorted()
             val nonRootUser = userList.find { it != "root" }
@@ -193,11 +341,11 @@ fun PrepareStageScreenFinishPreview() {
     }
 }
 
-@Preview(widthDp = 300, heightDp = 600)
+//@Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun PrepareStageScreenPreview() {
     val stage = ProgressStage.DONE_SUCCESS
-    RootfsSelectScreen({ listOf("iuser", "root") }, { _, _ -> }, { _, _, _ -> "" }, stage, "rootfs-1")
+    RootfsSelect({ listOf("iuser", "root") }, { _, _ -> }, { _, _, _ -> "" }, stage, "rootfs-1")
 
     Spacer(Modifier.height(32.dp))
 }
