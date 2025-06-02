@@ -57,6 +57,7 @@ import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import java.io.File
 
+private val TAG = "PrepareScreen"
 @Composable
 fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
     //初次进入时 刷新状态
@@ -70,11 +71,21 @@ fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navi
 @Composable
 fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
     val state by prepareVm.uiState.collectAsStateWithLifecycle()
-    // 准备完成 退出prepareScreen
+
+    // 退出prepareScreen
+    LaunchedEffect(state.isPrepareFinished) {
+        if (!state.isPrepareFinished) return@LaunchedEffect
+        if (state.shouldRestart) MainEmuActivity.instance.finish()
+        else {
+            MainEmuActivity.instance.startEmu()
+            navigateToMainScreen()
+        }
+
+    }
+    // 准备完成 启动模拟器
     if (state.isPrepareFinished) {
-        LaunchedEffect(Unit) {
-            if (state.shouldRestart) MainEmuActivity.instance.finish()
-            else navigateToMainScreen()
+        Box(Modifier.fillMaxSize()) {
+            Text("正在启动模拟器...", Modifier.align(Alignment.Center))
         }
     }
     // 加载中

@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -20,10 +21,12 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
 import com.termux.x11.MainActivity
 import com.termux.x11.Prefs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.github.ewt45.winemulator.Consts.Pref.general_rootfs_lang
 import org.github.ewt45.winemulator.Consts.Pref.proot_startup_cmd
 import org.github.ewt45.winemulator.Utils.activityRecreate
@@ -65,7 +68,6 @@ class MainEmuActivity : MainActivity() {
         super.onSaveInstanceState(outState)
         outState.activityRecreate = true
         Log.d(TAG, "进入onSaveInstanceState1, 保存数据")
-
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,7 +82,7 @@ class MainEmuActivity : MainActivity() {
 
         //偏好设置
         prefs.displayResolutionMode.put("custom")
-        runBlocking { prefs.displayResolutionCustom.put(settingViewModel.generalFLow.first().resolution) }
+        runBlocking { prefs.displayResolutionCustom.put(Consts.Pref.general_resolution.get()) }
         prefs.showAdditionalKbd.put(false) // 不显示底部按键
 //        prefs.fullscreen.put(true) // 全屏 // FIXME 这个变更会导致重建activity. 所以如果修改的话先不做其他操作了
         prefs.hideCutout.put(false) // 挖孔屏等，先不在该区域显示吧。
@@ -99,55 +101,33 @@ class MainEmuActivity : MainActivity() {
 //        frame.addView(composeView, FrameLayout.LayoutParams(-2, -2))
 
         // 将原视图放到compose中
-//        (frm.parent as? ViewGroup)?.removeView(frm)
         setContent {
-            Box {
-                val x11ViewFactory:(Context) -> View = {
-                    frm.also { (frm.parent as? ViewGroup)?.removeView(frm) }
-                }
-                MainScreen(
-                    tx11Content = { frm.also { (frm.parent as? ViewGroup)?.removeView(frm) } },
-                    startDest = Destination.Prepare,
-                    mainVM = mainViewModel,
-                    terminalVM = terminalViewModel,
-                    settingVM = settingViewModel,
-                    prepareVM = prepareViewModel
-                )
-            }
+            MainScreen(
+                tx11Content = { frm.also { (frm.parent as? ViewGroup)?.removeView(frm) } },
+                Destination.Prepare, mainViewModel, terminalViewModel, settingViewModel, prepareViewModel
+            )
         }
 
         enableEdgeToEdge()
 
-        //TODO 这里改到PrepareVieModel
-//        val noRootfs = Utils.Rootfs.haveNoRootfs()
-//         val haveStoragePermission = Utils.Permissions.checkStoragePermission(this)
-//        prepareViewModel.setNoRootfs(noRootfs)
-//        if (!noRootfs && haveStoragePermission) {
 //            startEmu()
 //
 //            //尝试termux终端
-//        }
     }
 
-    fun startEmu() {
+    suspend fun startEmu() = withContext(Dispatchers.Default) {
         if (emuStarted) {
             Log.w(TAG, "prepareAndStart: emuStarted为true, 模拟器已经启动。不再执行逻辑")
-            return
+            return@withContext
         }
         // TODO 这里launch切换到IO协程会不会好一点？
-        lifecycleScope.launch {
+//        lifecycleScope.launch {
 //            Log.d(TAG, "prepareAndStart: 测试process输出？${Utils.readLinesProcessOutput(Runtime.getRuntime().exec(arrayOf("sh",
 //                "-c",
 //                "umask 0022 ; ls /storage/emulated/0",//sh -c 之后应该用一个字符串 不应再分割了
 //                )))}")
 
-            val selectedRootfs = Utils.Rootfs.getSelectedRootfs()
-            if (selectedRootfs == null) {
-                prepareViewModel.setNoRootfs(true)
-                mainViewModel.navigateToPrepareScreen()
-                Log.e(TAG, "prepareAndStart: 未找到可用的rootfs，请在执行此函数前提醒用户选择rootfs")
-                return@launch
-            }
+            val selectedRootfs = Utils.Rootfs.getSelectedRootfs()!!
             //rootfs处理（目前绑定外部存储路径在Proot里执行）
             Utils.Rootfs.makeCurrent(selectedRootfs)
 
@@ -167,7 +147,9 @@ class MainEmuActivity : MainActivity() {
             //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
             terminalViewModel.startTerminal()
             //添加observer时会立刻发送一遍从头到现在的状态，所以onCreate会触发
-            lifecycle.addObserver(EmuManager(lifecycleScope))
+            withContext(Dispatchers.Main) {
+                lifecycle.addObserver(EmuManager(lifecycleScope))
+            }
             val LANG = general_rootfs_lang.get()
             // grep的$LANG应该还是从环境变量获取 因为有时候如果没生效的话LANG会被还原会C,可以用这个判断是否需要
             terminalViewModel.runCommand("""if [ "$(locale -a | grep ${'$'}LANG)" != $LANG ]; then locale-gen; fi; export LANG=$LANG""")
@@ -176,7 +158,7 @@ class MainEmuActivity : MainActivity() {
             }
 
 
-        }
+//        }
     }
 
     override fun onDestroy() {

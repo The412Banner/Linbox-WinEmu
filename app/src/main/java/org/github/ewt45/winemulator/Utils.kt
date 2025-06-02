@@ -845,6 +845,10 @@ object Utils {
 
         /** 在授予结果返回时 执行一次 */
         private var requestLauncherCallback: ((Boolean) -> Unit)? = null
+
+        /**
+         * 在activity的init中调用，注册其他activity的回调。该函数还会添加一个生命周期回调，在onDestroy时取消注册
+         */
         fun registerForActivityResult(a: MainEmuActivity) {
             val onActivityResult: (Boolean) -> Unit = { isGranted ->
                 requestLauncherCallback?.invoke(isGranted)
@@ -852,10 +856,8 @@ object Utils {
             }
             requestLauncher = a.registerForActivityResult(ActivityResultContracts.RequestPermission(), onActivityResult)
             notificationRequestLauncher = a.registerForActivityResult(object : ActivityResultContract<String, Boolean>() {
-                override fun createIntent(context: Context, input: String) = Intent().apply {
-                    action = android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
-                    putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, MainEmuApplication.i.packageName)
-                }
+                override fun createIntent(context: Context, input: String) = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .apply { putExtra(Settings.EXTRA_APP_PACKAGE, MainEmuApplication.i.packageName) }
 
                 override fun parseResult(resultCode: Int, intent: Intent?) =
                     NotificationManagerCompat.from(MainEmuApplication.i).areNotificationsEnabled()

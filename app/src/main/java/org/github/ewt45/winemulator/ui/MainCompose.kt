@@ -92,11 +92,12 @@ fun MainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currDestination = appbarDestList.find { navBackStackEntry?.destination?.hasRoute(it.route::class) == true } ?: startDest
 
-    val navigateTo: (Destination) -> Unit = { navController.navigate(it.route) }
+    // 跳转到目的地。如果返回栈中有该目的地，则弹出到这个位置然后再跳转。
+    val navigateTo: (Destination) -> Unit = { navController.navigate(it.route) { popUpTo(it.route) { inclusive = true } } }
 
     // acitivty通过viewmodel修改目的地时，触发跳转
     LaunchedEffect(Unit) {
-        mainVM.navigateToEvent.collect { dest -> navController.navigate(dest.route) }
+        mainVM.navigateToEvent.collect { dest -> navigateTo(dest) }
     }
     // 开头或中途 需要进入准备屏幕时
     LaunchedEffect(prepareUiState.isPrepareFinished) {
@@ -107,7 +108,7 @@ fun MainScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            MyTopAppBar(currDestination, { navController.navigate(it.route) })
+            MyTopAppBar(currDestination, { navigateTo(it) })
         },
     ) { innerPadding ->
         // FIXME tx11已经处理键盘高度变更了，这里应该不用innerPadding 否则会有空白
