@@ -65,15 +65,16 @@ import org.github.ewt45.winemulator.FuncOnChangeAction
 import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.emu.ProotRootfs
 import org.github.ewt45.winemulator.ui.AnimatedVertical
-import org.github.ewt45.winemulator.ui.CollapsePanel
-import org.github.ewt45.winemulator.ui.ComposeSpinner
+import org.github.ewt45.winemulator.ui.components.CollapsePanel
+import org.github.ewt45.winemulator.ui.components.ComposeSpinner
 import org.github.ewt45.winemulator.ui.Destination
-import org.github.ewt45.winemulator.ui.ProgressDisplay
-import org.github.ewt45.winemulator.ui.ProgressStage
-import org.github.ewt45.winemulator.ui.TextFieldOption
-import org.github.ewt45.winemulator.ui.TitleAndContent
+import org.github.ewt45.winemulator.ui.components.ProgressStage
+import org.github.ewt45.winemulator.ui.components.TextFieldOption
+import org.github.ewt45.winemulator.ui.components.TitleAndContent
 import org.github.ewt45.winemulator.ui.components.ConfirmDialog
 import org.github.ewt45.winemulator.ui.components.ConfirmDialogState
+import org.github.ewt45.winemulator.ui.components.ProgressDisplay
+import org.github.ewt45.winemulator.ui.components.TaskReporter
 import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import java.io.File
@@ -248,7 +249,7 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
         val progress = remember { mutableIntStateOf(0) }
         val msgTitle = remember { mutableStateOf("将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。") }
         val msg = remember { mutableStateOf("") }
-        val reporter = Utils.TaskReporter.createTaskReporter(progress, msgTitle, msg)
+        val reporter = remember { TaskReporter.createTaskReporter(progress, msgTitle, msg) }
 
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(compMimeTypes[currCompType]!!)) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult

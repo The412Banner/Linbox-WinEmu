@@ -1,6 +1,5 @@
 package org.github.ewt45.winemulator
 
-import android.Manifest
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.ActivityManager
@@ -14,18 +13,13 @@ import android.system.Os
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.MutableIntState
-import androidx.compose.runtime.MutableState
 import androidx.core.app.NotificationManagerCompat
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -75,6 +69,7 @@ import org.github.ewt45.winemulator.Consts.Pref.Local.curr_rootfs_name
 import org.github.ewt45.winemulator.Consts.rootfsAllDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrDir
 import org.github.ewt45.winemulator.Utils.Files.selfExists
+import org.github.ewt45.winemulator.ui.components.TaskReporter
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -974,58 +969,6 @@ object Utils {
                     else -> throw IllegalArgumentException("反序列化时，Any无法转为常见类型: $el")
                 }
             }
-        }
-    }
-
-    /** 当一个执行一个长时间操作时，传入一个此类的时候一遍在屏幕上显示进度和消息
-     * @param totalValue 计算百分比时的分母 . 为负数是表示无法计算进度
-     */
-    abstract class TaskReporter(var totalValue: Long = -1) {
-
-        /** 更新进度。若为负数代表应显示无限加载条 */
-        abstract fun progress(percent: Float)
-
-        /** 同[progress] 区别为传入参数不是 当前值/总值，而仅仅是 当前值。因为有时候调用环境不知道总值。 */
-        fun progressValue(value: Long) = progress(value.toFloat() / totalValue)
-
-        /** 执行此函数表示任务结束. 若 [error] 不为null, 说明失败了。 */
-        abstract fun done(error: Exception? = null)
-
-        /** 需要显示的文字. 当本次[title]为null时 应该显示上一次不为null的title. */
-        abstract fun msg(text: String? = null, title: String? = null)
-
-        companion object {
-            val Dummy: TaskReporter = object : TaskReporter(Long.MAX_VALUE) {
-                override fun progress(percent: Float) {}
-                override fun done(error: Exception?) {}
-                override fun msg(text: String?, title: String?) {}
-            }
-
-            /**
-             * 传入对应数据的state. 创建一个会在对应函数修改这些数据的TaskReporter
-             */
-            fun createTaskReporter(
-                progress: MutableIntState,
-                msgTitle: MutableState<String>,
-                msg: MutableState<String>,
-            ): TaskReporter {
-                return object : TaskReporter() {
-                    override fun progress(percent: Float) {
-                        progress.intValue = (percent * 100).toInt()
-                    }
-
-                    override fun done(error: Exception?) {
-                        progress.intValue = 100
-                        if (error != null) throw error
-                    }
-
-                    override fun msg(text: String?, title: String?) {
-                        if (!text.isNullOrBlank()) msg.value += "\n$text"
-                        if (title != null) msgTitle.value = title
-                    }
-                }
-            }
-
         }
     }
 

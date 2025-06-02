@@ -1,6 +1,5 @@
 package org.github.ewt45.winemulator.ui.setting
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,11 +10,10 @@ import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.dataStore
 import org.github.ewt45.winemulator.permissions.RequiredPermissions
-import org.github.ewt45.winemulator.ui.CollapsePanel
+import org.github.ewt45.winemulator.ui.components.CollapsePanel
 import org.github.ewt45.winemulator.ui.Destination
 import org.github.ewt45.winemulator.ui.components.ConfirmDialog
 import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
-import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 
 @Composable
 fun MiscSettings(navigateTo: (Destination) -> Unit) {

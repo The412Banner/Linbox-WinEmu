@@ -30,10 +30,10 @@ import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.MainEmuActivity
 import org.github.ewt45.winemulator.Utils.getX11ServicePid
 import org.github.ewt45.winemulator.emu.X11Service
-import org.github.ewt45.winemulator.ui.CollapsePanel
-import org.github.ewt45.winemulator.ui.ComposeSpinner
+import org.github.ewt45.winemulator.ui.components.CollapsePanel
+import org.github.ewt45.winemulator.ui.components.ComposeSpinner
 import org.github.ewt45.winemulator.ui.Destination
-import org.github.ewt45.winemulator.ui.rememberNotImplDialog
+import org.github.ewt45.winemulator.ui.components.rememberNotImplDialog
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 import java.io.File
 import java.nio.file.Files

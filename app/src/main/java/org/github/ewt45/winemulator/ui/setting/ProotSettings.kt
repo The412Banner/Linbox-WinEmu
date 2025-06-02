@@ -23,9 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import org.github.ewt45.winemulator.ui.ChipOption
-import org.github.ewt45.winemulator.ui.CollapsePanel
-import org.github.ewt45.winemulator.ui.TextFieldOption
+import org.github.ewt45.winemulator.ui.components.ChipOption
+import org.github.ewt45.winemulator.ui.components.CollapsePanel
+import org.github.ewt45.winemulator.ui.components.TextFieldOption
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 
 /**

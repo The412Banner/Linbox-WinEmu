@@ -1,9 +1,7 @@
-package org.github.ewt45.winemulator.ui
+package org.github.ewt45.winemulator.ui.components
 
 import android.util.Log
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,8 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
@@ -37,7 +32,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -60,73 +54,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-
-enum class ProgressStage {
-    NOT_STARTED, PROCESSING, DONE_SUCCESS, DONE_FAILURE
-}
-
-/**
- * @param progress 0-100
- */
-@Composable
-fun ProgressDisplay(
-    stage: ProgressStage,
-    progress: Int,
-    msgTitle: String,
-    msg: String,
-) {
-    val TAG = "ProgressDisplay"
-
-    Column(
-        Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Column(
-//            Modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // 标题
-            Text(msgTitle, style = MaterialTheme.typography.titleMedium)
-
-            when (stage) {
-                ProgressStage.NOT_STARTED -> Unit
-                ProgressStage.PROCESSING ->
-                    // 处理过程中显示进度条
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        LinearProgressIndicator(progress = { progress / 100F })
-                        Text("$progress%")
-                    }
-
-                ProgressStage.DONE_SUCCESS ->
-                    Icon(Icons.Rounded.CheckCircle, null, Modifier.size(80.dp), tint = MaterialTheme.colorScheme.secondary)
-
-                ProgressStage.DONE_FAILURE ->
-                    Icon(Icons.Rounded.Warning, null, Modifier.size(80.dp), tint = MaterialTheme.colorScheme.error)
-            }
-
-
-            // 处理时或处理后显示日志。解压成功后折叠
-            var msgExpanded by remember(stage) { mutableStateOf(stage == ProgressStage.PROCESSING) }
-            if (stage != ProgressStage.NOT_STARTED) {
-                // weight 占据剩余空间，保证优先满足按钮的高度。否则会把按钮挤没。然后高度过高时可滚动。这俩modifier要加到包裹column上，加到text自身没用
-                // 但是weight会在内容没那么高的时候还是占据所有剩余空间 导致空出来一大块。
-                Text(
-                    msg,
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { msgExpanded = !msgExpanded }
-                        .animateContentSize()
-                        .horizontalScroll(rememberScrollState()),
-                    color = MaterialTheme.colorScheme.run { if (stage == ProgressStage.DONE_FAILURE) error else onSurface },
-                    maxLines = if (msgExpanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-    }
-}
+import org.github.ewt45.winemulator.ui.AnimatedSizeInCenter
+import org.github.ewt45.winemulator.ui.AnimatedVertical
 
 
 /**

@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +49,9 @@ import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.emu.ProotRootfs
 import org.github.ewt45.winemulator.permissions.RequiredPermissions
 import org.github.ewt45.winemulator.ui.components.ConfirmDialog
+import org.github.ewt45.winemulator.ui.components.ProgressDisplay
+import org.github.ewt45.winemulator.ui.components.ProgressStage
+import org.github.ewt45.winemulator.ui.components.TaskReporter
 import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_LoginUserSelect
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_RootfsName
@@ -182,7 +184,7 @@ private fun RootfsSelect(
     val progress = remember { mutableIntStateOf(0) } //0-100
     val msgTitle = remember { mutableStateOf("缺少Rootfs。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。") }
     val msg = remember { mutableStateOf("") }
-    val reporter = Utils.TaskReporter.createTaskReporter(progress, msgTitle, msg)
+    val reporter = remember { TaskReporter.createTaskReporter(progress, msgTitle, msg) }
     var rootfsName by remember { mutableStateOf(initRootfsName) }
     var isSetCurrent by remember { mutableStateOf(true) }
     val dialogState = rememberConfirmDialogState()
