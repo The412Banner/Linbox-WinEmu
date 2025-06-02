@@ -29,17 +29,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-
+/** 返回一个[SimpleTaskReporter]实例 */
 @Composable
-fun rememberTaskReporter(progress: Int = 0, msgTitle: String = "", msg: String = ""):SimpleTaskReporter {
-    return remember { SimpleTaskReporter(progress, msgTitle, msg) }
+fun rememberTaskReporter(
+    initStage: ProgressStage = ProgressStage.NOT_STARTED,
+    progress: Int = 0,
+    msgTitle: String = "",
+    msg: String = ""
+): SimpleTaskReporter {
+    return remember { SimpleTaskReporter(initStage, progress, msgTitle, msg) }
 }
 
+/** 实现了 [TaskReporter] 的类。内含MutableState可以直接使用。建议使用 [rememberTaskReporter] 获取实例 */
 class SimpleTaskReporter(
+    initStage: ProgressStage,
     initProgress: Int,
     initMsgTitle: String,
     initMsg: String,
-):TaskReporter() {
+) : TaskReporter() {
+    var stage by mutableStateOf(initStage)
     var progress by mutableIntStateOf(initProgress)
     var msgTitle by mutableStateOf(initMsgTitle)
     var msg by mutableStateOf(initMsg)
@@ -56,6 +64,11 @@ class SimpleTaskReporter(
         if (!text.isNullOrBlank()) msg += "\n$text"
         if (title != null) msgTitle = title
     }
+
+    fun component1() = this
+    fun component2() = progress
+    fun component3() = msgTitle
+    fun component4() = msg
 }
 
 /** 当一个执行一个长时间操作时，传入一个此类的时候一遍在屏幕上显示进度和消息
@@ -81,32 +94,6 @@ abstract class TaskReporter(var totalValue: Long = -1) {
             override fun done(error: Exception?) {}
             override fun msg(text: String?, title: String?) {}
         }
-
-        /**
-         * 传入对应数据的state. 创建一个会在对应函数修改这些数据的TaskReporter
-         */
-        fun createTaskReporter(
-            progress: MutableIntState,
-            msgTitle: MutableState<String>,
-            msg: MutableState<String>,
-        ): TaskReporter {
-            return object : TaskReporter() {
-                override fun progress(percent: Float) {
-                    progress.intValue = (percent * 100).toInt()
-                }
-
-                override fun done(error: Exception?) {
-                    progress.intValue = 100
-                    if (error != null) throw error
-                }
-
-                override fun msg(text: String?, title: String?) {
-                    if (!text.isNullOrBlank()) msg.value += "\n$text"
-                    if (title != null) msgTitle.value = title
-                }
-            }
-        }
-
     }
 }
 
@@ -114,6 +101,12 @@ enum class ProgressStage {
     NOT_STARTED, PROCESSING, DONE_SUCCESS, DONE_FAILURE
 }
 
+@Composable
+fun ProgressDisplay(
+    reporter: SimpleTaskReporter
+) {
+    ProgressDisplay(reporter.stage, reporter.progress, reporter.msgTitle, reporter.msg)
+}
 
 /**
  * @param progress 0-100

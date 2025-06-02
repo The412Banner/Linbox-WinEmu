@@ -12,16 +12,13 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -44,11 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -79,16 +74,16 @@ import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 fun MainScreen(
     tx11Content: (Context) -> View,
     startDest: Destination,
-    mainVM: MainViewModel,
-    terminalVM: TerminalViewModel,
-    settingVM: SettingViewModel,
-    prepareVM: PrepareViewModel,
+    mainVm: MainViewModel,
+    terminalVm: TerminalViewModel,
+    settingVm: SettingViewModel,
+    prepareVm: PrepareViewModel,
 ) {
     val TAG = "MainScreen"
     val navController = rememberNavController()
 
-    val uiState by mainVM.uiState.collectAsState()
-    val prepareUiState by prepareVM.uiState.collectAsStateWithLifecycle()
+    val uiState by mainVm.uiState.collectAsState()
+    val prepareUiState by prepareVm.uiState.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currDestination = appbarDestList.find { navBackStackEntry?.destination?.hasRoute(it.route::class) == true } ?: startDest
 
@@ -97,7 +92,7 @@ fun MainScreen(
 
     // acitivty通过viewmodel修改目的地时，触发跳转
     LaunchedEffect(Unit) {
-        mainVM.navigateToEvent.collect { dest -> navigateTo(dest) }
+        mainVm.navigateToEvent.collect { dest -> navigateTo(dest) }
     }
     // 开头或中途 需要进入准备屏幕时
     LaunchedEffect(prepareUiState.isPrepareFinished) {
@@ -128,19 +123,19 @@ fun MainScreen(
             ) {
                 composable<RoutePrepare> {
                     PrepareScreen(
-                        prepareVM, settingVM,
+                        prepareVm, settingVm,
                         { navController.navigate(Destination.ExceptX11.route) { popUpTo(Destination.Prepare.route) { inclusive = true } } })
                 }
                 composable<RouteX11> { X11Screen(tx11Content, navigateTo) }
                 navigation<RouteExceptX11>(startDestination = RouteTerminal) {
-                    composable<RouteTerminal> { ProotTerminalScreen(terminalVM) }
+                    composable<RouteTerminal> { ProotTerminalScreen(terminalVm) }
 //                        composable<NavDest.Terminal> { TerminalScreen() }
-                    composable<RouteSettings> { SettingScreen(settingVM, terminalVM, navigateTo) }
+                    composable<RouteSettings> { SettingScreen(settingVm, terminalVm, prepareVm, navigateTo) }
                 }
             }
         }
 
-        MainDialog(uiState) { mainVM.closeConfirmDialog(it) }
+        MainDialog(uiState) { mainVm.closeConfirmDialog(it) }
 
     }
 }

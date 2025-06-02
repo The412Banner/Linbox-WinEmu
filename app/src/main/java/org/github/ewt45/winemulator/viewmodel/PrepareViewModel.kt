@@ -36,12 +36,6 @@ class PrepareViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(PrepareUiState(loading = true))
     val uiState: StateFlow<PrepareUiState> = _uiState.asStateFlow()
 
-    //    val isNoRootfs = mutableStateOf(true)
-//
-    fun setNoRootfs(noRootfs: Boolean) {
-        _uiState.update { it.copy(noRootfs = noRootfs) }
-    }
-
     /** 进入preparescreen之后执行此函数 检查是否有必要显示 */
     suspend fun updateState() = withContext(Dispatchers.IO) {
         _uiState.update { it.copy(loading = true) }
@@ -67,4 +61,8 @@ class PrepareViewModel : ViewModel() {
         _uiState.update { it.copy(skipPermissions = true) }
     }
 
+    /** 添加rootfs时调用。会将 [PrepareUiState.forceNoRootfs] 设为true, 以跳转到PrepareScreen */
+    fun setForceNoRootfs() {
+        _uiState.update { it.copy(forceNoRootfs = true) }
+    }
 }

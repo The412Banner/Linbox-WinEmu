@@ -38,6 +38,7 @@ import org.github.ewt45.winemulator.ui.setting.MiscSettings
 import org.github.ewt45.winemulator.ui.setting.MiscSettingsPreview
 import org.github.ewt45.winemulator.ui.setting.ProotSettings
 import org.github.ewt45.winemulator.ui.setting.ProotSettingsPreview
+import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingAction
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
@@ -46,6 +47,7 @@ import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 fun SettingScreen(
     settingVm: SettingViewModel,
     terminalVM: TerminalViewModel,
+    prepareVm: PrepareViewModel,
     navigateTo: (Destination) -> Unit
 ) {
     val TAG = "SettingScreen"
@@ -64,7 +66,7 @@ fun SettingScreen(
             DebugSettings(terminalVM, navigateTo)
             HorizontalDivider()
         }
-        GeneralSettings(settingVm, navigateTo)
+        GeneralSettings(settingVm, prepareVm, navigateTo)
         HorizontalDivider()
         ProotSettings(settingVm)
         MiscSettings(navigateTo)

@@ -76,6 +76,8 @@ import org.github.ewt45.winemulator.ui.components.ConfirmDialogState
 import org.github.ewt45.winemulator.ui.components.ProgressDisplay
 import org.github.ewt45.winemulator.ui.components.TaskReporter
 import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
+import org.github.ewt45.winemulator.ui.components.rememberTaskReporter
+import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import java.io.File
 import java.time.LocalDateTime
@@ -88,6 +90,7 @@ private val TAG = "GeneralSettings"
 @Composable
 fun GeneralSettings(
     settingVM: SettingViewModel,
+    prepareVm: PrepareViewModel,
     navigateTo: (Destination) -> Unit,
 ) {
 
@@ -108,7 +111,7 @@ fun GeneralSettings(
             settingVM::onChangeRootfsName,
             settingVM::onChangeRootfsSelect,
             { rootfs, user -> scope.launch { settingVM.onChangeRootfsLoginUser(rootfs, user) } },
-            { navigateTo(Destination.Prepare) },
+            { prepareVm.setForceNoRootfs() },
         )
 //        }
     }
@@ -245,27 +248,23 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
         val compMimeTypes = mapOf(CompressedType.GZ to "application/gzip", CompressedType.XZ to "application/x-xz")
         val ctx = LocalContext.current
         val scope = rememberCoroutineScope()
-        var stage by remember { mutableStateOf(ProgressStage.NOT_STARTED) }
-        val progress = remember { mutableIntStateOf(0) }
-        val msgTitle = remember { mutableStateOf("将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。") }
-        val msg = remember { mutableStateOf("") }
-        val reporter = remember { TaskReporter.createTaskReporter(progress, msgTitle, msg) }
+        val reporter = rememberTaskReporter(msgTitle = "将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。")
 
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(compMimeTypes[currCompType]!!)) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
-            stage = ProgressStage.PROCESSING
-            progress.intValue = 0
-            msgTitle.value = "正在压缩中"
-            msg.value = "日志："
+            reporter.stage = ProgressStage.PROCESSING
+            reporter.progress = 0
+            reporter.msgTitle = "正在压缩中"
+            reporter.msg = "日志："
             scope.launch {
                 try {
                     Utils.Rootfs.exportRootfsArchive(ctx, uri, File(Consts.rootfsAllDir, rootfsName), currCompType, reporter)
                     reporter.msg("导出成功。", "导出成功！已保存到指定目录。\n（日志可点击展开查看）")
-                    stage = ProgressStage.DONE_SUCCESS
+                    reporter.stage = ProgressStage.DONE_SUCCESS
                 } catch (e: Exception) {
                     e.printStackTrace()
                     reporter.msg("压缩rootfs过程中出现错误，结束。错误：${e.stackTraceToString()}", "导出失败！\n（日志可点击展开查看）")
-                    stage = ProgressStage.DONE_FAILURE
+                    reporter.stage = ProgressStage.DONE_FAILURE
                 }
             }
         }
@@ -279,10 +278,10 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
                     Modifier.verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    ProgressDisplay(stage, progress.intValue, msgTitle.value, msg.value)
+                    ProgressDisplay(reporter)
                     Spacer(Modifier.height(16.dp))
                     // 只有在最初的时候可以设置并导出
-                    if (stage == ProgressStage.NOT_STARTED) {
+                    if (reporter.stage == ProgressStage.NOT_STARTED) {
                         ComposeSpinner(currCompType, compSuffix.keys.toList(), compSuffix.values.toList(), label = "压缩格式")
                         { _, new -> currCompType = new }
                         Spacer(Modifier.height(24.dp))
@@ -294,7 +293,7 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
                         TextButton({ showDialog = false }) { Text("取消") }
                     }
                     // 压缩结束后 显示关闭按钮
-                    if (stage == ProgressStage.DONE_SUCCESS || stage == ProgressStage.DONE_FAILURE) {
+                    if (reporter.stage == ProgressStage.DONE_SUCCESS || reporter.stage == ProgressStage.DONE_FAILURE) {
                         Button({ showDialog = false }) { Text("关闭") }
                     }
 

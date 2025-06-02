@@ -53,6 +53,7 @@ import org.github.ewt45.winemulator.ui.components.ProgressDisplay
 import org.github.ewt45.winemulator.ui.components.ProgressStage
 import org.github.ewt45.winemulator.ui.components.TaskReporter
 import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
+import org.github.ewt45.winemulator.ui.components.rememberTaskReporter
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_LoginUserSelect
 import org.github.ewt45.winemulator.ui.setting.GeneralRootfsSelect_RootfsName
 import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
@@ -60,6 +61,7 @@ import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import java.io.File
 
 private val TAG = "PrepareScreen"
+
 @Composable
 fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
     //初次进入时 刷新状态
@@ -149,7 +151,7 @@ private fun PermissionGrant(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(item.displayName, style = MaterialTheme.typography.titleMedium)
+                    Text(item.displayName, style = MaterialTheme.typography.bodyLarge)
                     if (item.description.isNotBlank())
                         Text(item.description, Modifier.padding(top = 8.dp))
                 }
@@ -179,12 +181,7 @@ private fun RootfsSelect(
     val TAG = "RootfsSelectScreen"
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-
-    var stage by remember { mutableStateOf(initStage) }
-    val progress = remember { mutableIntStateOf(0) } //0-100
-    val msgTitle = remember { mutableStateOf("缺少Rootfs。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。") }
-    val msg = remember { mutableStateOf("") }
-    val reporter = remember { TaskReporter.createTaskReporter(progress, msgTitle, msg) }
+    val reporter = rememberTaskReporter(msgTitle = "缺少Rootfs。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。")
     var rootfsName by remember { mutableStateOf(initRootfsName) }
     var isSetCurrent by remember { mutableStateOf(true) }
     val dialogState = rememberConfirmDialogState()
@@ -192,24 +189,24 @@ private fun RootfsSelect(
     val readFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         Log.d(TAG, "RootfsSelectScreen: 尝试从contentResolver获取mimetype？${ctx.contentResolver.getType(uri)}")
-        stage = ProgressStage.PROCESSING
+        reporter.stage = ProgressStage.PROCESSING
         scope.launch {
-            progress.intValue = 0
-            msgTitle.value = "正在解压中，请等待完成。"
-            msg.value = "日志："
+            reporter.progress = 0
+            reporter.msgTitle = "正在解压中，请等待完成。"
+            reporter.msg = "日志："
             try {
                 rootfsName = Utils.Rootfs.installRootfsArchive(ctx, uri, reporter).name
                 reporter.msg("解压rootfs成功。", "解压成功，点击按钮将退出。请手动重启。\n（日志可点击展开查看）")
-                stage = ProgressStage.DONE_SUCCESS
+                reporter.stage = ProgressStage.DONE_SUCCESS
             } catch (e: Throwable) {
                 e.printStackTrace()
                 reporter.msg(
                     "解压rootfs过程中出现错误，结束。\n" + e.stackTraceToString(),
                     "解压失败。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。\n（日志可点击展开查看）"
                 )
-                stage = ProgressStage.DONE_FAILURE
+                reporter.stage = ProgressStage.DONE_FAILURE
             }
-            progress.intValue = 100
+            reporter.progress = 100
         }
     }
 
@@ -229,16 +226,17 @@ private fun RootfsSelect(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             //显示标题和进度
-            ProgressDisplay(stage, progress.intValue, msgTitle.value, msg.value)
+            ProgressDisplay(reporter)
 
             // 需要解压时显示选择按钮
-            if (stage == ProgressStage.NOT_STARTED || stage == ProgressStage.DONE_FAILURE) {
+            if (reporter.stage == ProgressStage.NOT_STARTED || reporter.stage == ProgressStage.DONE_FAILURE) {
                 Button({ readFileLauncher.launch(arrayOf("application/x-xz", "application/gzip", "*/*")) })
                 { Text("选择") }
             }
             // 解压成功后显示完成按钮
-            else if (stage == ProgressStage.DONE_SUCCESS) {
+            else if (reporter.stage == ProgressStage.DONE_SUCCESS) {
                 Button({
+                    //TODO forceNoRootfs 是否需要设置为false？
                     scope.launch {
                         if (isSetCurrent) MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
                         else MainEmuActivity.instance.finish()
@@ -247,7 +245,7 @@ private fun RootfsSelect(
             }
 
             // 解压成功后后的其他选项，重命名，登陆用户，下次启动该容器。
-            if (stage == ProgressStage.DONE_SUCCESS && rootfsName.isNotEmpty()) {
+            if (reporter.stage == ProgressStage.DONE_SUCCESS && rootfsName.isNotEmpty()) {
                 Log.e(TAG, "RootfsSelectScreen: 解压完成后进入这里检查可登陆用户列表。平时不会进入吧？")
                 HorizontalDivider(Modifier.padding(16.dp), 2.dp)
                 Text("退出之前，您还可以编辑以下内容")
