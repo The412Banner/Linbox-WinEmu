@@ -59,6 +59,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navigation
 import org.github.ewt45.winemulator.Consts
+import org.github.ewt45.winemulator.MainEmuActivity
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
 import org.github.ewt45.winemulator.ui.theme.MainTheme
 import org.github.ewt45.winemulator.viewmodel.DialogType
@@ -122,9 +123,10 @@ fun MainScreen(
                 exitTransition = { scaleOut() },
             ) {
                 composable<RoutePrepare> {
-                    PrepareScreen(
-                        prepareVm, settingVm,
-                        { navController.navigate(Destination.ExceptX11.route) { popUpTo(Destination.Prepare.route) { inclusive = true } } })
+                    PrepareScreen(prepareVm, settingVm) {
+                        MainEmuActivity.instance.startEmu()
+                        navController.navigate(Destination.ExceptX11.route) { popUpTo(Destination.Prepare.route) { inclusive = true } }
+                    }
                 }
                 composable<RouteX11> { X11Screen(tx11Content, navigateTo) }
                 navigation<RouteExceptX11>(startDestination = RouteTerminal) {

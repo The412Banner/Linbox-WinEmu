@@ -63,7 +63,7 @@ import java.io.File
 private val TAG = "PrepareScreen"
 
 @Composable
-fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
+fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: suspend () -> Unit) {
     //初次进入时 刷新状态
     LaunchedEffect(Unit) {
         prepareVm.updateState()
@@ -73,17 +73,15 @@ fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: () -> Unit) {
+fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: suspend () -> Unit) {
     val state by prepareVm.uiState.collectAsStateWithLifecycle()
 
     // 退出prepareScreen
     LaunchedEffect(state.isPrepareFinished) {
         if (!state.isPrepareFinished) return@LaunchedEffect
+        // TODO 尚未实现 restart
         if (state.shouldRestart) MainEmuActivity.instance.finish()
-        else {
-            MainEmuActivity.instance.startEmu()
-            navigateToMainScreen()
-        }
+        else navigateToMainScreen()
 
     }
     // 准备完成 启动模拟器

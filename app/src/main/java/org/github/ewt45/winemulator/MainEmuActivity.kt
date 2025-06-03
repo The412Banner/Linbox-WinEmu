@@ -127,35 +127,33 @@ class MainEmuActivity : MainActivity() {
 //                "umask 0022 ; ls /storage/emulated/0",//sh -c 之后应该用一个字符串 不应再分割了
 //                )))}")
 
-            val selectedRootfs = Utils.Rootfs.getSelectedRootfs()!!
-            //rootfs处理（目前绑定外部存储路径在Proot里执行）
-            Utils.Rootfs.makeCurrent(selectedRootfs)
+        val selectedRootfs = Utils.Rootfs.getSelectedRootfs()!!
+        //rootfs处理（目前绑定外部存储路径在Proot里执行）
+        Utils.Rootfs.makeCurrent(selectedRootfs)
 
-            emuStarted = true
+        emuStarted = true
 
-            //启动xserver
-            if (Consts.rootfsCurrXkbDir.exists()) {
-                // debug没事release就有事？？
-                if (!isConnected()) {
-                    startService(startX11Intent)
-                    waitForXStartedWithDialog() // 等待x11启动完成
-                }
-            } else {
-                mainViewModel.showConfirmDialog("rootfs下缺少xkb文件夹，x11不会启动。可以安装类似 ' libxkbcommon-x11 ' 的软件包来补全。")
-            }
+        //启动xserver
+        if (Consts.rootfsCurrXkbDir.exists()) {
+            startService(startX11Intent)
+            waitForXStartedWithDialog() // 等待x11启动完成
+        } else {
+            mainViewModel.showConfirmDialog("rootfs下缺少xkb文件夹，x11不会启动。可以安装类似 ' libxkbcommon-x11 ' 的软件包来补全。")
+        }
 
-            //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
-            terminalViewModel.startTerminal()
-            //添加observer时会立刻发送一遍从头到现在的状态，所以onCreate会触发
-            withContext(Dispatchers.Main) {
-                lifecycle.addObserver(EmuManager(lifecycleScope))
-            }
-            val LANG = general_rootfs_lang.get()
-            // grep的$LANG应该还是从环境变量获取 因为有时候如果没生效的话LANG会被还原会C,可以用这个判断是否需要
-            terminalViewModel.runCommand("""if [ "$(locale -a | grep ${'$'}LANG)" != $LANG ]; then locale-gen; fi; export LANG=$LANG""")
-            proot_startup_cmd.get().takeIf { it.isNotBlank() }?.let {
-                terminalViewModel.runCommand("$it &")
-            }
+        terminalViewModel.startTerminal()
+        // TODO 全部移到emuManager后，改为在init添加观察者，但是onCreate不启动，而是在startEmu中手动启动
+        //添加observer时会立刻发送一遍从头到现在的状态，所以onCreate会触发
+        withContext(Dispatchers.Main) {
+            lifecycle.addObserver(EmuManager(lifecycleScope))
+        }
+        val LANG = general_rootfs_lang.get()
+        // grep的$LANG应该还是从环境变量获取 因为有时候如果没生效的话LANG会被还原会C,可以用这个判断是否需要
+        terminalViewModel.runCommand("""if [ "$(locale -a | grep ${'$'}LANG)" != $LANG ]; then locale-gen; fi; export LANG=$LANG""")
+        //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
+        proot_startup_cmd.get().takeIf { it.isNotBlank() }?.let {
+            terminalViewModel.runCommand("$it &")
+        }
 
 
 //        }
