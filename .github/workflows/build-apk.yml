@@ -221,19 +221,40 @@ jobs:
           # Backup original
           cp app/build.gradle.kts app/build.gradle.kts.bak
 
-          # Replace JitPack termux dependencies with local modules
-          # Replace termux-view
-          sed -i 's|implementation("com.github.termux.termux-app:terminal-view:[^"]*")|implementation(project(":terminal-view"))|g' app/build.gradle.kts
+          echo "📄 Original app dependencies:"
+          grep -n "termux" app/build.gradle.kts
 
-          # Replace termux-shared
-          sed -i 's|implementation("com.github.termux.termux-app:termux-shared:[^"]*")|implementation(project(":termux-shared"))|g' app/build.gradle.kts
+          # Replace ALL termux dependencies with local modules using Python
+          python3 << 'PYEOF'
+import re
 
-          # Also handle libs.versions.toml style if exists
-          sed -i 's|implementation(libs.com.termux.termux.view)|implementation(project(":terminal-view"))|g' app/build.gradle.kts
-          sed -i 's|implementation(libs.com.termux.termux.shared)|implementation(project(":termux-shared"))|g' app/build.gradle.kts
+with open('app/build.gradle.kts', 'r') as f:
+    content = f.read()
 
-          echo "✅ App dependencies updated"
-          echo "📄 Current app dependencies:"
+# Replace terminal-view dependencies
+terminal_view_patterns = [
+    r'implementation\s*\(\s*"com\.github\.termux\.termux-app:terminal-view:[^"]*"\s*\)',
+    r'implementation\s*\(\s*libs\.com\.termux\.terminal\.view\s*\)',
+    r'implementation\s*\(\s*libs\.com\.termux\.termux\.view\s*\)',
+]
+for p in terminal_view_patterns:
+    content = re.sub(p, 'implementation(project(":terminal-view"))', content)
+
+# Replace termux-shared dependencies
+termux_shared_patterns = [
+    r'implementation\s*\(\s*"com\.github\.termux\.termux-app:termux-shared:[^"]*"\s*\)',
+    r'implementation\s*\(\s*libs\.com\.termux\.termux\.shared\s*\)',
+]
+for p in termux_shared_patterns:
+    content = re.sub(p, 'implementation(project(":termux-shared"))', content)
+
+with open('app/build.gradle.kts', 'w') as f:
+    f.write(content)
+
+print("✅ Dependencies replaced")
+PYEOF
+
+          echo "📄 Updated app dependencies:"
           grep -n "implementation" app/build.gradle.kts | head -20
 
       - name: Verify Xfuncproto.h exists
