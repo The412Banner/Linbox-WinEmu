@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <public name="ic_x11_icon" type="drawable" />
+    <public name="AppTheme" type="style" />
+    <public name="stub" type="id" />
+    <public name="frame" type="id" />
+</resources>
