@@ -134,34 +134,48 @@ jobs:
 
           echo "Final termux version: $(grep 'termux = ' gradle/libs.versions.toml | sed 's/termux = "\(.*\)"/\1/')"
 
-      - name: Download termux-shared module
+      - name: Download termux modules (termux-shared and terminal-view)
         run: |
-          echo "🔧 Setting up termux-shared as local module..."
+          echo "🔧 Setting up termux modules..."
 
-          TERMUX_SHARED_URL="https://github.com/afeimod/WinEmulator/releases/download/tx11/termux-shared.zip"
+          # Download full termux-app source
+          TERMUX_APP_URL="https://github.com/afeimod/WinEmulator/releases/download/tx11/termux-app-master.zip"
 
-          echo "📥 Downloading termux-shared from: $TERMUX_SHARED_URL"
-          curl -L -o termux-shared.zip "$TERMUX_SHARED_URL"
+          echo "📥 Downloading termux-app source..."
+          curl -L -o termux-app.zip "$TERMUX_APP_URL"
 
-          if [ -f "termux-shared.zip" ]; then
-            echo "📦 Extracting termux-shared..."
-            unzip -o termux-shared.zip
+          if [ -f "termux-app.zip" ]; then
+            echo "📦 Extracting termux-app..."
+            unzip -o termux-app.zip
 
-            # Check if it extracted to a subdirectory
-            if [ -d "termux-shared-termux-shared" ]; then
-              rm -rf termux-shared
-              mv termux-shared-termux-shared termux-shared
-            elif [ -d "termux-app-master/termux-shared" ]; then
+            # Extract termux-shared
+            if [ -d "termux-app-master/termux-shared" ]; then
               rm -rf termux-shared
               mv termux-app-master/termux-shared termux-shared
-              rm -rf termux-app-master
+              echo "✅ termux-shared extracted"
+            else
+              echo "❌ termux-shared not found in termux-app"
             fi
 
-            rm -f termux-shared.zip
-            echo "✅ termux-shared extracted"
-            ls -la termux-shared/
+            # Extract terminal-view
+            if [ -d "termux-app-master/terminal-view" ]; then
+              rm -rf terminal-view
+              mv termux-app-master/terminal-view terminal-view
+              echo "✅ terminal-view extracted"
+            else
+              echo "❌ terminal-view not found in termux-app"
+            fi
+
+            # Cleanup
+            rm -f termux-app.zip
+            rm -rf termux-app-master
+
+            echo "📁 termux-shared:"
+            ls -la termux-shared/ 2>/dev/null || echo "not found"
+            echo "📁 terminal-view:"
+            ls -la terminal-view/ 2>/dev/null || echo "not found"
           else
-            echo "❌ Failed to download termux-shared"
+            echo "❌ Failed to download termux-app"
             exit 1
           fi
 
@@ -176,23 +190,51 @@ jobs:
           echo "📥 Downloading settings.gradle.kts..."
           curl -fL -o settings.gradle.kts "$BASE_URL/settings.gradle.kts" || { echo "❌ Failed to download settings.gradle.kts"; exit 1; }
 
-          # 2. Download termux-shared/build.gradle.kts (must overwrite any existing build.gradle)
+          # 2. Download termux-shared/build.gradle.kts
           echo "📥 Downloading termux-shared build.gradle.kts..."
           curl -fL -o termux-shared/build.gradle.kts "$BASE_URL/termux-shared.gradle.kts" || { echo "❌ Failed to download termux-shared.gradle.kts"; exit 1; }
-          # Remove old .gradle file if exists
           rm -f termux-shared/build.gradle
 
-          # 3. Download AndroidManifest.xml
+          # 3. Download termux-shared AndroidManifest.xml
           mkdir -p termux-shared/src/main
-          echo "📥 Downloading AndroidManifest.xml..."
+          echo "📥 Downloading termux-shared AndroidManifest.xml..."
           curl -fL -o termux-shared/src/main/AndroidManifest.xml "$BASE_URL/termux-shared-manifest.xml" || { echo "❌ Failed to download termux-shared-manifest.xml"; exit 1; }
 
-          echo "✅ All files downloaded successfully"
+          # 4. Download terminal-view/build.gradle.kts
+          echo "📥 Downloading terminal-view build.gradle.kts..."
+          curl -fL -o terminal-view/build.gradle.kts "$BASE_URL/terminal-view.gradle.kts" || { echo "❌ Failed to download terminal-view.gradle.kts"; exit 1; }
+          rm -f terminal-view/build.gradle
+
+          # 5. Download terminal-view AndroidManifest.xml
+          mkdir -p terminal-view/src/main
+          echo "📥 Downloading terminal-view AndroidManifest.xml..."
+          curl -fL -o terminal-view/src/main/AndroidManifest.xml "$BASE_URL/terminal-view-manifest.xml" || { echo "❌ Failed to download terminal-view-manifest.xml"; exit 1; }
+
+          echo "✅ All config files downloaded successfully"
           echo "📄 Current settings.gradle.kts:"
           cat settings.gradle.kts
-          echo ""
-          echo "📄 Current termux-shared/build.gradle.kts:"
-          cat termux-shared/build.gradle.kts
+
+      - name: Fix app dependencies
+        run: |
+          echo "🔧 Fixing app/build.gradle.kts dependencies..."
+
+          # Backup original
+          cp app/build.gradle.kts app/build.gradle.kts.bak
+
+          # Replace JitPack termux dependencies with local modules
+          # Replace termux-view
+          sed -i 's|implementation("com.github.termux.termux-app:terminal-view:[^"]*")|implementation(project(":terminal-view"))|g' app/build.gradle.kts
+
+          # Replace termux-shared
+          sed -i 's|implementation("com.github.termux.termux-app:termux-shared:[^"]*")|implementation(project(":termux-shared"))|g' app/build.gradle.kts
+
+          # Also handle libs.versions.toml style if exists
+          sed -i 's|implementation(libs.com.termux.termux.view)|implementation(project(":terminal-view"))|g' app/build.gradle.kts
+          sed -i 's|implementation(libs.com.termux.termux.shared)|implementation(project(":termux-shared"))|g' app/build.gradle.kts
+
+          echo "✅ App dependencies updated"
+          echo "📄 Current app dependencies:"
+          grep -n "implementation" app/build.gradle.kts | head -20
 
       - name: Verify Xfuncproto.h exists
         run: |
