@@ -165,49 +165,43 @@ jobs:
             exit 1
           fi
 
-      - name: Download patch files
+      - name: Setup configuration files
         run: |
-          echo "📥 Downloading patch files..."
+          echo "🔧 Setting up configuration files..."
 
-          # Patch files base URL - user should update this to their repo
-          PATCH_BASE="https://raw.githubusercontent.com/afeimod/WinEmulator/main/.github/workflows/patches"
+          # Base URL for downloading files (update to your repo)
+          BASE_URL="https://raw.githubusercontent.com/afeimod/WinEmulator/main/.github/workflows/files"
+          LOCAL_DIR=".github/workflows/files"
 
-          # Download settings.gradle.kts patch
-          curl -L -o settings.gradle.kts.new "$PATCH_BASE/settings.gradle.kts.patch"
-          echo "✅ Downloaded settings.gradle.kts patch"
-
-          # Download termux-shared build.gradle.kts patch
-          curl -L -o termux-shared/build.gradle.kts "$PATCH_BASE/termux-shared.patch"
-          echo "✅ Downloaded termux-shared build.gradle.kts"
-
-          # Download AndroidManifest.xml patch
-          curl -L -o termux-shared/src/main/AndroidManifest.xml "$PATCH_BASE/AndroidManifest.xml.patch"
-          echo "✅ Downloaded AndroidManifest.xml"
-
-      - name: Apply patch files
-        run: |
-          echo "🔧 Applying patches..."
-
-          # Backup original settings
-          cp settings.gradle.kts settings.gradle.kts.bak
-
-          # Replace settings.gradle.kts with patched version
-          if [ -f "settings.gradle.kts.new" ]; then
-            mv settings.gradle.kts.new settings.gradle.kts
-            echo "✅ Applied settings.gradle.kts patch"
+          # 1. Handle settings.gradle.kts
+          if [ -f "$LOCAL_DIR/settings.gradle.kts" ]; then
+            echo "📄 Using local settings.gradle.kts"
+            cp "$LOCAL_DIR/settings.gradle.kts" settings.gradle.kts
+          else
+            echo "📥 Downloading settings.gradle.kts..."
+            curl -sL -o settings.gradle.kts "$BASE_URL/settings.gradle.kts"
           fi
 
-          # Replace termux-shared build file
-          if [ -f "termux-shared/build.gradle.kts" ]; then
-            echo "✅ Applied termux-shared build.gradle.kts"
+          # 2. Handle termux-shared/build.gradle.kts
+          if [ -f "$LOCAL_DIR/termux-shared.gradle.kts" ]; then
+            echo "📄 Using local termux-shared.gradle.kts"
+            cp "$LOCAL_DIR/termux-shared.gradle.kts" termux-shared/build.gradle.kts
+          else
+            echo "📥 Downloading termux-shared build.gradle.kts..."
+            curl -sL -o termux-shared/build.gradle.kts "$BASE_URL/termux-shared.gradle.kts"
           fi
 
-          # Ensure AndroidManifest.xml exists
+          # 3. Handle AndroidManifest.xml
           mkdir -p termux-shared/src/main
-          if [ -f "termux-shared/src/main/AndroidManifest.xml" ]; then
-            echo "✅ AndroidManifest.xml ready"
+          if [ -f "$LOCAL_DIR/termux-shared-manifest.xml" ]; then
+            echo "📄 Using local termux-shared-manifest.xml"
+            cp "$LOCAL_DIR/termux-shared-manifest.xml" termux-shared/src/main/AndroidManifest.xml
+          else
+            echo "📥 Downloading AndroidManifest.xml..."
+            curl -sL -o termux-shared/src/main/AndroidManifest.xml "$BASE_URL/termux-shared-manifest.xml"
           fi
 
+          echo "✅ Configuration files ready"
           echo "📄 Current settings.gradle.kts:"
           cat settings.gradle.kts
 
