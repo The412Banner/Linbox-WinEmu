@@ -25,6 +25,7 @@ rootProject.name = "Win模拟器"
 include(":app")
 include(":tx11")
 include(":shell-loader:stub")
+include(":terminal-emulator")
 include(":terminal-view")
 include(":termux-shared")
 // include(":terminaltest") // Disabled to avoid build issues

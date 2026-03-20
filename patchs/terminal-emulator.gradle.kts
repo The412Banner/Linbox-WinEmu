@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.termux.shared"
+    namespace = "com.termux.terminal"
     compileSdk = 35
 
     defaultConfig {
@@ -33,11 +33,5 @@ android {
 }
 
 dependencies {
-    implementation(project(":terminal-emulator"))
-    implementation(project(":terminal-view"))
-    implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.annotation:annotation:1.9.0")
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("com.google.guava:guava:32.1.3-android")
 }
