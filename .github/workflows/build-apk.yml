@@ -74,6 +74,25 @@ jobs:
           fi
           echo "Debug keystore ready at $KEYSTORE_DIR"
 
+      - name: Fix termux dependency version
+        run: |
+          echo "Checking termux dependencies..."
+
+          # Check if JitPack has the commit built
+          JITPACK_URL="https://jitpack.io/com/github/termux/termux-app/terminal-view/da3a0ac4e2/terminal-view-da3a0ac4e2.pom"
+
+          if ! curl -s -f "$JITPACK_URL" > /dev/null 2>&1; then
+            echo "⚠️  JitPack doesn't have commit da3a0ac4e2 built"
+            echo "📋 Updating gradle configuration to use stable release version..."
+
+            # Update libs.versions.toml to use a stable version
+            sed -i 's/termux = "da3a0ac4e2"/termux = "v0.118.0"/' gradle/libs.versions.toml
+
+            echo "✅ Changed termux version to v0.118.0"
+          else
+            echo "✅ Termux dependency exists on JitPack"
+          fi
+
       - name: Build ${{ inputs.build_type }} APK
         run: |
           if [ "${{ inputs.build_type }}" = "release" ]; then
