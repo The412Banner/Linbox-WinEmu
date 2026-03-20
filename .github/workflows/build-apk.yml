@@ -188,16 +188,6 @@ jobs:
 
 
 
-          # Create AndroidManifest.xml if not exists
-          if [ ! -f "termux-shared/src/main/AndroidManifest.xml" ]; then
-            mkdir -p termux-shared/src/main
-            cat > termux-shared/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-</manifest>
-MANIFEST_EOF
-            echo "✅ Created AndroidManifest.xml"
-          fi
 
       - name: Modify settings.gradle.kts for termux-shared
         run: |
