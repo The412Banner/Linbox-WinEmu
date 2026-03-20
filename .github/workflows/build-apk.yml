@@ -34,17 +34,14 @@ jobs:
           echo "Cloning termux-app repository..."
           git clone --depth 1 https://github.com/termux/termux-app.git termux-app-temp
 
-          if [ -d "termux-app-temp/terminal-view" ]; then
-            rm -rf terminal-view
-            cp -r termux-app-temp/terminal-view .
-            echo "terminal-view cloned"
-          fi
-
-          if [ -d "termux-app-temp/termux-shared" ]; then
-            rm -rf termux-shared
-            cp -r termux-app-temp/termux-shared .
-            echo "termux-shared cloned"
-          fi
+          # Copy all termux modules
+          for module in terminal-view termux-shared terminal-emulator; do
+            if [ -d "termux-app-temp/$module" ]; then
+              rm -rf "$module"
+              cp -r "termux-app-temp/$module" .
+              echo "$module cloned"
+            fi
+          done
 
           rm -rf termux-app-temp
 
@@ -52,12 +49,14 @@ jobs:
         run: |
           rm -f terminal-view/build.gradle
           rm -f termux-shared/build.gradle
+          rm -f terminal-emulator/build.gradle
           echo "Old build.gradle files removed"
 
       - name: Download config files
         run: |
           curl -fL -o terminal-view/build.gradle.kts "https://raw.githubusercontent.com/afeimod/WinEmulator/master/patchs/terminal-view.gradle.kts"
           curl -fL -o termux-shared/build.gradle.kts "https://raw.githubusercontent.com/afeimod/WinEmulator/master/patchs/termux-shared.gradle.kts"
+          curl -fL -o terminal-emulator/build.gradle.kts "https://raw.githubusercontent.com/afeimod/WinEmulator/master/patchs/terminal-emulator.gradle.kts"
           curl -fL -o settings.gradle.kts "https://raw.githubusercontent.com/afeimod/WinEmulator/master/patchs/settings.gradle.kts"
           echo "Config files downloaded"
 
