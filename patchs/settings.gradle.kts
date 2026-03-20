@@ -1,9 +1,14 @@
 pluginManagement {
     repositories {
-        google()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
-        maven { url = uri("https://jitpack.io") }
     }
 }
 
@@ -16,10 +21,10 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WinEmulator"
-
+rootProject.name = "Win模拟器"
 include(":app")
 include(":tx11")
 include(":shell-loader:stub")
-include(":terminaltest")
+include(":terminal-view")
 include(":termux-shared")
+// include(":terminaltest") // Disabled to avoid build issues

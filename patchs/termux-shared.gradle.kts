@@ -1,32 +1,42 @@
 plugins {
     id("com.android.library")
-    kotlin("android")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "com.termux.shared"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 26
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "11"
     }
 }
 
 dependencies {
-    implementation("androidx.annotation:annotation:1.7.0")
+    implementation(project(":terminal-view"))
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.annotation:annotation:1.9.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("com.google.guava:guava:32.1.3-android")
 }
