@@ -29,196 +29,55 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      # ============ FIX: Extract termux modules from uploaded zip ============
       - name: Extract termux modules
         run: |
-          echo "📦 Extracting termux modules from termux-app-master.zip..."
+          echo "Extracting termux modules from zip..."
 
-          if [ -f "user_input_files/termux-app-master.zip" ]; then
-            unzip -o user_input_files/termux-app-master.zip -d temp_termux
+          if [ -f "termux-app-master.zip" ]; then
+            unzip -o termux-app-master.zip -d temp_termux
 
-            # Find the extracted directory
             TERMUX_APP_DIR=$(find temp_termux -type d -name "termux-app*" | head -1)
-            echo "Found termux-app directory: $TERMUX_APP_DIR"
 
-            # Extract terminal-view
             if [ -d "$TERMUX_APP_DIR/terminal-view" ]; then
               rm -rf terminal-view
               cp -r "$TERMUX_APP_DIR/terminal-view" .
-              echo "✅ terminal-view extracted"
+              echo "terminal-view extracted"
             fi
 
-            # Extract termux-shared
             if [ -d "$TERMUX_APP_DIR/termux-shared" ]; then
               rm -rf termux-shared
               cp -r "$TERMUX_APP_DIR/termux-shared" .
-              echo "✅ termux-shared extracted"
+              echo "termux-shared extracted"
             fi
 
             rm -rf temp_termux
           else
-            echo "⚠️  termux-app-master.zip not found, trying GitHub URL..."
+            echo "termux-app-master.zip not found"
           fi
 
-          echo "📁 Current directory structure:"
-          ls -la
-
-      # ============ FIX: Create terminal-view/build.gradle.kts ============
-      - name: Create terminal-view build config
+      - name: Download config files
         run: |
-          cat > terminal-view/build.gradle.kts << 'EOF'
-plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-}
+          echo "Downloading config files from patchs folder..."
 
-android {
-    namespace = "com.termux.view"
-    compileSdk = 35
+          # Download terminal-view/build.gradle.kts
+          curl -fL -o terminal-view/build.gradle.kts "https://raw.githubusercontent.com/afeimod/WinEmulator/master/patchs/terminal-view.gradle.kts" || true
 
-    defaultConfig {
-        minSdk = 26
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
+          # Download termux-shared/build.gradle.kts
+          curl -fL -o termux-shared/build.gradle.kts "https://raw.githubusercontent.com/afeimod/WinEmulator/master/patchs/termux-shared.gradle.kts" || true
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
+          # Download settings.gradle.kts
+          curl -fL -o settings.gradle.kts "https://raw.githubusercontent.com/afeimod/WinEmulator/master/patchs/settings.gradle.kts" || true
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
+          echo "Config files downloaded"
 
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-}
-
-dependencies {
-    implementation("androidx.annotation:annotation:1.9.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
-}
-EOF
-          echo "✅ Created terminal-view/build.gradle.kts"
-
-      # ============ FIX: Create termux-shared/build.gradle.kts ============
-      - name: Create termux-shared build config
-        run: |
-          cat > termux-shared/build.gradle.kts << 'EOF'
-plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-}
-
-android {
-    namespace = "com.termux.shared"
-    compileSdk = 35
-
-    defaultConfig {
-        minSdk = 26
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-}
-
-dependencies {
-    implementation(project(":terminal-view"))
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.annotation:annotation:1.9.0")
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("com.google.guava:guava:32.1.3-android")
-}
-EOF
-          echo "✅ Created termux-shared/build.gradle.kts"
-
-      # ============ FIX: Update settings.gradle.kts ============
-      - name: Update settings.gradle.kts
-        run: |
-          echo "📝 Updating settings.gradle.kts..."
-
-          # Backup original
-          cp settings.gradle.kts settings.gradle.kts.bak
-
-          # Create new settings.gradle.kts with proper module includes
-          cat > settings.gradle.kts << 'EOF'
-pluginManagement {
-    repositories {
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
-}
-
-rootProject.name = "Win模拟器"
-include(":app")
-include(":tx11")
-include(":shell-loader:stub")
-include(":terminal-view")
-include(":termux-shared")
-// include(":terminaltest") // Disabled to avoid build issues
-EOF
-
-          echo "✅ Updated settings.gradle.kts"
-          echo "📄 New settings.gradle.kts:"
-          cat settings.gradle.kts
-
-      # ============ FIX: Update app/build.gradle.kts dependencies ============
       - name: Update app dependencies
         run: |
-          echo "📝 Updating app/build.gradle.kts dependencies..."
+          echo "Updating app dependencies..."
 
-          # Backup original
-          cp app/build.gradle.kts app/build.gradle.kts.bak
-
-          # Replace JitPack dependencies with local project dependencies
           sed -i 's/implementation(libs.com.termux.terminal.view)/implementation(project(":terminal-view"))/g' app/build.gradle.kts
           sed -i 's/implementation(libs.com.termux.termux.shared)/implementation(project(":termux-shared"))/g' app/build.gradle.kts
 
-          echo "✅ Updated app dependencies"
-          echo "📄 Termux dependencies in app/build.gradle.kts:"
-          grep -n "termux\|terminal-view\|termux-shared" app/build.gradle.kts
+          echo "App dependencies updated"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -235,10 +94,9 @@ EOF
       - name: Configure Gradle properties
         run: |
           mkdir -p ~/.gradle
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> ~/.gradle/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" >> ~/.gradle/gradle.properties
           echo "org.gradle.parallel=true" >> ~/.gradle/gradle.properties
           echo "org.gradle.daemon=true" >> ~/.gradle/gradle.properties
-          echo "org.gradle.caching=false" >> ~/.gradle/gradle.properties
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -250,41 +108,36 @@ EOF
           else
             echo "sdk.dir=$ANDROID_HOME" > local.properties
           fi
-          cat local.properties
 
       - name: Create Android debug keystore
         run: |
           KEYSTORE_DIR="/home/runner/.config/.android"
           mkdir -p "$KEYSTORE_DIR"
           if [ ! -f "$KEYSTORE_DIR/debug.keystore" ]; then
-            echo "Creating debug keystore..."
             keytool -genkey -v -keystore "$KEYSTORE_DIR/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
-          echo "Debug keystore ready"
 
-      - name: Build ${{ inputs.build_type }} APK
+      - name: Build APK
         run: |
           echo "Starting build..."
           if [ "${{ inputs.build_type }}" = "release" ]; then
-            ./gradlew :app:assembleRelease --no-configuration-cache --stacktrace 2>&1 | tee build.log
+            ./gradlew :app:assembleRelease --no-configuration-cache 2>&1 | tee build.log
           else
-            ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace 2>&1 | tee build.log
+            ./gradlew :app:assembleDebug --no-configuration-cache 2>&1 | tee build.log
           fi
 
-      - name: Show build errors
+      - name: Show errors
         if: failure()
         run: |
-          echo "=== Kotlin/Java Compilation Errors ==="
-          grep -E "(error:|Error:|FAILED)" build.log | head -30 || true
-          echo ""
-          echo "=== Last 50 lines of build log ==="
+          echo "=== Build Errors ==="
+          grep -E "(error:|FAILED)" build.log | head -30 || true
           tail -50 build.log
 
       - name: Upload build log
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log-${{ inputs.build_type }}
+          name: build-log
           path: build.log
           retention-days: 7
 
@@ -293,13 +146,11 @@ EOF
         if: success()
         run: |
           if [ "${{ inputs.build_type }}" = "release" ]; then
-            APK_PATH="app/build/outputs/apk/release/app-release.apk"
+            echo "apk_path=app/build/outputs/apk/release/app-release.apk" >> $GITHUB_OUTPUT
           else
-            APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+            echo "apk_path=app/build/outputs/apk/debug/app-debug.apk" >> $GITHUB_OUTPUT
           fi
-          APK_NAME="${{ inputs.apk_name }}-${{ inputs.build_type }}.apk"
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "apk_name=${{ inputs.apk_name }}-${{ inputs.build_type }}.apk" >> $GITHUB_OUTPUT
 
       - name: Upload APK
         if: success()
@@ -309,19 +160,8 @@ EOF
           path: ${{ steps.apk_info.outputs.apk_path }}
           retention-days: 30
 
-      - name: Display APK info
+      - name: Display result
         if: success()
         run: |
-          echo "✅ Build completed successfully!"
-          echo "📦 APK location: ${{ steps.apk_info.outputs.apk_path }}"
-          echo "📎 Artifact name: ${{ steps.apk_info.outputs.apk_name }}"
-
-          if [ "${{ inputs.build_type }}" = "release" ]; then
-            APK_FILE="app/build/outputs/apk/release/app-release.apk"
-          else
-            APK_FILE="app/build/outputs/apk/debug/app-debug.apk"
-          fi
-
-          if [ -f "$APK_FILE" ]; then
-            echo "📁 APK size: $(du -h $APK_FILE | cut -f1)"
-          fi
+          echo "Build completed!"
+          echo "APK: ${{ steps.apk_info.outputs.apk_path }}"
