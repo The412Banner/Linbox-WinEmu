@@ -92,33 +92,44 @@ jobs:
         run: |
           echo "Checking termux dependencies..."
 
-          # The project code expects a specific termux API
-          # Try different versions to find one that works with the code
-          TERMUX_VERSIONS=("da3a0ac4e2" "v0.118.0" "v0.119.0" "v0.118.3" "v0.117.0")
-
           CURRENT_VERSION=$(grep 'termux = ' gradle/libs.versions.toml | sed 's/termux = "\(.*\)"/\1/')
           echo "Current termux version in project: $CURRENT_VERSION"
 
-          WORKING_VERSION=""
-          for VERSION in "${TERMUX_VERSIONS[@]}"; do
-            echo "Testing termux version: $VERSION"
-            JITPACK_URL="https://jitpack.io/com/github/termux/termux-app/terminal-view/${VERSION}/terminal-view-${VERSION}.pom"
-            if curl -s -f "$JITPACK_URL" > /dev/null 2>&1; then
-              echo "✅ Found working version: $VERSION"
-              WORKING_VERSION=$VERSION
-              break
-            else
-              echo "❌ Version $VERSION not found on JitPack"
-            fi
-          done
+          # Check if termux-view pom already exists
+          JITPACK_POM="https://jitpack.io/com/github/termux/termux-app/terminal-view/${CURRENT_VERSION}/terminal-view-${CURRENT_VERSION}.pom"
 
-          if [ -z "$WORKING_VERSION" ]; then
-            echo "⚠️  No working version found, trying to trigger JitPack build for: $CURRENT_VERSION"
-            # Trigger JitPack build by accessing the build URL
-            curl -s -f "https://jitpack.io/com/github/termux/termux-app/terminal-view/${CURRENT_VERSION}/terminal-view-${CURRENT_VERSION}.pom" || true
+          if curl -s -f "$JITPACK_POM" > /dev/null 2>&1; then
+            echo "✅ Termux version $CURRENT_VERSION is available on JitPack"
           else
-            echo "Updating to working version: $WORKING_VERSION"
-            sed -i "s/termux = \"[^\"]*\"/termux = \"$WORKING_VERSION\"/" gradle/libs.versions.toml
+            echo "⚠️  Termux version $CURRENT_VERSION NOT on JitPack yet"
+            echo "🔨 Triggering JitPack build for: $CURRENT_VERSION"
+
+            # Trigger JitPack build for terminal-view
+            curl -s "https://jitpack.io/com/github/termux/termux-app/terminal-view/${CURRENT_VERSION}/terminal-view-${CURRENT_VERSION}.aar" || true
+            sleep 5
+
+            # Trigger JitPack build for termux-shared
+            curl -s "https://jitpack.io/com/github/termux/termux-app/termux-shared/${CURRENT_VERSION}/termux-shared-${CURRENT_VERSION}.aar" || true
+            sleep 5
+
+            echo "⏳ Waiting for JitPack to build termux dependencies..."
+            echo "📋 This may take a few minutes. Checking build status..."
+
+            # Wait and check for pom file
+            for i in {1..12}; do
+              sleep 10
+              if curl -s -f "$JITPACK_POM" > /dev/null 2>&1; then
+                echo "✅ Termux build completed successfully!"
+                break
+              fi
+              echo "⏳ Still building... ($i/12)"
+            done
+
+            # Final check
+            if ! curl -s -f "$JITPACK_POM" > /dev/null 2>&1; then
+              echo "⚠️  JitPack build may still be in progress"
+              echo "📋 The build will continue and may succeed if JitPack finishes"
+            fi
           fi
 
           echo "Final termux version: $(grep 'termux = ' gradle/libs.versions.toml | sed 's/termux = "\(.*\)"/\1/')"
