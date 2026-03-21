@@ -1,22 +1,7 @@
 name: Android CI/CD
 
 on:
-  push:
-    branches:
-      - main      # 主分支 - 构建发布版本
-      - master    # 主分支别名 - 构建发布版本
-      - develop   # 开发分支 - 构建调试版本
-      - 'develop/*' # 开发子分支 - 构建调试版本
-      - 'feature/*' # 功能分支 - 构建调试版本
-      - 'release/*' # 发布分支 - 构建发布候选版本
-      - 'hotfix/*'  # 热修复分支 - 构建调试版本
-  pull_request:
-    branches:
-      - main
-      - master
-      - develop
-      - 'release/*'
-  workflow_dispatch:  # 允许手动触发构建
+  workflow_dispatch:  # 仅允许手动触发构建
 
 env:
   JAVA_VERSION: '11'  # 项目要求的Java版本
@@ -33,12 +18,6 @@ jobs:
     name: Debug Build - API ${{ matrix.api_level }}
     runs-on: ubuntu-latest
     
-    # 只在非main/master分支或PR时构建调试版本
-    if: |
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master')
-    
     strategy:
       fail-fast: false
       matrix:
@@ -52,11 +31,12 @@ jobs:
             min_sdk: 26
     
     steps:
-      # 检出代码
+      # 检出代码 - 使用触发时选择的分支
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          ref: ${{ github.ref }}
       
       # 设置JDK
       - name: Set up JDK ${{ env.JAVA_VERSION }}
@@ -135,17 +115,13 @@ jobs:
     name: Release Build
     runs-on: ubuntu-latest
     
-    # 只在main/master/release分支或手动触发时构建发布版本
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')))
-    
     steps:
-      # 检出代码
+      # 检出代码 - 使用触发时选择的分支
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          ref: ${{ github.ref }}
       
       # 设置JDK
       - name: Set up JDK ${{ env.JAVA_VERSION }}
@@ -257,13 +233,11 @@ jobs:
     name: Code Lint
     runs-on: ubuntu-latest
     
-    if: |
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch'
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
       
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
@@ -305,13 +279,11 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     
-    if: |
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch'
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
       
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
