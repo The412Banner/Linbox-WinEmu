@@ -20,16 +20,12 @@ env:
   ANDROID_SDK_VERSION: '28'  # Target SDK
 
 jobs:
-  # ============================================
-  # 调试版本构建（多 API 级别）
-  # ============================================
   debug-build:
     name: Debug Build - API ${{ matrix.api_level }}
     runs-on: ubuntu-latest
     if: |
       github.event.inputs.build_type == 'debug' ||
       github.event.inputs.build_type == 'both'
-    
     strategy:
       fail-fast: false
       matrix:
@@ -41,28 +37,24 @@ jobs:
             min_sdk: 26
           - api_level: 34
             min_sdk: 26
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
           ref: ${{ github.ref }}
-      
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'gradle'
-      
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: ${{ matrix.api_level }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -73,12 +65,10 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-      
       - name: Prepare Gradle
         run: |
           chmod +x gradlew
           ./gradlew --version
-      
       - name: Build debug APK
         run: |
           ./gradlew assembleDebug \
@@ -88,7 +78,6 @@ jobs:
             --stacktrace
         env:
           ORG_GRADLE_PROJECT_DEVELOPMENT_TEAM: ""
-      
       - name: Rename debug APK
         run: |
           if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
@@ -100,7 +89,6 @@ jobs:
             mv app/build/outputs/apk/debug/app-debug.apk "$NEW_NAME"
             echo "APK_FILE=$NEW_NAME" >> $GITHUB_ENV
           fi
-      
       - name: Upload debug APK
         if: env.APK_FILE != ''
         uses: actions/upload-artifact@v4
@@ -110,37 +98,30 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-  # ============================================
-  # 发布版本构建（使用 debug 签名，禁用混淆）
-  # ============================================
   release-build:
     name: Release Build
     runs-on: ubuntu-latest
     if: |
       github.event.inputs.build_type == 'release' ||
       github.event.inputs.build_type == 'both'
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
           ref: ${{ github.ref }}
-      
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'gradle'
-      
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: ${{ env.ANDROID_COMPILE_SDK }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -151,18 +132,19 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-      
       - name: Prepare Gradle
         run: |
           chmod +x gradlew
           ./gradlew --version
-      
-      # 创建 debug 密钥（用于签名）
       - name: Create debug keystore
         run: |
           keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, ST=Debug, C=US" 2>/dev/null || true
-      
-      # 通过 Gradle 命令行参数注入签名配置，并禁用混淆
+      - name: Setup default debug keystore
+        run: |
+          mkdir -p ~/.android
+          cp debug.keystore ~/.android/debug.keystore
+          mkdir -p ~/.config/.android
+          cp debug.keystore ~/.config/.android/debug.keystore
       - name: Build release APK (signed with debug key, no minify)
         run: |
           ./gradlew assembleRelease \
@@ -177,7 +159,6 @@ jobs:
             --stacktrace
         env:
           ORG_GRADLE_PROJECT_DEVELOPMENT_TEAM: ""
-      
       - name: Rename release APK
         run: |
           if [ -f app/build/outputs/apk/release/app-release.apk ]; then
@@ -189,7 +170,6 @@ jobs:
             mv app/build/outputs/apk/release/app-release.apk "$NEW_NAME"
             echo "APK_FILE=$NEW_NAME" >> $GITHUB_ENV
           fi
-      
       - name: Upload release APK
         if: env.APK_FILE != ''
         uses: actions/upload-artifact@v4
@@ -199,36 +179,29 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  # ============================================
-  # 代码质量检查
-  # ============================================
   lint:
     name: Code Lint
     runs-on: ubuntu-latest
     if: |
       github.event.inputs.build_type == 'debug' ||
       github.event.inputs.build_type == 'both'
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-      
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'gradle'
-      
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: ${{ env.ANDROID_COMPILE_SDK }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -239,12 +212,10 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-      
       - name: Run lint
         run: |
           chmod +x gradlew
           ./gradlew lint --no-daemon
-      
       - name: Upload lint reports
         uses: actions/upload-artifact@v4
         with:
@@ -252,36 +223,29 @@ jobs:
           path: app/build/reports/lint-results-*.html
           retention-days: 7
 
-  # ============================================
-  # 单元测试
-  # ============================================
   unit-test:
     name: Unit Tests
     runs-on: ubuntu-latest
     if: |
       github.event.inputs.build_type == 'debug' ||
       github.event.inputs.build_type == 'both'
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-      
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'gradle'
-      
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: ${{ env.ANDROID_COMPILE_SDK }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -292,12 +256,10 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-      
       - name: Run unit tests
         run: |
           chmod +x gradlew
           ./gradlew testDebugUnitTest --no-daemon
-      
       - name: Upload test reports
         uses: actions/upload-artifact@v4
         with:
@@ -305,15 +267,11 @@ jobs:
           path: app/build/reports/tests/testDebugUnitTest/*.html
           retention-days: 7
 
-  # ============================================
-  # 构建汇总
-  # ============================================
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
     needs: [debug-build, release-build, lint, unit-test]
     if: always()
-    
     steps:
       - name: Build Summary
         run: |
