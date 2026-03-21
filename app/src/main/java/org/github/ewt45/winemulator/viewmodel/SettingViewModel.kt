@@ -27,6 +27,10 @@ import org.github.ewt45.winemulator.Consts.Pref.Local.rootfs_login_user_json
 import org.github.ewt45.winemulator.Consts.Pref.general_resolution
 import org.github.ewt45.winemulator.Consts.Pref.general_rootfs_lang
 import org.github.ewt45.winemulator.Consts.Pref.general_shared_ext_path
+import org.github.ewt45.winemulator.Consts.Pref.inputcontrols_enabled
+import org.github.ewt45.winemulator.Consts.Pref.inputcontrols_haptics
+import org.github.ewt45.winemulator.Consts.Pref.inputcontrols_opacity
+import org.github.ewt45.winemulator.Consts.Pref.inputcontrols_profile_id
 import org.github.ewt45.winemulator.Consts.Pref.proot_bool_options
 import org.github.ewt45.winemulator.Consts.Pref.proot_startup_cmd
 import org.github.ewt45.winemulator.Consts.rootfsAllDir
@@ -75,6 +79,17 @@ class SettingViewModel : ViewModel() {
         )
     }
     val prootState = stateInSimple(PrefProot_DEFAULT, prootFlow)
+
+    // InputControls设置
+    val inputControlsFlow = dataStore.data.map { pref ->
+        PrefInputControls(
+            inputcontrols_enabled.run { pref[key] ?: default },
+            inputcontrols_profile_id.run { pref[key] ?: default },
+            inputcontrols_opacity.run { pref[key] ?: default },
+            inputcontrols_haptics.run { pref[key] ?: default },
+        )
+    }
+    val inputControlsState = stateInSimple(PrefInputControls_DEFAULT, inputControlsFlow)
 
     init {
         //部分数据不会自动更新，请在 [updateValuesWhenEnterSettings] 中更新，确保进入设置界面时会获取一次最新的值
@@ -242,6 +257,12 @@ class SettingViewModel : ViewModel() {
 
     fun onChangeRootfsLang(lang: String) = editDateStoreAsync(general_rootfs_lang.key, lang)
 
+    // InputControls设置相关
+    fun onChangeInputControlsEnabled(enabled: Boolean) = editDateStoreAsync(inputcontrols_enabled.key, enabled)
+    fun onChangeInputControlsProfileId(profileId: Int) = editDateStoreAsync(inputcontrols_profile_id.key, profileId)
+    fun onChangeInputControlsOpacity(opacity: Float) = editDateStoreAsync(inputcontrols_opacity.key, opacity)
+    fun onChangeInputControlsHaptics(haptics: Boolean) = editDateStoreAsync(inputcontrols_haptics.key, haptics)
+
 }
 
 data class PrefProot(
@@ -268,6 +289,20 @@ private val PrefGeneral_DEFAULT = PrefGeneral(
     general_shared_ext_path.default,
     general_rootfs_lang.default,
     mapOf(),
+)
+
+data class PrefInputControls(
+    val enabled: Boolean,
+    val profileId: Int,
+    val opacity: Float,
+    val haptics: Boolean,
+)
+
+private val PrefInputControls_DEFAULT = PrefInputControls(
+    inputcontrols_enabled.default,
+    inputcontrols_profile_id.default,
+    inputcontrols_opacity.default,
+    inputcontrols_haptics.default,
 )
 
 /** 顶部操作按钮类型 */

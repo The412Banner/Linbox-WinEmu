@@ -34,6 +34,7 @@ import org.github.ewt45.winemulator.ui.setting.DebugSettings
 import org.github.ewt45.winemulator.ui.setting.DebugSettingsImpl
 import org.github.ewt45.winemulator.ui.setting.GeneralSettings
 import org.github.ewt45.winemulator.ui.setting.GeneralSettingsPreview
+import org.github.ewt45.winemulator.ui.setting.InputControlsSettings
 import org.github.ewt45.winemulator.ui.setting.MiscSettings
 import org.github.ewt45.winemulator.ui.setting.MiscSettingsPreview
 import org.github.ewt45.winemulator.ui.setting.ProotSettings
@@ -69,6 +70,8 @@ fun SettingScreen(
         GeneralSettings(settingVm, prepareVm, navigateTo)
         HorizontalDivider()
         ProotSettings(settingVm)
+        HorizontalDivider()
+        InputControlsSettings()
         MiscSettings(navigateTo)
         Spacer(Modifier.height(16.dp))
     }

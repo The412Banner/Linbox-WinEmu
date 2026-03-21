@@ -93,6 +93,12 @@ object Consts {
         val proot_bool_options by item("proot_bool_options", setOf( "-L", "--link2symlink", "--sysvipc", "--kill-on-exit", /*"--root-id",*/))
         val proot_startup_cmd by item("proot_startup_cmd", "")
 
+        // Input Controls Settings
+        val inputcontrols_enabled by item("inputcontrols_enabled", false)
+        val inputcontrols_profile_id by item("inputcontrols_profile_id", -1)
+        val inputcontrols_opacity by item("inputcontrols_opacity", 0.4f)
+        val inputcontrols_haptics by item("inputcontrols_haptics", true)
+
         /** 仅在此设备存储，不应用于导出导入。 */
         object Local {
             /** 当前使用的rootfs名，[Consts.rootfsAllDir]目录下的某个文件夹名，可能为空字符串或对应文件夹不存在 */
