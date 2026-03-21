@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  # 仅允许手动触发构建
 
 env:
-  JAVA_VERSION: '11'  # 项目要求的Java版本
+  JAVA_VERSION: '17'  # Android Gradle Plugin 8.0+ 需要 Java 17
   GRADLE_VERSION: '8.4'
   ANDROID_COMPILE_SDK: '35'
   ANDROID_BUILD_TOOLS_VERSION: '35.0.0'
@@ -37,28 +37,21 @@ jobs:
           fetch-depth: 1
           ref: ${{ github.ref }}
       
-      # 设置 Java 17 用于 Android SDK 工具
-      - name: Set up JDK 17 for SDK tools
+      # 设置 Java 17（用于 Android SDK 工具和构建）
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          cache: 'gradle'   # 缓存 Gradle 依赖
       
-      # 设置 Android SDK（使用 v3）
+      # 设置 Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: ${{ matrix.api_level }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
-      # 切换回 Java 11 用于构建
-      - name: Set up JDK ${{ env.JAVA_VERSION }} for build
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: 'gradle'
       
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -123,12 +116,13 @@ jobs:
           fetch-depth: 1
           ref: ${{ github.ref }}
       
-      # 设置 Java 17 用于 SDK 工具
-      - name: Set up JDK 17 for SDK tools
+      # 设置 Java 17
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          cache: 'gradle'
       
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -136,14 +130,6 @@ jobs:
           api-level: ${{ env.ANDROID_COMPILE_SDK }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
-      # 切换回 Java 11
-      - name: Set up JDK ${{ env.JAVA_VERSION }} for build
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: 'gradle'
       
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -231,12 +217,12 @@ jobs:
         with:
           ref: ${{ github.ref }}
       
-      # 设置 Java 17 用于 SDK 工具
-      - name: Set up JDK 17 for SDK tools
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          cache: 'gradle'
       
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -244,13 +230,6 @@ jobs:
           api-level: ${{ env.ANDROID_COMPILE_SDK }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
-      - name: Set up JDK ${{ env.JAVA_VERSION }} for build
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: 'gradle'
       
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -288,12 +267,12 @@ jobs:
         with:
           ref: ${{ github.ref }}
       
-      # 设置 Java 17 用于 SDK 工具
-      - name: Set up JDK 17 for SDK tools
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          cache: 'gradle'
       
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -301,13 +280,6 @@ jobs:
           api-level: ${{ env.ANDROID_COMPILE_SDK }}
           build-tools: ${{ env.ANDROID_BUILD_TOOLS_VERSION }}
           cmdline-tools: 'latest'
-      
-      - name: Set up JDK ${{ env.JAVA_VERSION }} for build
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: 'gradle'
       
       - name: Cache Gradle packages
         uses: actions/cache@v4
