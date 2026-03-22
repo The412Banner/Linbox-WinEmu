@@ -319,9 +319,9 @@ class InputControlsView(
         }
     }
 
-    private var iconCache = mutableMapOf<Byte, Bitmap?>()
+    private var iconCache = mutableMapOf<Int, Bitmap?>()
 
-    private fun getIconBitmap(iconId: Byte): Bitmap? {
+    private fun getIconBitmap(iconId: Int): Bitmap? {
         if (iconCache.containsKey(iconId)) {
             return iconCache[iconId]
         }
