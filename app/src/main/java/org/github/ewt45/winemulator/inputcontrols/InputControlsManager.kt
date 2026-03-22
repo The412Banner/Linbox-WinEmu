@@ -80,8 +80,8 @@ class InputControlsManager(private val context: Context) {
     }
 
     private fun copyAssetsToDir(context: Context, assetPath: String, destDir: File) {
+        val assetManager = context.assets
         try {
-            val assetManager = context.assets
             val files = assetManager.list(assetPath) ?: return
 
             for (file in files) {

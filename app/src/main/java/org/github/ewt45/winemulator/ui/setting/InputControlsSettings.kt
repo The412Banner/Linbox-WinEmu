@@ -23,6 +23,7 @@ import java.io.File
 /**
  * Input Controls Settings UI for WinEmulator
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InputControlsSettings(
     modifier: Modifier = Modifier
@@ -60,7 +61,7 @@ fun InputControlsSettings(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Gamepad,
+                imageVector = Icons.Default.Settings,
                 contentDescription = null,
                 modifier = Modifier.padding(end = 8.dp)
             )
@@ -170,7 +171,7 @@ fun InputControlsSettings(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.ContentCopy, contentDescription = null)
+                Icon(Icons.Default.Copy, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
                 Text("复制当前配置")
             }
@@ -199,14 +200,14 @@ fun InputControlsSettings(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val presetNames = listOf(
-                    "FPS游戏", "RPG游戏", " RTS游戏", "赛车游戏", "格斗游戏"
+                    "FPS游戏", "RPG游戏", "RTS游戏", "赛车游戏", "格斗游戏"
                 )
 
                 items(presetNames) { presetName ->
                     ListItem(
                         headlineContent = { Text(presetName) },
                         leadingContent = {
-                            Icon(Icons.Default.SportsEsports, contentDescription = null)
+                            Icon(Icons.Default.Sports, contentDescription = null)
                         },
                         modifier = Modifier.clickable {
                             dialogState.showConfirm("加载预设 '$presetName'？这将替换当前配置的按键布局。") {
@@ -237,7 +238,7 @@ fun InputControlsSettings(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Upload, contentDescription = null)
+                    Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("导出")
                 }
@@ -249,7 +250,7 @@ fun InputControlsSettings(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Download, contentDescription = null)
+                    Icon(Icons.Default.Folder, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("导入")
                 }
@@ -349,11 +350,11 @@ fun ControlsEditorDialog(
                             leadingContent = {
                                 Icon(
                                     imageVector = when (element.type) {
-                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.BUTTON -> Icons.Default.SmartButton
-                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.D_PAD -> Icons.Default.ArrowUpward
-                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.STICK -> Icons.Default.Joystick
+                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.BUTTON -> Icons.Default.RadioButtonChecked
+                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.D_PAD -> Icons.Default.Navigation
+                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.STICK -> Icons.Default.TouchApp
                                         org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.RANGE_BUTTON -> Icons.Default.LinearScale
-                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.TRACKPAD -> Icons.Default.TouchApp
+                                        org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.TRACKPAD -> Icons.Default.PanTool
                                     },
                                     contentDescription = null
                                 )
@@ -400,7 +401,7 @@ fun ControlsEditorDialog(
                             profile.save()
                         },
                         label = { Text("按钮") },
-                        leadingIcon = { Icon(Icons.Default.SmartButton, contentDescription = null) }
+                        leadingIcon = { Icon(Icons.Default.RadioButtonChecked, contentDescription = null) }
                     )
 
                     FilterChip(
@@ -409,7 +410,7 @@ fun ControlsEditorDialog(
                             // Add D-Pad
                         },
                         label = { Text("方向键") },
-                        leadingIcon = { Icon(Icons.Default.ArrowUpward, contentDescription = null) }
+                        leadingIcon = { Icon(Icons.Default.Navigation, contentDescription = null) }
                     )
 
                     FilterChip(
@@ -418,7 +419,7 @@ fun ControlsEditorDialog(
                             // Add Stick
                         },
                         label = { Text("摇杆") },
-                        leadingIcon = { Icon(Icons.Default.Joystick, contentDescription = null) }
+                        leadingIcon = { Icon(Icons.Default.TouchApp, contentDescription = null) }
                     )
                 }
             }
@@ -557,14 +558,4 @@ fun ElementSettingsDialog(
             }
         }
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun InputControlsSettingsPreview() {
-    MaterialTheme {
-        Surface {
-            InputControlsSettings()
-        }
-    }
 }
