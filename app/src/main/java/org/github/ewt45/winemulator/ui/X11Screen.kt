@@ -37,12 +37,16 @@ import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
 import org.github.ewt45.winemulator.inputcontrols.InputEventHandler
 import org.github.ewt45.winemulator.inputcontrols.InputControlsManager
 import org.github.ewt45.winemulator.inputcontrols.InputControlsView
+import org.github.ewt45.winemulator.inputcontrols.X11InputInjector
 
 @Composable
 fun X11Screen(x11Content: (Context) -> View, onNavigateToOthers: (Destination) -> Unit) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+
+    // X11 Input Injector - 用于发送按键事件到 X server
+    val x11InputInjector = remember { X11InputInjector() }
 
     // 加载当前选中的虚拟按键配置 ID
     val currentProfileId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
@@ -57,18 +61,33 @@ fun X11Screen(x11Content: (Context) -> View, onNavigateToOthers: (Destination) -
             profile?.let { setProfile(it) }
             inputEventHandler = object : InputEventHandler {
                 override fun onKeyEvent(keycode: Int, isDown: Boolean) {
-                    // TODO: 替换为实际的 X11 输入调用
-                    android.util.Log.d("X11Screen", "KeyEvent: $keycode, down=$isDown")
+                    // 使用 X11InputInjector 发送按键事件
+                    if (isDown) {
+                        x11InputInjector.sendKeyPress(keycode)
+                    } else {
+                        x11InputInjector.sendKeyRelease(keycode)
+                    }
                 }
 
                 override fun onPointerMove(dx: Int, dy: Int) {
-                    // TODO: 替换为实际的 X11 输入调用
-                    android.util.Log.d("X11Screen", "PointerMove: $dx, $dy")
+                    // 发送鼠标移动事件
+                    x11InputInjector.sendMouseMotion(dx, dy)
                 }
 
                 override fun onPointerButton(button: Int, isDown: Boolean) {
-                    // TODO: 替换为实际的 X11 输入调用
-                    android.util.Log.d("X11Screen", "MouseButton: $button, down=$isDown")
+                    // 发送鼠标按键事件
+                    // button: 0=左键, 1=右键, 2=中键
+                    val x11Button = when (button) {
+                        0 -> X11InputInjector.Companion.BUTTON_LEFT
+                        1 -> X11InputInjector.Companion.BUTTON_RIGHT
+                        2 -> X11InputInjector.Companion.BUTTON_MIDDLE
+                        else -> return
+                    }
+                    if (isDown) {
+                        x11InputInjector.sendMouseButtonPress(x11Button)
+                    } else {
+                        x11InputInjector.sendMouseButtonRelease(x11Button)
+                    }
                 }
             }
         }
@@ -78,6 +97,18 @@ fun X11Screen(x11Content: (Context) -> View, onNavigateToOthers: (Destination) -
     LaunchedEffect(currentProfileId) {
         val newProfile = if (currentProfileId != 0) manager.getProfile(currentProfileId) else manager.getProfiles().firstOrNull()
         inputControlsView.setProfile(newProfile)
+    }
+
+    // 连接 X11 服务器
+    LaunchedEffect(Unit) {
+        x11InputInjector.connect()
+    }
+
+    // 组件销毁时断开连接
+    DisposableEffect(Unit) {
+        onDispose {
+            x11InputInjector.disconnect()
+        }
     }
 
     Box(Modifier.fillMaxSize()) {

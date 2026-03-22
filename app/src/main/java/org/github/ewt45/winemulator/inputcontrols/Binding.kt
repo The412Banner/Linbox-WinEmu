@@ -2,7 +2,7 @@ package org.github.ewt45.winemulator.inputcontrols
 
 /**
  * Binding types for control elements
- * 按键绑定类型
+ * 按键绑定类型 - 参考 winlator 实现
  */
 enum class Binding(
     val keycode: Int = 0,
@@ -11,7 +11,7 @@ enum class Binding(
     val isGamepad: Boolean = false
 ) {
     // Special bindings
-    NONE(),
+    NONE,
 
     // Keyboard bindings - Main keys
     // 常用按键 - 与配置文件兼容的名称
@@ -110,8 +110,8 @@ enum class Binding(
     KEY_RWIN(127, true),
 
     // Navigation keys
-    KEY_UP(103, true),
-    KEY_DOWN(108, true),
+    KEY_UP(73, true),   // Page Up keycode (correct evdev)
+    KEY_DOWN(74, true),  // Page Down keycode (correct evdev)
     KEY_LEFT(105, true),
     KEY_RIGHT(106, true),
     KEY_INSERT(110, true),
@@ -207,6 +207,99 @@ enum class Binding(
     GAMEPAD_RIGHT_THUMB_LEFT(0, false, false, true),
     GAMEPAD_RIGHT_THUMB_RIGHT(0, false, false, true);
 
+    /**
+     * 返回用于显示的字符串，参考 winlator 的实现
+     */
+    override fun toString(): String {
+        return when (this) {
+            NONE -> "NONE"
+            KEY_SHIFT_L -> "L SHIFT"
+            KEY_SHIFT_R -> "R SHIFT"
+            KEY_LSHIFT -> "L SHIFT"
+            KEY_RSHIFT -> "R SHIFT"
+            KEY_CTRL_L -> "L CTRL"
+            KEY_CTRL_R -> "R CTRL"
+            KEY_LCTRL, KEY_LCONTROL -> "L CTRL"
+            KEY_RCTRL, KEY_RCONTROL -> "R CTRL"
+            KEY_ALT_L, KEY_LALT, KEY_LMENU -> "L ALT"
+            KEY_ALT_R, KEY_RALT, KEY_RMENU -> "R ALT"
+            KEY_BRACKET_LEFT -> "["
+            KEY_BRACKET_RIGHT -> "]"
+            KEY_BACKSLASH -> "\\"
+            KEY_SLASH -> "/"
+            KEY_SEMICOLON -> ";"
+            KEY_COMMA -> ","
+            KEY_PERIOD -> "."
+            KEY_APOSTROPHE -> "'"
+            KEY_MINUS -> "-"
+            KEY_EQUALS -> "="
+            KEY_GRAVE -> "`"
+            KEY_KP_0, NUMPAD_0 -> "NP 0"
+            KEY_KP_1, NUMPAD_1 -> "NP 1"
+            KEY_KP_2, NUMPAD_2 -> "NP 2"
+            KEY_KP_3, NUMPAD_3 -> "NP 3"
+            KEY_KP_4, NUMPAD_4 -> "NP 4"
+            KEY_KP_5, NUMPAD_5 -> "NP 5"
+            KEY_KP_6, NUMPAD_6 -> "NP 6"
+            KEY_KP_7, NUMPAD_7 -> "NP 7"
+            KEY_KP_8, NUMPAD_8 -> "NP 8"
+            KEY_KP_9, NUMPAD_9 -> "NP 9"
+            KEY_KP_DIVIDE, NUMPAD_DIVIDE -> "NP /"
+            KEY_KP_MULTIPLY, NUMPAD_MULTIPLY -> "NP *"
+            KEY_KP_SUBTRACT, NUMPAD_MINUS -> "NP -"
+            KEY_KP_ADD, NUMPAD_PLUS -> "NP +"
+            KEY_KP_DECIMAL, NUMPAD_DECIMAL -> "NP ."
+            KEY_KP_ENTER, NUMPAD_ENTER -> "NP ENTER"
+            KEY_CAPS_LOCK, KEY_CAPITAL -> "CAPS LOCK"
+            KEY_NUM_LOCK, KEY_NUMLOCK -> "NUM LOCK"
+            KEY_SCROLL_LOCK, KEY_SCROLL -> "SCROLL LOCK"
+            KEY_ESC, KEY_ESCAPE -> "ESC"
+            KEY_ENTER -> "ENTER"
+            KEY_TAB -> "TAB"
+            KEY_SPACE -> "SPACE"
+            KEY_BKSP, KEY_BACKSPACE -> "BKSP"
+            KEY_DELETE, KEY_DEL -> "DELETE"
+            KEY_INSERT -> "INSERT"
+            KEY_HOME -> "HOME"
+            KEY_END -> "END"
+            KEY_PGUP, KEY_PAGEUP -> "PG UP"
+            KEY_PGDN, KEY_PAGEDOWN -> "PG DN"
+            KEY_UP -> "UP"
+            KEY_DOWN -> "DOWN"
+            KEY_LEFT -> "LEFT"
+            KEY_RIGHT -> "RIGHT"
+            KEY_PRTSCN, KEY_PRINT -> "PRINT"
+            KEY_PAUSE -> "PAUSE"
+            MOUSE_LEFT_BUTTON -> "L MB"
+            MOUSE_RIGHT_BUTTON -> "R MB"
+            MOUSE_MIDDLE_BUTTON -> "M MB"
+            MOUSE_MOVE_UP -> "M UP"
+            MOUSE_MOVE_DOWN -> "M DOWN"
+            MOUSE_MOVE_LEFT -> "M LEFT"
+            MOUSE_MOVE_RIGHT -> "M RIGHT"
+            MOUSE_SCROLL_UP -> "M SC UP"
+            MOUSE_SCROLL_DOWN -> "M SC DOWN"
+            GAMEPAD_BUTTON_A -> "G A"
+            GAMEPAD_BUTTON_B -> "G B"
+            GAMEPAD_BUTTON_X -> "G X"
+            GAMEPAD_BUTTON_Y -> "G Y"
+            GAMEPAD_BUTTON_L1 -> "G L1"
+            GAMEPAD_BUTTON_R1 -> "G R1"
+            GAMEPAD_BUTTON_L2 -> "G L2"
+            GAMEPAD_BUTTON_R2 -> "G R2"
+            GAMEPAD_BUTTON_THUMBL -> "G TL"
+            GAMEPAD_BUTTON_THUMBR -> "G TR"
+            GAMEPAD_BUTTON_START -> "G START"
+            GAMEPAD_BUTTON_SELECT -> "G SELECT"
+            GAMEPAD_BUTTON_HOME -> "G HOME"
+            GAMEPAD_DPAD_UP -> "G UP"
+            GAMEPAD_DPAD_DOWN -> "G DOWN"
+            GAMEPAD_DPAD_LEFT -> "G LEFT"
+            GAMEPAD_DPAD_RIGHT -> "G RIGHT"
+            else -> name.removePrefix("KEY_").removePrefix("NUMPAD_").removePrefix("GAMEPAD_")
+        }
+    }
+
     companion object {
         /**
          * 从字符串解析Binding，支持多种命名变体
@@ -260,45 +353,17 @@ enum class Binding(
 
         fun gamepadBindings(): List<Binding> = entries.filter { it.isGamepad }
 
-        fun keyboardBindingLabels(): Array<String> =
-            keyboardBindings().map { binding ->
-                // 简化标签显示
-                binding.name
-                    .replace("KEY_", "")
-                    .replace("NUMPAD_", "NP")
-                    .replace("L", "L ")
-                    .replace("R", "R ")
-                    .replace("CTRL", "CTRL")
-                    .replace("SHIFT", "SHIFT")
-                    .replace("ALT", "ALT")
-            }.toTypedArray()
+        fun keyboardBindingLabels(): Array<String> = keyboardBindings().map { it.toString() }.toTypedArray()
 
-        fun keyboardBindingValues(): Array<Binding> =
-            keyboardBindings().toTypedArray()
+        fun keyboardBindingValues(): Array<Binding> = keyboardBindings().toTypedArray()
 
-        fun mouseBindingLabels(): Array<String> =
-            mouseBindings().map {
-                it.name.replace("MOUSE_", "")
-                    .replace("_BUTTON", " BTN")
-                    .replace("_MOVE_", " ")
-                    .replace("_", " ")
-            }.toTypedArray()
+        fun mouseBindingLabels(): Array<String> = mouseBindings().map { it.toString() }.toTypedArray()
 
-        fun mouseBindingValues(): Array<Binding> =
-            mouseBindings().toTypedArray()
+        fun mouseBindingValues(): Array<Binding> = mouseBindings().toTypedArray()
 
-        fun gamepadBindingLabels(): Array<String> =
-            gamepadBindings().map {
-                it.name.replace("GAMEPAD_", "")
-                    .replace("BUTTON_", "")
-                    .replace("THUMB", "T")
-                    .replace("LEFT_", "L")
-                    .replace("RIGHT_", "R")
-                    .replace("DPAD", "D")
-            }.toTypedArray()
+        fun gamepadBindingLabels(): Array<String> = gamepadBindings().map { it.toString() }.toTypedArray()
 
-        fun gamepadBindingValues(): Array<Binding> =
-            gamepadBindings().toTypedArray()
+        fun gamepadBindingValues(): Array<Binding> = gamepadBindings().toTypedArray()
     }
 
     fun isMouseMove(): Boolean = this in listOf(MOUSE_MOVE_UP, MOUSE_MOVE_DOWN, MOUSE_MOVE_LEFT, MOUSE_MOVE_RIGHT)

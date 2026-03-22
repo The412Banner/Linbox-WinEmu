@@ -472,17 +472,8 @@ class InputControlsView(
         }
 
         val binding = element.getBindingAt(0)
-        var text = binding.name.replace("NUMPAD ", "NP").replace("BUTTON ", "")
-
-        if (text.length > 7) {
-            val parts = text.split(" ")
-            val sb = StringBuilder()
-            for (part in parts) {
-                if (part.isNotEmpty()) sb.append(part[0])
-            }
-            return (if (binding.isMouse) "M" else "") + sb
-        }
-        return text
+        // 使用 toString() 方法获取显示文本（参考 winlator 实现）
+        return binding.toString()
     }
 
     private fun calculateTextSizeForWidth(paint: Paint, text: String, desiredWidth: Float): Float {
