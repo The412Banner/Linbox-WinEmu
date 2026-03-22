@@ -103,7 +103,7 @@ fun InputControlsSettings(
                 onExpandedChange = { expanded = !expanded }
             ) {
                 OutlinedTextField(
-                    value = selectedProfile!!.getName(),
+                    value = selectedProfile!!.name,
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -118,7 +118,7 @@ fun InputControlsSettings(
                 ) {
                     profiles.forEach { profile ->
                         DropdownMenuItem(
-                            text = { Text(profile.getName()) },
+                            text = { Text(profile.name) },
                             onClick = {
                                 selectedProfile = profile
                                 expanded = false
@@ -324,7 +324,7 @@ fun ControlsEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑虚拟按键 - ${profile.getName()}") },
+        title = { Text("编辑虚拟按键 - ${profile.name}") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -390,15 +390,7 @@ fun ControlsEditorDialog(
                     FilterChip(
                         selected = false,
                         onClick = {
-                            val element = org.github.ewt45.winemulator.inputcontrols.ControlElement(
-                                profile.id as? org.github.ewt45.winemulator.inputcontrols.InputControlsView ?: return@FilterChip
-                            ).apply {
-                                setType(org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.BUTTON)
-                                x = 100
-                                y = 100
-                            }
-                            profile.addElement(element)
-                            profile.save()
+                            dialogState.showConfirm("请在游戏界面中长按屏幕来添加新的虚拟按键")
                         },
                         label = { Text("按钮") },
                         leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
@@ -481,7 +473,7 @@ fun ElementSettingsDialog(
                         FilterChip(
                             selected = element.type == type,
                             onClick = {
-                                element.setType(type)
+                                element.type = type
                                 selectedType = type
                             },
                             label = { Text(type.name.replace("_", "-")) }

@@ -422,7 +422,7 @@ class InputControlsView(
             for (part in parts) {
                 if (part.isNotEmpty()) sb.append(part[0])
             }
-            return (if (binding.isMouse()) "M" else "") + sb
+            return (if (binding.isMouse) "M" else "") + sb
         }
         return text
     }
