@@ -546,7 +546,7 @@ class TouchpadView(context: Context) : View(context) {
     private var lastX = 0f
     private var lastY = 0f
 
-    var inputEventHandler: InputControlsView.InputEventHandler? = null
+    var inputEventHandler: InputEventHandler? = null
 
     companion object {
         const val CURSOR_ACCELERATION = 2f

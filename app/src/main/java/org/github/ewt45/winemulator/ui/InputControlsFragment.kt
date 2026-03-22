@@ -19,8 +19,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
-import com.winlator.inputcontrols.ControlsProfile
-import com.winlator.inputcontrols.InputControlsManager
 import org.github.ewt45.winemulator.R
 import org.github.ewt45.winemulator.inputcontrols.ControlsProfile as WinEmuControlsProfile
 import org.github.ewt45.winemulator.inputcontrols.InputControlsManager as WinEmuInputControlsManager
