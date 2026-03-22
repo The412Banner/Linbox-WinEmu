@@ -17,13 +17,15 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
-import org.github.ewt45.winemulator.R
+import a.io.github.ewt45.winemulator.R
 import org.github.ewt45.winemulator.inputcontrols.ControlsProfile as WinEmuControlsProfile
 import org.github.ewt45.winemulator.inputcontrols.InputControlsManager as WinEmuInputControlsManager
 import org.json.JSONObject
 import java.io.File
+import java.util.ArrayList
 
 class InputControlsFragment : Fragment() {
     private lateinit var manager: WinEmuInputControlsManager
@@ -235,7 +237,7 @@ class InputControlsFragment : Fragment() {
             hint = getString(titleResId)
         }
 
-        android.app.AlertDialog.Builder(requireContext())
+        AlertDialog.Builder(requireContext())
             .setTitle(titleResId)
             .setView(editText)
             .setPositiveButton(R.string.ok) { _, _ ->

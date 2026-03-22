@@ -18,7 +18,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import org.github.ewt45.winemulator.R
+import a.io.github.ewt45.winemulator.R
 import org.github.ewt45.winemulator.inputcontrols.Binding
 import org.github.ewt45.winemulator.inputcontrols.ControlElement
 import org.github.ewt45.winemulator.inputcontrols.ControlsProfile
@@ -228,25 +228,25 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    private fun loadBindingSpinners(element: ControlElement, container: LinearLayout) {
+    private fun loadBindingSpinners(element: ControlElement, container: View) {
         container.removeAllViews()
 
         when (element.type) {
             ControlElement.Type.BUTTON -> {
-                loadBindingSpinner(element, container, 0, getString(R.string.binding))
-                loadBindingSpinner(element, container, 1, getString(R.string.binding_secondary))
+                loadBindingSpinner(element, container, 0, R.string.binding)
+                loadBindingSpinner(element, container, 1, R.string.binding_secondary)
             }
             ControlElement.Type.D_PAD, ControlElement.Type.STICK, ControlElement.Type.TRACKPAD -> {
-                loadBindingSpinner(element, container, 0, getString(R.string.binding_up))
-                loadBindingSpinner(element, container, 1, getString(R.string.binding_right))
-                loadBindingSpinner(element, container, 2, getString(R.string.binding_down))
-                loadBindingSpinner(element, container, 3, getString(R.string.binding_left))
+                loadBindingSpinner(element, container, 0, R.string.binding_up)
+                loadBindingSpinner(element, container, 1, R.string.binding_right)
+                loadBindingSpinner(element, container, 2, R.string.binding_down)
+                loadBindingSpinner(element, container, 3, R.string.binding_left)
             }
             else -> {}
         }
     }
 
-    private fun loadBindingSpinner(element: ControlElement, container: LinearLayout, index: Int, titleResId: Int) {
+    private fun loadBindingSpinner(element: ControlElement, container: View, index: Int, titleResId: Int) {
         val view = LayoutInflater.from(this).inflate(R.layout.binding_field, container, false)
         (view.findViewById<TextView>(R.id.TVTitle)).setText(titleResId)
         val sBindingType = view.findViewById<Spinner>(R.id.SBindingType)
