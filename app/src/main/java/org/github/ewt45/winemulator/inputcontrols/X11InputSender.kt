@@ -6,6 +6,7 @@ import android.os.Looper
 import android.view.KeyEvent
 import com.termux.x11.input.InputEventSender
 import com.termux.x11.input.InputStub
+import com.termux.x11.input.InputStub.*
 import com.termux.x11.input.RenderData
 
 /**
@@ -64,7 +65,7 @@ class X11InputSender {
 
     /**
      * Send mouse button event
-     * @param button Button index (0=left, 1=right, 2=middle)
+     * @param button Button index (1=left, 2=middle, 3=right, 4=scroll up, 5=scroll down)
      * @param isDown True if pressed, false if released
      */
     fun sendMouseButtonEvent(button: Int, isDown: Boolean) {
@@ -72,13 +73,14 @@ class X11InputSender {
         
         handler.post {
             val x11Button = when (button) {
-                0 -> InputStub.BUTTON_LEFT
-                1 -> InputStub.BUTTON_RIGHT
-                2 -> InputStub.BUTTON_MIDDLE
+                1 -> BUTTON_LEFT    // X11 Button1 - left button
+                2 -> BUTTON_MIDDLE  // X11 Button2 - middle button
+                3 -> BUTTON_RIGHT   // X11 Button3 - right button
+                4 -> BUTTON_WHEEL_UP   // X11 Button4 - scroll up
+                5 -> BUTTON_WHEEL_DOWN // X11 Button5 - scroll down
                 else -> return@post
             }
-            // Use null for position since we're sending button press/release without movement
-            // The last boolean is for relative positioning
+            // Send button press/release without cursor movement
             sender.sendMouseEvent(null, x11Button, isDown, true)
         }
     }

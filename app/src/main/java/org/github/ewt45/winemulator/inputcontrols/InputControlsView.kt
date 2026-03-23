@@ -24,7 +24,7 @@ class InputControlsView(
     var inputEventHandler: InputEventHandler? = null
     var profile: ControlsProfile? = null
         private set
-    var showTouchscreenControls = true
+    var showTouchscreenControls = false
     var overlayOpacity = 0.4f
 
     var touchpadView: TouchpadView? = null
@@ -83,12 +83,18 @@ class InputControlsView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         // 当视图尺寸变化时，重新加载元素以重新计算坐标
+        // 这处理了屏幕旋转和分辨率变化的情况
         if (w > 0 && h > 0 && profile != null) {
-            if (maxWidth != lastMaxWidth || maxHeight != lastMaxHeight) {
-                lastMaxWidth = maxWidth
-                lastMaxHeight = maxHeight
-                reloadElements()
-            }
+            // 无论尺寸是否变化，都重新加载元素以确保坐标正确
+            reloadElements()
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 当屏幕方向变化时，重新加载元素以重新计算坐标
+        if (profile != null && width > 0 && height > 0) {
+            reloadElements()
         }
     }
 
