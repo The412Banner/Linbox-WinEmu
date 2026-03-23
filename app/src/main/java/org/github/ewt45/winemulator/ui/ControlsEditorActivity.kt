@@ -324,7 +324,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             sBinding.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, bindingEntries)
-            setSpinnerSelectionFromValue(sBinding, element.getBindingAt(index).name)
+            setSpinnerSelectionFromValue(sBinding, element.getBindingAt(index).toString())
         }
 
         sBindingType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -369,7 +369,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
     private fun setSpinnerSelectionFromValue(spinner: Spinner, value: String) {
         val adapter = spinner.adapter
         for (i in 0 until adapter.count) {
-            if (adapter.getItem(i).toString() == value) {
+            if (adapter.getItem(i).toString().equals(value, ignoreCase = true)) {
                 spinner.setSelection(i, false)
                 return
             }

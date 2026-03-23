@@ -20,7 +20,7 @@ interface InputEventHandler {
 
     /**
      * Handle pointer button event
-     * @param button Button index (0=left, 1=right, 2=middle)
+     * @param button X11 button number (1=left, 2=middle, 3=right, 4=scroll up, 5=scroll down)
      * @param isDown True if pressed, false if released
      */
     fun onPointerButton(button: Int, isDown: Boolean)

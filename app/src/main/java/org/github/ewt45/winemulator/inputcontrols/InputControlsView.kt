@@ -169,15 +169,29 @@ class InputControlsView(
                 // Gamepad events handled separately
             }
             binding.isMouse -> {
-                when (binding) {
-                    Binding.MOUSE_LEFT_BUTTON -> inputEventHandler?.onPointerButton(0, isDown)
-                    Binding.MOUSE_RIGHT_BUTTON -> inputEventHandler?.onPointerButton(1, isDown)
-                    Binding.MOUSE_MIDDLE_BUTTON -> inputEventHandler?.onPointerButton(2, isDown)
-                    Binding.MOUSE_MOVE_UP -> if (isDown) inputEventHandler?.onPointerMove(0, -10)
-                    Binding.MOUSE_MOVE_DOWN -> if (isDown) inputEventHandler?.onPointerMove(0, 10)
-                    Binding.MOUSE_MOVE_LEFT -> if (isDown) inputEventHandler?.onPointerMove(-10, 0)
-                    Binding.MOUSE_MOVE_RIGHT -> if (isDown) inputEventHandler?.onPointerMove(10, 0)
-                    else -> {}
+                when {
+                    binding.isMouseMove() -> {
+                        // 处理鼠标移动
+                        val dx = when (binding) {
+                            Binding.MOUSE_MOVE_LEFT -> -10
+                            Binding.MOUSE_MOVE_RIGHT -> 10
+                            else -> 0
+                        }
+                        val dy = when (binding) {
+                            Binding.MOUSE_MOVE_UP -> -10
+                            Binding.MOUSE_MOVE_DOWN -> 10
+                            else -> 0
+                        }
+                        if (isDown && (dx != 0 || dy != 0)) {
+                            inputEventHandler?.onPointerMove(dx, dy)
+                        }
+                    }
+                    else -> {
+                        // 处理鼠标按钮事件，使用 getPointerButton 方法
+                        binding.getPointerButton()?.let { button ->
+                            inputEventHandler?.onPointerButton(button, isDown)
+                        }
+                    }
                 }
             }
             binding.isKeyboard -> {

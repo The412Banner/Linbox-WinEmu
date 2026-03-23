@@ -367,4 +367,20 @@ enum class Binding(
     }
 
     fun isMouseMove(): Boolean = this in listOf(MOUSE_MOVE_UP, MOUSE_MOVE_DOWN, MOUSE_MOVE_LEFT, MOUSE_MOVE_RIGHT)
+
+    /**
+     * 获取鼠标按钮对应的指针按钮值
+     * 用于将鼠标绑定转换为实际的鼠标事件
+     * @return X11按钮值 (1=左键, 2=中键, 3=右键, 4=滚轮上, 5=滚轮下)，如果不是鼠标按钮则返回 null
+     */
+    fun getPointerButton(): Int? {
+        return when (this) {
+            MOUSE_LEFT_BUTTON -> 1   // X11 Button1
+            MOUSE_MIDDLE_BUTTON -> 2 // X11 Button2
+            MOUSE_RIGHT_BUTTON -> 3  // X11 Button3
+            MOUSE_SCROLL_UP -> 4     // X11 Button4
+            MOUSE_SCROLL_DOWN -> 5    // X11 Button5
+            else -> null
+        }
+    }
 }
