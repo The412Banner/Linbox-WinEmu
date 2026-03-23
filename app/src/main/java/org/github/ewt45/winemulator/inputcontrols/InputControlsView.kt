@@ -54,11 +54,7 @@ class InputControlsView(
     private var rangeScroller: RangeScroller? = null
     private var currentElementForScroller: ControlElement? = null
 
-    private val primaryColor: Int
-        get() = Color.argb((overlayOpacity * 255).toInt(), 255, 255, 255)
 
-    private val secondaryColor: Int
-        get() = Color.argb((overlayOpacity * 255).toInt(), 2, 119, 189)
 
     // Icon cache
     private val icons = arrayOfNulls<Bitmap>(17)
@@ -82,9 +78,7 @@ class InputControlsView(
         }
     }
 
-    fun setOverlayOpacity(opacity: Float) {
-        overlayOpacity = opacity
-    }
+
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -286,9 +280,9 @@ class InputControlsView(
         return PorterDuffColorFilter(0xFFFFFFFF.toInt(), PorterDuff.Mode.SRC_IN)
     }
 
-    fun getPrimaryColor(): Int = primaryColor
+    fun getPrimaryColor(): Int = Color.argb((overlayOpacity * 255).toInt(), 255, 255, 255)
 
-    fun getSecondaryColor(): Int = secondaryColor
+    fun getSecondaryColor(): Int = Color.argb((overlayOpacity * 255).toInt(), 2, 119, 189)
 
     fun getIcon(id: Byte): Bitmap? {
         if (icons[id.toInt()] == null) {
