@@ -72,16 +72,32 @@ class X11InputSender {
         val sender = inputEventSender ?: return
         
         handler.post {
-            val x11Button = when (button) {
-                1 -> BUTTON_LEFT    // X11 Button1 - left button
-                2 -> BUTTON_MIDDLE  // X11 Button2 - middle button
-                3 -> BUTTON_RIGHT   // X11 Button3 - right button
-                4 -> BUTTON_WHEEL_UP   // X11 Button4 - scroll up
-                5 -> BUTTON_WHEEL_DOWN // X11 Button5 - scroll down
-                else -> return@post
+            when (button) {
+                1 -> {
+                    // Left button - send as button press/release
+                    sender.sendMouseEvent(null, BUTTON_LEFT, isDown, true)
+                }
+                2 -> {
+                    // Middle button
+                    sender.sendMouseEvent(null, BUTTON_MIDDLE, isDown, true)
+                }
+                3 -> {
+                    // Right button
+                    sender.sendMouseEvent(null, BUTTON_RIGHT, isDown, true)
+                }
+                4 -> {
+                    // Scroll up - use wheel event
+                    if (isDown) {
+                        sender.sendMouseWheelEvent(0f, -1f)
+                    }
+                }
+                5 -> {
+                    // Scroll down - use wheel event
+                    if (isDown) {
+                        sender.sendMouseWheelEvent(0f, 1f)
+                    }
+                }
             }
-            // Send button press/release without cursor movement
-            sender.sendMouseEvent(null, x11Button, isDown, true)
         }
     }
 

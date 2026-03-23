@@ -1,11 +1,9 @@
 package org.github.ewt45.winemulator.inputcontrols
 
-import android.view.KeyEvent
 import org.github.ewt45.winemulator.inputcontrols.ControlElement.Range
 
 /**
  * Handles scrolling for range button elements
- * 范围按钮的滚动处理，用于RANGE_BUTTON类型元素
  */
 class RangeScroller(
     private val inputControlsView: InputControlsView,
@@ -54,9 +52,9 @@ class RangeScroller(
     fun handleTouchUp() {
         // Release any held binding
         if (lastActivatedIndex >= 0) {
-            val keycode = getKeycodeForRangeIndex(element.range, lastActivatedIndex)
-            if (keycode != 0) {
-                inputControlsView.handleInputEvent(keycode, false)
+            val binding = getBindingForRangeIndex(element.range, lastActivatedIndex)
+            if (binding != Binding.NONE) {
+                inputControlsView.handleInputEvent(binding, false)
             }
             lastActivatedIndex = -1
         }
@@ -64,92 +62,92 @@ class RangeScroller(
     }
 
     /**
-     * 根据范围类型和索引获取对应的Android KeyCode
-     * Converts a range index to the corresponding Android keycode
+     * 根据范围类型和索引获取对应的Binding
+     * Converts a range index to the corresponding Binding
      */
-    private fun getKeycodeForRangeIndex(range: Range?, index: Int): Int {
+    private fun getBindingForRangeIndex(range: Range?, index: Int): Binding {
         val currentRange = range ?: Range.FROM_A_TO_Z
         return when (currentRange) {
             Range.FROM_A_TO_Z -> {
-                // A-Z: index 0-25 对应 KeyEvent.KEYCODE_A 到 KeyEvent.KEYCODE_Z
+                // A-Z: index 0-25 对应 Binding.KEY_A 到 Binding.KEY_Z
                 when (index) {
-                    0 -> KeyEvent.KEYCODE_A
-                    1 -> KeyEvent.KEYCODE_B
-                    2 -> KeyEvent.KEYCODE_C
-                    3 -> KeyEvent.KEYCODE_D
-                    4 -> KeyEvent.KEYCODE_E
-                    5 -> KeyEvent.KEYCODE_F
-                    6 -> KeyEvent.KEYCODE_G
-                    7 -> KeyEvent.KEYCODE_H
-                    8 -> KeyEvent.KEYCODE_I
-                    9 -> KeyEvent.KEYCODE_J
-                    10 -> KeyEvent.KEYCODE_K
-                    11 -> KeyEvent.KEYCODE_L
-                    12 -> KeyEvent.KEYCODE_M
-                    13 -> KeyEvent.KEYCODE_N
-                    14 -> KeyEvent.KEYCODE_O
-                    15 -> KeyEvent.KEYCODE_P
-                    16 -> KeyEvent.KEYCODE_Q
-                    17 -> KeyEvent.KEYCODE_R
-                    18 -> KeyEvent.KEYCODE_S
-                    19 -> KeyEvent.KEYCODE_T
-                    20 -> KeyEvent.KEYCODE_U
-                    21 -> KeyEvent.KEYCODE_V
-                    22 -> KeyEvent.KEYCODE_W
-                    23 -> KeyEvent.KEYCODE_X
-                    24 -> KeyEvent.KEYCODE_Y
-                    25 -> KeyEvent.KEYCODE_Z
-                    else -> 0
+                    0 -> Binding.KEY_A
+                    1 -> Binding.KEY_B
+                    2 -> Binding.KEY_C
+                    3 -> Binding.KEY_D
+                    4 -> Binding.KEY_E
+                    5 -> Binding.KEY_F
+                    6 -> Binding.KEY_G
+                    7 -> Binding.KEY_H
+                    8 -> Binding.KEY_I
+                    9 -> Binding.KEY_J
+                    10 -> Binding.KEY_K
+                    11 -> Binding.KEY_L
+                    12 -> Binding.KEY_M
+                    13 -> Binding.KEY_N
+                    14 -> Binding.KEY_O
+                    15 -> Binding.KEY_P
+                    16 -> Binding.KEY_Q
+                    17 -> Binding.KEY_R
+                    18 -> Binding.KEY_S
+                    19 -> Binding.KEY_T
+                    20 -> Binding.KEY_U
+                    21 -> Binding.KEY_V
+                    22 -> Binding.KEY_W
+                    23 -> Binding.KEY_X
+                    24 -> Binding.KEY_Y
+                    25 -> Binding.KEY_Z
+                    else -> Binding.NONE
                 }
             }
             Range.DIGITS -> {
-                // 0-9: index 0-9 对应 KeyEvent.KEYCODE_0 到 KeyEvent.KEYCODE_9
+                // 0-9: index 0-9 对应 Binding.KEY_0 到 Binding.KEY_9
                 when (index) {
-                    0 -> KeyEvent.KEYCODE_0
-                    1 -> KeyEvent.KEYCODE_1
-                    2 -> KeyEvent.KEYCODE_2
-                    3 -> KeyEvent.KEYCODE_3
-                    4 -> KeyEvent.KEYCODE_4
-                    5 -> KeyEvent.KEYCODE_5
-                    6 -> KeyEvent.KEYCODE_6
-                    7 -> KeyEvent.KEYCODE_7
-                    8 -> KeyEvent.KEYCODE_8
-                    9 -> KeyEvent.KEYCODE_9
-                    else -> 0
+                    0 -> Binding.KEY_0
+                    1 -> Binding.KEY_1
+                    2 -> Binding.KEY_2
+                    3 -> Binding.KEY_3
+                    4 -> Binding.KEY_4
+                    5 -> Binding.KEY_5
+                    6 -> Binding.KEY_6
+                    7 -> Binding.KEY_7
+                    8 -> Binding.KEY_8
+                    9 -> Binding.KEY_9
+                    else -> Binding.NONE
                 }
             }
             Range.FUNCTION_KEYS -> {
-                // F1-F12: index 0-11 对应 KeyEvent.KEYCODE_F1 到 KeyEvent.KEYCODE_F12
+                // F1-F12: index 0-11 对应 Binding.KEY_F1 到 Binding.KEY_F12
                 when (index) {
-                    0 -> KeyEvent.KEYCODE_F1
-                    1 -> KeyEvent.KEYCODE_F2
-                    2 -> KeyEvent.KEYCODE_F3
-                    3 -> KeyEvent.KEYCODE_F4
-                    4 -> KeyEvent.KEYCODE_F5
-                    5 -> KeyEvent.KEYCODE_F6
-                    6 -> KeyEvent.KEYCODE_F7
-                    7 -> KeyEvent.KEYCODE_F8
-                    8 -> KeyEvent.KEYCODE_F9
-                    9 -> KeyEvent.KEYCODE_F10
-                    10 -> KeyEvent.KEYCODE_F11
-                    11 -> KeyEvent.KEYCODE_F12
-                    else -> 0
+                    0 -> Binding.KEY_F1
+                    1 -> Binding.KEY_F2
+                    2 -> Binding.KEY_F3
+                    3 -> Binding.KEY_F4
+                    4 -> Binding.KEY_F5
+                    5 -> Binding.KEY_F6
+                    6 -> Binding.KEY_F7
+                    7 -> Binding.KEY_F8
+                    8 -> Binding.KEY_F9
+                    9 -> Binding.KEY_F10
+                    10 -> Binding.KEY_F11
+                    11 -> Binding.KEY_F12
+                    else -> Binding.NONE
                 }
             }
             Range.NUMPAD_DIGITS -> {
-                // NP0-NP9: index 0-9 对应 KeyEvent.KEYCODE_NUMPAD_0 到 KeyEvent.KEYCODE_NUMPAD_9
+                // NP0-NP9: index 0-9 对应 Binding.NUMPAD_0 到 Binding.NUMPAD_9
                 when (index) {
-                    0 -> KeyEvent.KEYCODE_NUMPAD_0
-                    1 -> KeyEvent.KEYCODE_NUMPAD_1
-                    2 -> KeyEvent.KEYCODE_NUMPAD_2
-                    3 -> KeyEvent.KEYCODE_NUMPAD_3
-                    4 -> KeyEvent.KEYCODE_NUMPAD_4
-                    5 -> KeyEvent.KEYCODE_NUMPAD_5
-                    6 -> KeyEvent.KEYCODE_NUMPAD_6
-                    7 -> KeyEvent.KEYCODE_NUMPAD_7
-                    8 -> KeyEvent.KEYCODE_NUMPAD_8
-                    9 -> KeyEvent.KEYCODE_NUMPAD_9
-                    else -> 0
+                    0 -> Binding.NUMPAD_0
+                    1 -> Binding.NUMPAD_1
+                    2 -> Binding.NUMPAD_2
+                    3 -> Binding.NUMPAD_3
+                    4 -> Binding.NUMPAD_4
+                    5 -> Binding.NUMPAD_5
+                    6 -> Binding.NUMPAD_6
+                    7 -> Binding.NUMPAD_7
+                    8 -> Binding.NUMPAD_8
+                    9 -> Binding.NUMPAD_9
+                    else -> Binding.NONE
                 }
             }
         }
@@ -179,16 +177,16 @@ class RangeScroller(
         if (centerIndex != lastActivatedIndex) {
             // Release previous binding
             if (lastActivatedIndex >= 0) {
-                val prevKeycode = getKeycodeForRangeIndex(range, lastActivatedIndex)
-                if (prevKeycode != 0) {
-                    inputControlsView.handleInputEvent(prevKeycode, false)
+                val prevBinding = getBindingForRangeIndex(range, lastActivatedIndex)
+                if (prevBinding != Binding.NONE) {
+                    inputControlsView.handleInputEvent(prevBinding, false)
                 }
             }
 
-            // Activate new binding - 直接发送按键事件而不是通过bindings数组
-            val keycode = getKeycodeForRangeIndex(range, centerIndex)
-            if (keycode != 0) {
-                inputControlsView.handleInputEvent(keycode, true)
+            // Activate new binding
+            val binding = getBindingForRangeIndex(range, centerIndex)
+            if (binding != Binding.NONE) {
+                inputControlsView.handleInputEvent(binding, true)
                 lastActivatedIndex = centerIndex
             }
         }
