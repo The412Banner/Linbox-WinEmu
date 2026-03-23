@@ -89,8 +89,16 @@ fun InputControlsSettings(
                         selectedProfile = newProfile
                         prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, newProfile.id).apply()
                     } else {
-                        selectedProfile = profiles.first()
-                        prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, selectedProfile!!.id).apply()
+                        // 尝试恢复之前保存的配置，而不是强制选择第一个
+                        val savedId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
+                        val restoredProfile = if (savedId != 0) manager.getProfile(savedId) else null
+                        if (restoredProfile != null) {
+                            selectedProfile = restoredProfile
+                        } else {
+                            // 只有在无法恢复时才选择第一个配置
+                            selectedProfile = profiles.first()
+                            prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, selectedProfile!!.id).apply()
+                        }
                     }
                 }
             )
