@@ -2,6 +2,7 @@ package org.github.ewt45.winemulator.ui
 
 import a.io.github.ewt45.winemulator.R
 import android.content.Context
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.MarginLayoutParams
@@ -32,21 +33,38 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.preference.PreferenceManager
+import com.termux.x11.input.InputEventSender
+import com.termux.x11.input.InputStub
+import com.termux.x11.input.RenderData
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
-import org.github.ewt45.winemulator.inputcontrols.InputEventHandler
 import org.github.ewt45.winemulator.inputcontrols.InputControlsManager
 import org.github.ewt45.winemulator.inputcontrols.InputControlsView
-import org.github.ewt45.winemulator.inputcontrols.X11InputInjector
+import org.github.ewt45.winemulator.inputcontrols.X11InputSender
+import org.github.ewt45.winemulator.inputcontrols.InputEventHandler
 
+/**
+ * X11 Screen composable that displays X11 content with virtual controls overlay
+ * 
+ * This is the fixed version that properly routes input events from virtual controls
+ * to the X11 session through the LorieView JNI bridge.
+ */
 @Composable
-fun X11Screen(x11Content: (Context) -> View, onNavigateToOthers: (Destination) -> Unit) {
+fun X11Screen(
+    x11Content: (Context) -> View,
+    onNavigateToOthers: (Destination) -> Unit,
+    // Add callback to get LorieView from the X11 content view
+    onLorieViewReady: ((InputStub) -> Unit)? = null
+) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
 
-    // X11 Input Injector - 用于发送按键事件到 X server
-    val x11InputInjector = remember { X11InputInjector() }
+    // X11 Input Sender - 用于通过InputEventSender发送按键事件
+    val x11InputSender = remember { X11InputSender() }
+    
+    // RenderData for touch events
+    val renderData = remember { RenderData() }
 
     // 加载当前选中的虚拟按键配置 ID
     val currentProfileId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
@@ -55,84 +73,130 @@ fun X11Screen(x11Content: (Context) -> View, onNavigateToOthers: (Destination) -
         if (currentProfileId != 0) manager.getProfile(currentProfileId) else manager.getProfiles().firstOrNull()
     }
 
-    // 创建 InputControlsView，并设置配置和事件处理器
-    val inputControlsView = remember {
-        InputControlsView(context, editMode = false).apply {
-            profile?.let { setProfile(it) }
-            inputEventHandler = object : InputEventHandler {
-                override fun onKeyEvent(keycode: Int, isDown: Boolean) {
-                    // 使用 X11InputInjector 发送按键事件
-                    if (isDown) {
-                        x11InputInjector.sendKeyPress(keycode)
-                    } else {
-                        x11InputInjector.sendKeyRelease(keycode)
-                    }
-                }
+    // Create InputEventHandler that uses X11InputSender
+    // InputEventHandler receives evdev keycodes from InputControlsView
+    val inputEventHandler = remember {
+        object : InputEventHandler {
+            override fun onKeyEvent(keycode: Int, isDown: Boolean) {
+                // keycode is evdev keycode from Binding class
+                // X11InputSender will convert it to Android keycode and send via InputEventSender
+                x11InputSender.sendEvdevKeyEvent(keycode, isDown)
+            }
 
-                override fun onPointerMove(dx: Int, dy: Int) {
-                    // 发送鼠标移动事件
-                    x11InputInjector.sendMouseMotion(dx, dy)
-                }
+            override fun onPointerMove(dx: Int, dy: Int) {
+                // Send mouse motion event (relative movement)
+                x11InputSender.sendMouseMotionEvent(dx, dy)
+            }
 
-                override fun onPointerButton(button: Int, isDown: Boolean) {
-                    // 发送鼠标按键事件
-                    // button: 0=左键, 1=右键, 2=中键
-                    val x11Button = when (button) {
-                        0 -> X11InputInjector.Companion.BUTTON_LEFT
-                        1 -> X11InputInjector.Companion.BUTTON_RIGHT
-                        2 -> X11InputInjector.Companion.BUTTON_MIDDLE
-                        else -> return
-                    }
-                    if (isDown) {
-                        x11InputInjector.sendMouseButtonPress(x11Button)
-                    } else {
-                        x11InputInjector.sendMouseButtonRelease(x11Button)
-                    }
-                }
+            override fun onPointerButton(button: Int, isDown: Boolean) {
+                // Send mouse button event
+                // button: 0=left, 1=right, 2=middle
+                x11InputSender.sendMouseButtonEvent(button, isDown)
             }
         }
     }
 
-    // 监听配置变化，动态更新 InputControlsView
+    // Create InputControlsView with the event handler
+    val inputControlsView = remember {
+        InputControlsView(context, editMode = false).apply {
+            profile?.let { setProfile(it) }
+            this.inputEventHandler = inputEventHandler
+        }
+    }
+
+    // Listen for profile changes
     LaunchedEffect(currentProfileId) {
         val newProfile = if (currentProfileId != 0) manager.getProfile(currentProfileId) else manager.getProfiles().firstOrNull()
         inputControlsView.setProfile(newProfile)
     }
 
-    // 连接 X11 服务器
-    LaunchedEffect(Unit) {
-        x11InputInjector.connect()
-    }
-
-    // 组件销毁时断开连接
-    DisposableEffect(Unit) {
-        onDispose {
-            x11InputInjector.disconnect()
-        }
-    }
-
+    // Box with X11 content and virtual controls overlay
     Box(Modifier.fillMaxSize()) {
-        // X11 渲染内容
+        // X11 rendering content
         AndroidView(
-            factory = x11Content,
+            factory = { ctx ->
+                val view = x11Content(ctx)
+                
+                // Try to get LorieView from the X11 content view
+                // The x11Content should return a LorieView or a view that contains it
+                try {
+                    val lorieView = if (view is com.termux.x11.LorieView) {
+                        view
+                    } else {
+                        // Try to find LorieView in the view hierarchy
+                        findLorieView(view)
+                    }
+                    
+                    lorieView?.let { 
+                        // Initialize X11InputSender with the LorieView (which implements InputStub)
+                        x11InputSender.initialize(it)
+                        
+                        // Setup render data for touch coordinate transformation
+                        renderData.scale = android.graphics.PointF(1f, 1f) // Default scale
+                        x11InputSender.renderData = renderData
+                        
+                        // Notify that LorieView is ready
+                        onLorieViewReady?.invoke(it)
+                        
+                        Log.d("X11Screen", "X11InputSender initialized with LorieView")
+                    } ?: run {
+                        Log.e("X11Screen", "Could not find LorieView in X11 content")
+                    }
+                } catch (e: Exception) {
+                    // If we can't get LorieView, log the error
+                    Log.e("X11Screen", "Failed to initialize X11InputSender: ${e.message}", e)
+                }
+                
+                view
+            },
             modifier = Modifier.fillMaxSize()
         )
 
-        // 虚拟按键覆盖层
+        // Virtual controls overlay
         AndroidView(
             factory = { inputControlsView },
             modifier = Modifier.fillMaxSize()
         )
 
-        // 原有的最小化按钮
+        // Original minimize button
         MiniButton2(
             Modifier,
             onExpand = { onNavigateToOthers(Destination.ExceptX11) }
         )
     }
+    
+    // Cleanup on dispose
+    DisposableEffect(Unit) {
+        onDispose {
+            x11InputSender.release()
+        }
+    }
 }
 
-/** 用于在显示x11的视图时，点击展开其他视图 */
+/**
+ * Recursively find LorieView in the view hierarchy
+ */
+private fun findLorieView(view: View): com.termux.x11.LorieView? {
+    if (view is com.termux.x11.LorieView) {
+        return view
+    }
+    
+    if (view is android.view.ViewGroup) {
+        for (i in 0 until view.childCount) {
+            val child = view.getChildAt(i)
+            val result = findLorieView(child)
+            if (result != null) {
+                return result
+            }
+        }
+    }
+    
+    return null
+}
+
+/** 
+ * 用于在显示x11的视图时，点击展开其他视图 
+ */
 @Composable
 private fun MiniButton2(modifier: Modifier = Modifier, onExpand: () -> Unit) {
     val colorSurface = MaterialTheme.colorScheme.surfaceContainerHigh
