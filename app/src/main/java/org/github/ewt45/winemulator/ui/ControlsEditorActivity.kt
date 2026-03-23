@@ -45,6 +45,24 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
         super.onCreate(savedInstanceState)
         hideSystemUI()
         setContentView(R.layout.controls_editor_activity)
+        
+        // 处理屏幕方向变化
+        val orientation = resources.configuration.orientation
+        if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            // 横屏时旋转90度
+            window.attributes.screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            window.attributes.screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 当屏幕方向变化时，重新加载profile以更新布局
+        if (profile != null) {
+            inputControlsView.setProfile(profile)
+        }
+    }
 
         inputControlsView = InputControlsView(this)
         inputControlsView.setEditMode(true)
