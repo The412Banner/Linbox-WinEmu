@@ -54,15 +54,6 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
         } else {
             window.attributes.screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
         }
-    }
-
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        super.onConfigurationChanged(newConfig)
-        // 当屏幕方向变化时，重新加载profile以更新布局
-        if (profile != null) {
-            inputControlsView.setProfile(profile)
-        }
-    }
 
         inputControlsView = InputControlsView(this)
         inputControlsView.setEditMode(true)
@@ -86,6 +77,14 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
         container.findViewById<View>(R.id.BTAddElement).setOnClickListener(this)
         container.findViewById<View>(R.id.BTRemoveElement).setOnClickListener(this)
         container.findViewById<View>(R.id.BTElementSettings).setOnClickListener(this)
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 当屏幕方向变化时，重新加载profile以更新布局
+        if (profile != null) {
+            inputControlsView.setProfile(profile)
+        }
     }
 
     private fun hideSystemUI() {
