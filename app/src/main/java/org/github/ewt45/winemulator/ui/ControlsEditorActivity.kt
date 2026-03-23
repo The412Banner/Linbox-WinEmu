@@ -1,9 +1,14 @@
 package org.github.ewt45.winemulator.ui
 
+import android.content.Context
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
@@ -43,7 +48,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
 
         inputControlsView = InputControlsView(this)
         inputControlsView.setEditMode(true)
-        inputControlsView.overlayOpacity = 0.6f
+        inputControlsView.setOverlayOpacity(0.6f)
 
         val profileId = intent.getIntExtra(EXTRA_PROFILE_ID, 0)
         profile = ControlsProfile.loadProfile(this, ControlsProfile.getProfileFile(this, profileId))
@@ -167,9 +172,8 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
 
         updateLayout.run()
 
-        val popupWindow = PopupWindow(view, 340.dpToPx(), LinearLayout.LayoutParams.WRAP_CONTENT, true)
-        popupWindow.showAsDropDown(anchorView)
-
+        // Use custom showPopupWindow method instead of showAsDropDown
+        val popupWindow = showPopupWindow(anchorView, view, 340.dpToPx(), 0)
         popupWindow.setOnDismissListener {
             val text = etCustomText.text.toString().trim()
             var iconId: Byte = 0
@@ -188,8 +192,61 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
+    /**
+     * Show a popup window anchored to a view with proper positioning
+     */
+    private fun showPopupWindow(anchorView: View, contentView: View, width: Int, heightOffset: Int): PopupWindow {
+        val popupWindow = PopupWindow(
+            contentView,
+            width,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            true
+        )
+
+        popupWindow.isOutsideTouchable = true
+        popupWindow.isFocusable = true
+        popupWindow.setBackgroundDrawable(null)
+
+        // Measure the content to get its actual height
+        contentView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val contentHeight = contentView.measuredHeight
+
+        // Get anchor view location
+        val location = IntArray(2)
+        anchorView.getLocationOnScreen(location)
+
+        // Calculate available space
+        val screenHeight = window.attributes.height
+        val anchorY = location[1]
+
+        // Determine if we should show above or below
+        val spaceBelow = screenHeight - anchorY - anchorView.height
+        val spaceAbove = anchorY
+
+        // Show below by default if there's enough space, otherwise show above
+        val useAbove = contentHeight > spaceBelow && contentHeight < spaceAbove
+
+        val yOffset = if (useAbove) {
+            -(anchorView.height + contentHeight + heightOffset.dpToPx())
+        } else {
+            heightOffset.dpToPx()
+        }
+
+        popupWindow.showAtLocation(
+            anchorView,
+            Gravity.TOP or Gravity.START,
+            location[0],
+            if (useAbove) anchorY + yOffset else anchorY + anchorView.height + yOffset
+        )
+
+        return popupWindow
+    }
+
     private fun loadTypeSpinner(element: ControlElement, spinner: Spinner, callback: Runnable) {
-        val typeNames = ControlElement.Type.entries.map { it.name.replace("_", "-") }.toTypedArray()
+        val typeNames = ControlElement.Type.names()
         spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, typeNames)
         spinner.setSelection(element.type.ordinal, false)
         spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -204,7 +261,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun loadShapeSpinner(element: ControlElement, spinner: Spinner) {
-        val shapeNames = ControlElement.Shape.entries.map { it.name.replace("_", " ") }.toTypedArray()
+        val shapeNames = ControlElement.Shape.names()
         spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, shapeNames)
         spinner.setSelection(element.shape.ordinal, false)
         spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -218,7 +275,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun loadRangeSpinner(element: ControlElement, spinner: Spinner) {
-        val rangeNames = ControlElement.Range.entries.map { it.name.replace("_", " ") }.toTypedArray()
+        val rangeNames = ControlElement.Range.names()
         spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, rangeNames)
         if (element.range != null) {
             spinner.setSelection(element.range!!.ordinal, false)

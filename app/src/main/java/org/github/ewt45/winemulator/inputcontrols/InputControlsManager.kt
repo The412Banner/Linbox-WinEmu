@@ -139,7 +139,8 @@ class InputControlsManager(private val context: Context) {
     }
 
     fun createProfile(name: String): ControlsProfile {
-        val profile = ControlsProfile(context, ++maxProfileId)
+        val newId = ++maxProfileId
+        val profile = ControlsProfile(context, newId)
         profile.name = name
         profile.save()
         profiles.add(profile)

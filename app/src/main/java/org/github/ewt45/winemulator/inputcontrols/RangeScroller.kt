@@ -10,23 +10,25 @@ class RangeScroller(
     private val element: ControlElement
 ) {
     private var scrollOffset: Float = 0f
-    private val rangeIndex = byteArrayOf(0, 0)
+    private val rangeIndex = intArrayOf(0, 26) // Start and end indices
     private var lastTouchX: Float = 0f
     private var lastTouchY: Float = 0f
     private var isDragging = false
+    private var lastActivatedIndex: Int = -1
 
     fun getElementSize(): Float {
-        return inputControlsView.snappingSize * 4f
+        return inputControlsView.snappingSize * 4f * element.scale
     }
 
     fun getScrollOffset(): Float = scrollOffset
 
-    fun getRangeIndex(): ByteArray = rangeIndex
+    fun getRangeIndex(): IntArray = rangeIndex
 
     fun handleTouchDown(element: ControlElement, x: Float, y: Float) {
         lastTouchX = x
         lastTouchY = y
         isDragging = true
+        lastActivatedIndex = -1
         updateRangeIndex(element, x, y)
     }
 
@@ -48,6 +50,14 @@ class RangeScroller(
     }
 
     fun handleTouchUp() {
+        // Release any held binding
+        if (lastActivatedIndex >= 0) {
+            val binding = element.getBindingAt(lastActivatedIndex)
+            if (binding != Binding.NONE) {
+                inputControlsView.handleInputEvent(binding, false)
+            }
+            lastActivatedIndex = -1
+        }
         isDragging = false
     }
 
@@ -62,12 +72,31 @@ class RangeScroller(
             (y - box.top + scrollOffset) / elementSize
         }
 
-        val index = (position.toInt()).coerceIn(0, range.max.toInt() - 1)
-        rangeIndex[0] = index.toByte()
-        rangeIndex[1] = (index + 1).toByte().coerceAtMost(range.max)
+        // Calculate visible range (show about 4-5 items)
+        val visibleCount = 5
+        val centerIndex = position.toInt().coerceIn(0, (range.max - 1).toInt())
+        val startIndex = (centerIndex - visibleCount / 2).coerceAtLeast(0)
+        val endIndex = minOf(startIndex + visibleCount, range.max.toInt())
 
-        // Trigger the binding for the current index
-        val binding = element.getBindingAt(index)
-        inputControlsView.handleInputEvent(binding, true)
+        rangeIndex[0] = startIndex
+        rangeIndex[1] = endIndex
+
+        // Trigger the binding for the center index
+        if (centerIndex != lastActivatedIndex) {
+            // Release previous binding
+            if (lastActivatedIndex >= 0) {
+                val prevBinding = element.getBindingAt(lastActivatedIndex)
+                if (prevBinding != Binding.NONE) {
+                    inputControlsView.handleInputEvent(prevBinding, false)
+                }
+            }
+
+            // Activate new binding
+            val binding = element.getBindingAt(centerIndex)
+            if (binding != Binding.NONE) {
+                inputControlsView.handleInputEvent(binding, true)
+                lastActivatedIndex = centerIndex
+            }
+        }
     }
 }

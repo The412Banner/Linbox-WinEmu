@@ -7,6 +7,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.MotionEvent
 import android.view.View
+import android.widget.FrameLayout
 import org.github.ewt45.winemulator.inputcontrols.ControlElement.Shape
 import org.github.ewt45.winemulator.inputcontrols.ControlElement.Type
 import kotlin.math.*
@@ -23,13 +24,13 @@ class InputControlsView(
     var inputEventHandler: InputEventHandler? = null
     var profile: ControlsProfile? = null
         private set
-    var showTouchscreenControls = true
+    var showTouchscreenControls = true = true
     var overlayOpacity = 0.4f
 
     var touchpadView: TouchpadView? = null
 
     val snappingSize: Int
-        get() = if (width > 0) width / 100 else 10
+        get() = if (width > 0) maxOf(width, height) / 100 else 10
 
     val maxWidth: Int
         get() = if (snappingSize > 0) (width.toFloat() / snappingSize).roundToInt() * snappingSize else width
@@ -59,6 +60,9 @@ class InputControlsView(
     private val secondaryColor: Int
         get() = Color.argb((overlayOpacity * 255).toInt(), 2, 119, 189)
 
+    // Icon cache
+    private val icons = arrayOfNulls<Bitmap>(17)
+
     // 用于检测尺寸变化，重新加载元素坐标
     private var lastMaxWidth = 0
     private var lastMaxHeight = 0
@@ -68,6 +72,7 @@ class InputControlsView(
         setFocusable(true)
         isFocusableInTouchMode = true
         setBackgroundColor(Color.TRANSPARENT)
+        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
 
         try {
             vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
@@ -75,6 +80,10 @@ class InputControlsView(
         } catch (e: Exception) {
             vibrator = null
         }
+    }
+
+    fun setOverlayOpacity(opacity: Float) {
+        overlayOpacity = opacity
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -208,8 +217,8 @@ class InputControlsView(
                 reloadElements()
             }
             if (showTouchscreenControls) {
-                profile!!.getElements().forEach { it ->
-                    drawElement(canvas, it)
+                profile!!.getElements().forEach { element ->
+                    element.draw(canvas)
                 }
             }
         }
@@ -240,8 +249,8 @@ class InputControlsView(
             i += snappingSize
         }
 
-        val cx = (w * 0.5f).roundToInt().toFloat()
-        val cy = (h * 0.5f).roundToInt().toFloat()
+        val cx = roundTo(w * 0.5f, snappingSize.toFloat())
+        val cy = roundTo(h * 0.5f, snappingSize.toFloat())
         paint.color = Color.rgb(66, 66, 66)
 
         i = 0
@@ -269,217 +278,33 @@ class InputControlsView(
         paint.isAntiAlias = true
     }
 
-    private fun drawElement(canvas: Canvas, element: ControlElement) {
-        val box = element.getBoundingBox()
-        paint.color = if (element.isSelected) secondaryColor else primaryColor
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = snappingSize * 0.25f
+    fun getPaint(): Paint = paint
 
-        when (element.type) {
-            Type.BUTTON -> drawButton(canvas, element, box)
-            Type.D_PAD -> drawDPad(canvas, element, box)
-            Type.STICK -> drawStick(canvas, element, box)
-            Type.RANGE_BUTTON -> drawRangeButton(canvas, element, box)
-            Type.TRACKPAD -> drawTrackpad(canvas, element, box)
-        }
+    fun getPath(): Path = path
+
+    fun getColorFilter(): ColorFilter {
+        return PorterDuffColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN)
     }
 
-    private fun drawButton(canvas: Canvas, element: ControlElement, box: Rect) {
-        val cx = box.centerX().toFloat()
-        val cy = box.centerY().toFloat()
+    fun getPrimaryColor(): Int = primaryColor
 
-        when (element.shape) {
-            Shape.CIRCLE -> {
-                canvas.drawCircle(cx, cy, box.width() * 0.5f, paint)
-            }
-            Shape.RECT -> {
-                canvas.drawRect(box, paint)
-            }
-            Shape.ROUND_RECT -> {
-                val radius = box.height() * 0.5f
-                canvas.drawRoundRect(
-                    box.left.toFloat(), box.top.toFloat(),
-                    box.right.toFloat(), box.bottom.toFloat(),
-                    radius, radius, paint
-                )
-            }
-            Shape.SQUARE -> {
-                val radius = snappingSize * 0.75f * element.scale
-                canvas.drawRoundRect(
-                    box.left.toFloat(), box.top.toFloat(),
-                    box.right.toFloat(), box.bottom.toFloat(),
-                    radius, radius, paint
-                )
+    fun getSecondaryColor(): Int = secondaryColor
+
+    fun getIcon(id: Byte): Bitmap? {
+        if (icons[id.toInt()] == null) {
+            try {
+                context.assets.open("inputcontrols/icons/$id.png").use { inputStream ->
+                    icons[id.toInt()] = BitmapFactory.decodeStream(inputStream)
+                }
+            } catch (e: Exception) {
+                // Icon not found
             }
         }
-
-        // Draw icon if iconId > 0
-        if (element.iconId > 0) {
-            drawIcon(canvas, cx, cy, box.width().toFloat(), box.height().toFloat(), element.iconId.toInt(), element.shape, element.scale)
-        } else {
-            // Draw text
-            val text = getDisplayText(element)
-            paint.textSize = minOf(
-                calculateTextSizeForWidth(paint, text, box.width() - paint.strokeWidth * 2),
-                snappingSize * 2 * element.scale
-            )
-            paint.textAlign = Paint.Align.CENTER
-            paint.style = Paint.Style.FILL
-            paint.color = primaryColor
-            canvas.drawText(
-                text, cx,
-                cy - (paint.descent() + paint.ascent()) * 0.5f,
-                paint
-            )
-        }
+        return icons[id.toInt()]
     }
 
-    private fun drawIcon(canvas: Canvas, cx: Float, cy: Float, width: Float, height: Float, iconId: Int, shape: Shape, elementScale: Float = 1.0f) {
-        val iconBitmap = getIconBitmap(iconId)
-        if (iconBitmap != null) {
-            val margin = (snappingSize * (if (shape == Shape.CIRCLE || shape == Shape.SQUARE) 2.0f else 1.0f) * elementScale).toInt()
-            val halfSize = ((minOf(width, height) - margin) * 0.5f).toInt()
-
-            val srcRect = Rect(0, 0, iconBitmap.width, iconBitmap.height)
-            val dstRect = Rect(
-                (cx - halfSize).toInt(),
-                (cy - halfSize).toInt(),
-                (cx + halfSize).toInt(),
-                (cy + halfSize).toInt()
-            )
-
-            paint.colorFilter = null
-            canvas.drawBitmap(iconBitmap, srcRect, dstRect, paint)
-        }
-    }
-
-    private var iconCache = mutableMapOf<Int, Bitmap?>()
-
-    private fun getIconBitmap(iconId: Int): Bitmap? {
-        if (iconCache.containsKey(iconId)) {
-            return iconCache[iconId]
-        }
-
-        try {
-            context.assets.open("inputcontrols/icons/$iconId.png").use { inputStream ->
-                val bitmap = BitmapFactory.decodeStream(inputStream)
-                iconCache[iconId] = bitmap
-                return bitmap
-            }
-        } catch (e: Exception) {
-            // Icon not found, return null
-        }
-        return null
-    }
-
-    private fun drawDPad(canvas: Canvas, element: ControlElement, box: Rect) {
-        val cx = box.centerX()
-        val cy = box.centerY()
-        val offsetX = snappingSize * 2 * element.scale
-        val offsetY = snappingSize * 3 * element.scale
-        val start = snappingSize * element.scale
-
-        path.reset()
-
-        // Up
-        path.moveTo(cx.toFloat(), cy - start)
-        path.lineTo(cx - offsetX, cy - offsetY)
-        path.lineTo(cx - offsetX.toFloat(), box.top.toFloat())
-        path.lineTo((cx + offsetX).toFloat(), box.top.toFloat())
-        path.lineTo((cx + offsetX).toFloat(), cy - offsetY.toFloat())
-        path.close()
-
-        // Left
-        path.moveTo(cx - start, cy.toFloat())
-        path.lineTo(cx - offsetY, cy - offsetX)
-        path.lineTo(box.left.toFloat(), (cy - offsetX).toFloat())
-        path.lineTo(box.left.toFloat(), (cy + offsetX).toFloat())
-        path.lineTo(cx - offsetY.toFloat(), cy + offsetX.toFloat())
-        path.close()
-
-        // Down
-        path.moveTo(cx.toFloat(), cy + start)
-        path.lineTo(cx - offsetX, cy + offsetY)
-        path.lineTo((cx - offsetX).toFloat(), box.bottom.toFloat())
-        path.lineTo((cx + offsetX).toFloat(), box.bottom.toFloat())
-        path.lineTo(cx + offsetX, cy + offsetY)
-        path.close()
-
-        // Right
-        path.moveTo(cx + start, cy.toFloat())
-        path.lineTo(cx + offsetY, cy - offsetX)
-        path.lineTo(box.right.toFloat(), (cy - offsetX).toFloat())
-        path.lineTo(box.right.toFloat(), (cy + offsetX).toFloat())
-        path.lineTo(cx + offsetY.toFloat(), cy + offsetX.toFloat())
-        path.close()
-
-        canvas.drawPath(path, paint)
-    }
-
-    private fun drawStick(canvas: Canvas, element: ControlElement, box: Rect) {
-        val cx = box.centerX()
-        val cy = box.centerY()
-
-        canvas.drawCircle(cx.toFloat(), cy.toFloat(), box.height() * 0.5f, paint)
-
-        val thumbX = element.x.toFloat()
-        val thumbY = element.y.toFloat()
-        val thumbRadius = snappingSize * 3.5f * element.scale
-
-        paint.style = Paint.Style.FILL
-        paint.color = Color.argb((overlayOpacity * 50).toInt(), 255, 255, 255)
-        canvas.drawCircle(thumbX, thumbY, thumbRadius, paint)
-
-        paint.style = Paint.Style.STROKE
-        paint.color = if (element.isSelected) secondaryColor else primaryColor
-        canvas.drawCircle(thumbX, thumbY, thumbRadius + paint.strokeWidth * 0.5f, paint)
-    }
-
-    private fun drawRangeButton(canvas: Canvas, element: ControlElement, box: Rect) {
-        val radius = snappingSize * 0.75f * element.scale
-        canvas.drawRoundRect(
-            box.left.toFloat(), box.top.toFloat(),
-            box.right.toFloat(), box.bottom.toFloat(),
-            radius, radius, paint
-        )
-    }
-
-    private fun drawTrackpad(canvas: Canvas, element: ControlElement, box: Rect) {
-        val radius = box.height() * 0.15f
-        canvas.drawRoundRect(
-            box.left.toFloat(), box.top.toFloat(),
-            box.right.toFloat(), box.bottom.toFloat(),
-            radius, radius, paint
-        )
-
-        val offset = paint.strokeWidth * 2.5f
-        val innerStrokeWidth = paint.strokeWidth * 2
-        val innerHeight = box.height() - offset * 2
-        val innerRadius = (innerHeight.toFloat() / box.height()) * radius - (innerStrokeWidth * 0.5f + paint.strokeWidth * 0.5f)
-
-        paint.strokeWidth = innerStrokeWidth
-        canvas.drawRoundRect(
-            box.left + offset, box.top + offset,
-            box.right - offset, box.bottom - offset,
-            innerRadius, innerRadius, paint
-        )
-        paint.strokeWidth = snappingSize * 0.25f
-    }
-
-    private fun getDisplayText(element: ControlElement): String {
-        if (element.text.isNotEmpty()) {
-            return element.text
-        }
-
-        val binding = element.getBindingAt(0)
-        // 使用 toString() 方法获取显示文本（参考 winlator 实现）
-        return binding.toString()
-    }
-
-    private fun calculateTextSizeForWidth(paint: Paint, text: String, desiredWidth: Float): Float {
-        val testTextSize = 48f
-        paint.textSize = testTextSize
-        return testTextSize * desiredWidth / paint.measureText(text)
+    private fun roundTo(value: Float, rounding: Float): Float {
+        return (value / rounding).roundToInt() * rounding
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -502,8 +327,8 @@ class InputControlsView(
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (selectedElement != null) {
-                        selectedElement!!.x = ((event.x - offsetX) / snappingSize).roundToInt() * snappingSize
-                        selectedElement!!.y = ((event.y - offsetY) / snappingSize).roundToInt() * snappingSize
+                        selectedElement!!.x = roundTo(event.x - offsetX, snappingSize.toFloat()).toInt()
+                        selectedElement!!.y = roundTo(event.y - offsetY, snappingSize.toFloat()).toInt()
                         invalidate()
                     }
                 }
@@ -512,8 +337,8 @@ class InputControlsView(
                         profile!!.save()
                     }
                     if (moveCursor) {
-                        cursor.x = ((event.x) / snappingSize).roundToInt() * snappingSize
-                        cursor.y = ((event.y) / snappingSize).roundToInt() * snappingSize
+                        cursor.x = roundTo(event.x, snappingSize.toFloat()).toInt()
+                        cursor.y = roundTo(event.y, snappingSize.toFloat()).toInt()
                     }
                     invalidate()
                 }
@@ -544,8 +369,6 @@ class InputControlsView(
                     if (!handled) {
                         // 让 touchpadView 处理（如果存在），但不一定消费事件
                         touchpadView?.onTouchEvent(event)
-                        // 注意：即使 touchpadView 处理了，我们也不应该返回 true，因为 X11 仍需接收
-                        // 这里 handled 保持 false，以便返回 false 让 X11 处理
                     }
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -564,7 +387,6 @@ class InputControlsView(
 
                     if (!handled) {
                         touchpadView?.onTouchEvent(event)
-                        // 同样，不改变 handled
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
@@ -576,11 +398,9 @@ class InputControlsView(
 
                     if (!handled) {
                         touchpadView?.onTouchEvent(event)
-                        // 不改变 handled
                     }
                 }
             }
-            // 只有虚拟按键真正处理了触摸，才返回 true，否则返回 false 让 X11 处理
             return handled
         }
         return false
