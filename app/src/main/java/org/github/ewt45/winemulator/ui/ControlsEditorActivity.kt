@@ -48,7 +48,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
 
         inputControlsView = InputControlsView(this)
         inputControlsView.setEditMode(true)
-        inputControlsView.setOverlayOpacity(0.6f)
+        inputControlsView.overlayOpacity = 0.6f
 
         val profileId = intent.getIntExtra(EXTRA_PROFILE_ID, 0)
         profile = ControlsProfile.loadProfile(this, ControlsProfile.getProfileFile(this, profileId))
