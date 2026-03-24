@@ -52,7 +52,8 @@
         <activity
             android:name="org.github.ewt45.winemulator.ui.ControlsEditorActivity"
             android:exported="false"
-            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="fullSensor"
             android:theme="@style/Theme.MainTheme" />
 
         <service
