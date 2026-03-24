@@ -238,11 +238,16 @@ private fun MiniButton2(
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .pointerInput(Unit) {
                 var hasDragged = false
+                var totalDragAmount = 0f
                 detectDragGestures(
-                    onDragStart = { hasDragged = false },
+                    onDragStart = {
+                        hasDragged = false
+                        totalDragAmount = 0f
+                    },
                     onDragEnd = {
-                        if (!hasDragged) {
-                            // 点击事件
+                        // 只有当拖动距离超过阈值时才认为是拖动，否则当作点击处理
+                        if (totalDragAmount < 10f) {
+                            // 点击事件 - 触发导航
                             onExpand()
                         } else {
                             // 拖动结束，吸附到最近边缘（仅水平吸附）
@@ -251,10 +256,15 @@ private fun MiniButton2(
                             offsetX = newX
                             offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
                         }
+                    },
+                    onDragCancel = {
+                        hasDragged = false
+                        totalDragAmount = 0f
                     }
                 ) { change, dragAmount ->
-                    change.consume()
+                    // 不要在这里消费事件，让 Compose 能够正确区分点击和拖动
                     hasDragged = true
+                    totalDragAmount += kotlin.math.abs(dragAmount.x) + kotlin.math.abs(dragAmount.y)
                     val newX = offsetX + dragAmount.x
                     val newY = offsetY + dragAmount.y
                     offsetX = newX.coerceIn(0f, parentWidth - buttonSizePx)
