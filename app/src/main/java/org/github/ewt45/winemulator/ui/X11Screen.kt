@@ -8,11 +8,14 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.MarginLayoutParams
 import android.widget.FrameLayout
 import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.zIndex
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
@@ -167,7 +170,9 @@ fun X11Screen(
 
         // Original minimize button
         MiniButton2(
-            Modifier,
+            Modifier
+                .zIndex(1f) // 确保在虚拟按键之上
+                .padding(48.dp), // 避免被虚拟按键遮挡
             onExpand = { onNavigateToOthers(Destination.ExceptX11) }
         )
     }
@@ -216,30 +221,38 @@ private fun MiniButton2(modifier: Modifier = Modifier, onExpand: () -> Unit) {
     // 记住最小化时的位置。全屏后再次最小化时恢复到上一次位置而非默认位置
     val margin = remember { mutableListOf(0, 100) }
 
-    IconButton(
-        onClick = {
-            val view = activity?.findViewById<View>(R.id.compose_view) ?: return@IconButton
-            view.apply {
-                val lp = layoutParams as MarginLayoutParams
-                lp.height = miniIconPx
-                lp.width = miniIconPx
-                lp.leftMargin = margin[0]
-                lp.topMargin = margin[1]
-                lp.rightMargin = 0
-                lp.bottomMargin = 0
-                requestLayout()
-                post { snapToNearestEdgeHalfway() }
-            }
-            onExpand()
-        },
+    Box(
         modifier = modifier
             .size(Consts.Ui.minimizedIconSize.dp)
             .pointerInput(Unit) {
-                val view = activity?.findViewById<View>(R.id.compose_view) ?: return@pointerInput
+                var hasDragged = false
                 detectDragGestures(
-                    onDragEnd = { view.snapToNearestEdgeHalfway() }
+                    onDragEnd = {
+                        if (!hasDragged) {
+                            // 点击操作
+                            val view = activity?.findViewById<View>(R.id.compose_view) ?: return@detectDragGestures
+                            view.apply {
+                                val lp = layoutParams as MarginLayoutParams
+                                lp.height = miniIconPx
+                                lp.width = miniIconPx
+                                lp.leftMargin = margin[0]
+                                lp.topMargin = margin[1]
+                                lp.rightMargin = 0
+                                lp.bottomMargin = 0
+                                requestLayout()
+                                post { snapToNearestEdgeHalfway() }
+                            }
+                            onExpand()
+                        } else {
+                            // 拖动结束，吸附到边缘
+                            val view = activity?.findViewById<View>(R.id.compose_view) ?: return@detectDragGestures
+                            view.snapToNearestEdgeHalfway()
+                        }
+                    }
                 ) { change, dragAmount ->
                     change.consume()
+                    hasDragged = true
+                    val view = activity?.findViewById<View>(R.id.compose_view) ?: return@detectDragGestures
                     val lp = view.layoutParams as MarginLayoutParams
                     lp.leftMargin += dragAmount.x.toInt()
                     lp.topMargin += dragAmount.y.toInt()
@@ -248,11 +261,16 @@ private fun MiniButton2(modifier: Modifier = Modifier, onExpand: () -> Unit) {
                     view.requestLayout()
                 }
             },
-        colors = IconButtonColors(colorSurface, colorContent, colorSurface, colorContent),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_fullscreen),
             contentDescription = "展开",
+            modifier = Modifier
+                .size(36.dp)
+                .background(color = colorSurface, shape = MaterialTheme.shapes.small)
+                .padding(8.dp),
+            tint = colorContent,
         )
     }
 }
