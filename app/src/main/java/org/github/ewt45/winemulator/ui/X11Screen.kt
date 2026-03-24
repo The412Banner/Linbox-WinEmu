@@ -27,7 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -40,6 +40,7 @@ import androidx.preference.PreferenceManager
 import com.termux.x11.input.InputEventSender
 import com.termux.x11.input.InputStub
 import com.termux.x11.input.RenderData
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
@@ -213,7 +214,7 @@ private fun findLorieView(view: View): com.termux.x11.LorieView? {
 
 /** 
  * 用于在显示x11的视图时，点击展开其他视图 
- * 可拖动: 完全由 Compose 管理位置和拖动。
+ * 可拖动: 手动实现手势，确保点击和拖动都能正确响应。
  */
 @Composable
 private fun MiniButton2(
@@ -232,33 +233,53 @@ private fun MiniButton2(
     var offsetX by remember { mutableStateOf(initialX.coerceIn(0f, parentWidth - buttonSizePx)) }
     var offsetY by remember { mutableStateOf(initialY.coerceIn(0f, parentHeight - buttonSizePx)) }
 
+    // 当父容器尺寸变化时，确保悬浮球仍在边界内
+    LaunchedEffect(parentWidth, parentHeight) {
+        offsetX = offsetX.coerceIn(0f, parentWidth - buttonSizePx)
+        offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
+    }
+
     Box(
         modifier = modifier
             .size(Consts.Ui.minimizedIconSize.dp)
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .pointerInput(Unit) {
-                var hasDragged = false
-                detectDragGestures(
-                    onDragStart = { hasDragged = false },
-                    onDragEnd = {
-                        if (!hasDragged) {
-                            onExpand()          // 点击事件
-                        } else {
-                            // 拖动结束，吸附到最近边缘（仅水平吸附）
-                            val halfWidth = buttonSizePx / 2
-                            val newX = if (offsetX + halfWidth < parentWidth / 2) 0f else parentWidth - buttonSizePx
-                            val newY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
-                            offsetX = newX
-                            offsetY = newY
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var isDragging = false
+                    var lastPosition = down.position
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val up = event.changes.any { !it.pressed }
+                        if (up) {
+                            // 手指抬起
+                            if (!isDragging) {
+                                // 点击
+                                onExpand()
+                            } else {
+                                // 拖动结束，吸附到最近边缘（水平方向）
+                                val halfWidth = buttonSizePx / 2
+                                val newX = if (offsetX + halfWidth < parentWidth / 2) 0f else parentWidth - buttonSizePx
+                                offsetX = newX
+                                offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
+                            }
+                            break
+                        }
+                        // 计算移动
+                        val currentPosition = event.changes.firstOrNull()?.position ?: lastPosition
+                        val deltaX = currentPosition.x - lastPosition.x
+                        val deltaY = currentPosition.y - lastPosition.y
+                        if (abs(deltaX) > 10f || abs(deltaY) > 10f) { // 移动超过10px视为拖动
+                            isDragging = true
+                            // 更新位置
+                            val newX = offsetX + deltaX
+                            val newY = offsetY + deltaY
+                            offsetX = newX.coerceIn(0f, parentWidth - buttonSizePx)
+                            offsetY = newY.coerceIn(0f, parentHeight - buttonSizePx)
+                            // 重置 lastPosition 以避免累积误差
+                            lastPosition = currentPosition
                         }
                     }
-                ) { change, dragAmount ->
-                    change.consume()
-                    hasDragged = true
-                    val newX = offsetX + dragAmount.x
-                    val newY = offsetY + dragAmount.y
-                    offsetX = newX.coerceIn(0f, parentWidth - buttonSizePx)
-                    offsetY = newY.coerceIn(0f, parentHeight - buttonSizePx)
                 }
             },
         contentAlignment = Alignment.Center
