@@ -24,12 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.awaitFirstDown
-import androidx.compose.ui.input.pointer.awaitPointerEvent
-import androidx.compose.ui.input.pointer.position
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -40,6 +35,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.preference.PreferenceManager
 import com.termux.x11.input.InputStub
 import com.termux.x11.input.RenderData
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
@@ -47,8 +43,6 @@ import org.github.ewt45.winemulator.inputcontrols.InputControlsManager
 import org.github.ewt45.winemulator.inputcontrols.InputControlsView
 import org.github.ewt45.winemulator.inputcontrols.X11InputSender
 import org.github.ewt45.winemulator.inputcontrols.InputEventHandler
-import kotlin.math.abs
-import kotlin.math.sqrt
 
 /**
  * X11 Screen composable that displays X11 content with virtual controls overlay
@@ -194,7 +188,7 @@ private fun findLorieView(view: View): com.termux.x11.LorieView? {
 /** 
  * 悬浮球实现：
  * - 正常点击（短按）：触发导航
- * - 长按（500ms）后拖动：移动悬浮球位置
+ * - 长按后拖动：移动悬浮球位置
  * - 拖动结束后自动吸附到屏幕边缘
  */
 @Composable
@@ -209,14 +203,29 @@ private fun MiniButton2(
     
     // 长按触发拖动的时间阈值（毫秒）
     val longPressTimeout = 500L
-    // 开始拖动前允许的移动阈值（像素）
-    val moveThreshold = 10f
+    // 开始拖动前允许的移动阈值（像素）- 只有超过这个阈值才算真正的拖动
+    val dragThreshold = with(density) { 15.dp.toPx() }
     
     // 初始位置（距离左上角 48dp，垂直方向 100dp）
     val initialX = with(density) { 48.dp.toPx() }
     val initialY = with(density) { 100.dp.toPx() }
     var offsetX by remember { mutableStateOf(initialX.coerceIn(0f, parentWidth - buttonSizePx)) }
     var offsetY by remember { mutableStateOf(initialY.coerceIn(0f, parentHeight - buttonSizePx)) }
+    
+    // 用于跟踪是否为长按拖动模式
+    var isLongPressDragging by remember { mutableStateOf(false) }
+    // 用于跟踪是否已经开始处理手势
+    var gestureStarted by remember { mutableStateOf(false) }
+    // 用于存储按下的起始位置
+    var pressStartX by remember { mutableFloatStateOf(0f) }
+    var pressStartY by remember { mutableFloatStateOf(0f) }
+    // 用于存储上次触摸位置
+    var lastTouchX by remember { mutableFloatStateOf(0f) }
+    var lastTouchY by remember { mutableFloatStateOf(0f) }
+    // 用于存储按下的时间
+    var pressTime by remember { mutableLongStateOf(0L) }
+    // 用于跟踪是否已经移动超过阈值
+    var hasMovedBeyondThreshold by remember { mutableStateOf(false) }
     
     // 当父容器尺寸变化时，确保悬浮球仍在边界内
     LaunchedEffect(parentWidth, parentHeight) {
@@ -229,85 +238,88 @@ private fun MiniButton2(
             .size(Consts.Ui.minimizedIconSize.dp)
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .pointerInput(Unit) {
-                // 自定义手势检测：区分点击和长按拖动
-                var isDragging = false
-                var hasMoved = false
-                var lastPosition = Offset.Zero
-                var dragStartPosition = Offset.Zero
-                var pressStartTime = 0L
-                
-                // 辅助函数：计算两点之间的距离
-                fun distance(p1: Offset, p2: Offset): Float {
-                    val dx = p2.x - p1.x
-                    val dy = p2.y - p1.y
-                    return kotlin.math.sqrt(dx * dx + dy * dy)
-                }
-                
-                // 等待按下
-                val down = awaitFirstDown(pass = PointerEventPass.Initial)
-                isDragging = false
-                hasMoved = false
-                lastPosition = down.position
-                dragStartPosition = down.position
-                pressStartTime = System.currentTimeMillis()
-                
-                // 使用循环处理持续的手指移动
-                var shouldContinue = true
-                while (shouldContinue) {
-                    val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                    val changes = event.changes
-                    
-                    if (changes.isEmpty()) {
-                        shouldContinue = false
-                        continue
-                    }
-                    
-                    val currentPos = changes.first().position
-                    val dragDistance = distance(dragStartPosition, currentPos)
-                    val timeElapsed = System.currentTimeMillis() - pressStartTime
-                    
-                    // 检查是否超过移动阈值
-                    if (dragDistance > moveThreshold) {
-                        hasMoved = true
-                    }
-                    
-                    // 如果长按时间已到且还没有开始拖动，且有移动，进入拖动模式
-                    if (timeElapsed >= longPressTimeout && !isDragging && hasMoved) {
-                        isDragging = true
-                    }
-                    
-                    // 如果在拖动模式中，更新位置
-                    if (isDragging) {
-                        // 计算相对于上次位置的偏移量
-                        val deltaX = currentPos.x - lastPosition.x
-                        val deltaY = currentPos.y - lastPosition.y
+                // 使用 pointerInput 处理复杂手势
+                awaitPointerEventScope {
+                    var continueLoop = true
+                    while (continueLoop) {
+                        val event = awaitPointerEvent()
+                        val changes = event.changes
                         
-                        // 消费事件
-                        changes.forEach { it.consume() }
+                        if (changes.isEmpty()) {
+                            continue
+                        }
                         
-                        // 更新位置
-                        offsetX = (offsetX + deltaX).coerceIn(0f, parentWidth - buttonSizePx)
-                        offsetY = (offsetY + deltaY).coerceIn(0f, parentHeight - buttonSizePx)
+                        val change = changes.first()
                         
-                        lastPosition = currentPos
+                        when {
+                            // 手指按下
+                            change.pressed && !gestureStarted -> {
+                                gestureStarted = true
+                                isLongPressDragging = false
+                                hasMovedBeyondThreshold = false
+                                pressStartX = change.position.x
+                                pressStartY = change.position.y
+                                lastTouchX = change.position.x
+                                lastTouchY = change.position.y
+                                pressTime = System.currentTimeMillis()
+                            }
+                            
+                            // 手指移动
+                            change.pressed && gestureStarted -> {
+                                val dx = change.position.x - pressStartX
+                                val dy = change.position.y - pressStartY
+                                val totalDistance = abs(dx) + abs(dy)
+                                val timeElapsed = System.currentTimeMillis() - pressTime
+                                
+                                // 检查是否超过移动阈值
+                                if (totalDistance > dragThreshold) {
+                                    hasMovedBeyondThreshold = true
+                                }
+                                
+                                // 如果长按时间已到且已经移动超过阈值，进入拖动模式
+                                if (timeElapsed >= longPressTimeout && hasMovedBeyondThreshold && !isLongPressDragging) {
+                                    isLongPressDragging = true
+                                }
+                                
+                                // 如果在拖动模式中，更新位置
+                                if (isLongPressDragging) {
+                                    change.consume()
+                                    
+                                    val deltaX = change.position.x - lastTouchX
+                                    val deltaY = change.position.y - lastTouchY
+                                    
+                                    val newX = offsetX + deltaX
+                                    val newY = offsetY + deltaY
+                                    offsetX = newX.coerceIn(0f, parentWidth - buttonSizePx)
+                                    offsetY = newY.coerceIn(0f, parentHeight - buttonSizePx)
+                                    
+                                    lastTouchX = change.position.x
+                                    lastTouchY = change.position.y
+                                }
+                            }
+                            
+                            // 手指释放
+                            !change.pressed && gestureStarted -> {
+                                continueLoop = false
+                                
+                                // 如果没有进入拖动模式，触发点击
+                                if (!isLongPressDragging) {
+                                    onExpand()
+                                } else {
+                                    // 拖动结束，吸附到最近边缘
+                                    val halfWidth = buttonSizePx / 2
+                                    val newX = if (offsetX + halfWidth < parentWidth / 2) 0f else parentWidth - buttonSizePx
+                                    offsetX = newX
+                                    offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
+                                }
+                                
+                                // 重置状态
+                                gestureStarted = false
+                                isLongPressDragging = false
+                                hasMovedBeyondThreshold = false
+                            }
+                        }
                     }
-                    
-                    // 检查是否所有手指都释放了
-                    if (!changes.any { it.pressed }) {
-                        shouldContinue = false
-                    }
-                }
-                
-                // 手指释放后的处理
-                if (!isDragging && !hasMoved) {
-                    // 这是一个点击事件
-                    onExpand()
-                } else if (isDragging || hasMoved) {
-                    // 拖动结束，吸附到最近边缘（仅水平吸附）
-                    val halfWidth = buttonSizePx / 2
-                    val newX = if (offsetX + halfWidth < parentWidth / 2) 0f else parentWidth - buttonSizePx
-                    offsetX = newX
-                    offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
                 }
             },
         contentAlignment = Alignment.Center
