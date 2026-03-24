@@ -421,11 +421,20 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
             imageView.setBackgroundResource(R.drawable.icon_background)
             imageView.tag = id
             imageView.isSelected = id == selectedId
+            
+            // 选中时的缩放动画效果
             imageView.setOnClickListener {
                 for (i in 0 until parent.childCount) {
-                    parent.getChildAt(i).isSelected = false
+                    val child = parent.getChildAt(i)
+                    child.isSelected = false
+                    // 重置所有图标的缩放
+                    child.scaleX = 1.0f
+                    child.scaleY = 1.0f
                 }
                 imageView.isSelected = true
+                // 选中图标放大显示
+                imageView.scaleX = 1.2f
+                imageView.scaleY = 1.2f
             }
 
             try {

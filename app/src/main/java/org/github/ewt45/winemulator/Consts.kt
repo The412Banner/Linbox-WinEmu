@@ -98,6 +98,10 @@ object Consts {
         val inputcontrols_profile_id by item("inputcontrols_profile_id", -1)
         val inputcontrols_opacity by item("inputcontrols_opacity", 0.4f)
         val inputcontrols_haptics by item("inputcontrols_haptics", true)
+        
+        // Theme Settings
+        // 主题偏好: 0 = 跟随系统, 1 = 暗色主题, 2 = 亮色主题
+        val general_theme_mode by item("general_theme_mode", 1)
 
         /** 仅在此设备存储，不应用于导出导入。 */
         object Local {

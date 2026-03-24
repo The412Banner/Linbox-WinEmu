@@ -16,6 +16,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
@@ -24,6 +26,7 @@ import com.termux.x11.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -37,6 +40,7 @@ import org.github.ewt45.winemulator.terminal.SessionClientAImpl
 import org.github.ewt45.winemulator.terminal.ViewClientImpl
 import org.github.ewt45.winemulator.ui.Destination
 import org.github.ewt45.winemulator.ui.MainScreen
+import org.github.ewt45.winemulator.ui.theme.MainTheme
 import org.github.ewt45.winemulator.viewmodel.MainViewModel
 import org.github.ewt45.winemulator.viewmodel.PrepareViewModel
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
@@ -102,10 +106,16 @@ class MainEmuActivity : MainActivity() {
 
         // 将原视图放到compose中
         setContent {
-            MainScreen(
-                tx11Content = { frm.also { (frm.parent as? ViewGroup)?.removeView(frm) } },
-                Destination.Prepare, mainViewModel, terminalViewModel, settingViewModel, prepareViewModel
-            )
+            // 获取主题设置并应用
+            val themeMode by settingViewModel.themeState.collectAsState()
+            val isDarkTheme = themeMode != 0 // 0 = 跟随系统
+            
+            MainTheme(darkTheme = isDarkTheme) {
+                MainScreen(
+                    tx11Content = { frm.also { (frm.parent as? ViewGroup)?.removeView(frm) } },
+                    Destination.Prepare, mainViewModel, terminalViewModel, settingViewModel, prepareViewModel
+                )
+            }
         }
 
         enableEdgeToEdge()

@@ -33,6 +33,7 @@ import org.github.ewt45.winemulator.Consts.Pref.inputcontrols_opacity
 import org.github.ewt45.winemulator.Consts.Pref.inputcontrols_profile_id
 import org.github.ewt45.winemulator.Consts.Pref.proot_bool_options
 import org.github.ewt45.winemulator.Consts.Pref.proot_startup_cmd
+import org.github.ewt45.winemulator.Consts.Pref.general_theme_mode
 import org.github.ewt45.winemulator.Consts.rootfsAllDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrDir
 import org.github.ewt45.winemulator.FuncOnChangeAction
@@ -90,6 +91,12 @@ class SettingViewModel : ViewModel() {
         )
     }
     val inputControlsState = stateInSimple(PrefInputControls_DEFAULT, inputControlsFlow)
+    
+    // Theme设置
+    val themeFlow = dataStore.data.map { pref ->
+        general_theme_mode.run { pref[key] ?: default }
+    }
+    val themeState = stateInSimple(1, themeFlow)
 
     init {
         //部分数据不会自动更新，请在 [updateValuesWhenEnterSettings] 中更新，确保进入设置界面时会获取一次最新的值
@@ -262,6 +269,9 @@ class SettingViewModel : ViewModel() {
     fun onChangeInputControlsProfileId(profileId: Int) = editDateStoreAsync(inputcontrols_profile_id.key, profileId)
     fun onChangeInputControlsOpacity(opacity: Float) = editDateStoreAsync(inputcontrols_opacity.key, opacity)
     fun onChangeInputControlsHaptics(haptics: Boolean) = editDateStoreAsync(inputcontrols_haptics.key, haptics)
+    
+    // Theme设置相关
+    fun onChangeThemeMode(mode: Int) = editDateStoreAsync(general_theme_mode.key, mode)
 
 }
 

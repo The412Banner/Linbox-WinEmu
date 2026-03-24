@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +35,7 @@ import org.github.ewt45.winemulator.ui.setting.DebugSettings
 import org.github.ewt45.winemulator.ui.setting.DebugSettingsImpl
 import org.github.ewt45.winemulator.ui.setting.GeneralSettings
 import org.github.ewt45.winemulator.ui.setting.GeneralSettingsPreview
+import org.github.ewt45.winemulator.ui.setting.GeneralThemeMode
 import org.github.ewt45.winemulator.ui.setting.InputControlsSettings
 import org.github.ewt45.winemulator.ui.setting.MiscSettings
 import org.github.ewt45.winemulator.ui.setting.MiscSettingsPreview
@@ -58,6 +60,10 @@ fun SettingScreen(
         Log.e(TAG, "SettingScreen: 如果在SettingScreen内部刷新的话会重复执行吗")
         settingVm.updateValuesWhenEnterSettings()
     }
+    
+    // 获取主题模式状态
+    val themeState by settingVm.themeState.collectAsState()
+    
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -68,6 +74,12 @@ fun SettingScreen(
             HorizontalDivider()
         }
         GeneralSettings(settingVm, prepareVm, navigateTo)
+        HorizontalDivider()
+        // 添加主题设置选项
+        GeneralThemeMode(
+            themeMode = themeState,
+            onThemeModeChange = settingVm::onChangeThemeMode
+        )
         HorizontalDivider()
         ProotSettings(settingVm)
         HorizontalDivider()

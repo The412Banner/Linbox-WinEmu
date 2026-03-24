@@ -265,13 +265,17 @@ private fun MinimizeButton(
         modifier = Modifier
             .size(Consts.Ui.minimizedIconSize.dp)
             .pointerInput(minimize) {
-                if (!minimize)
-                    return@pointerInput
+                // 修改：始终允许拖动，不再限制为只有最小化状态才能拖动
                 val view = activity?.findViewById<View>(R.id.compose_view) ?: return@pointerInput
                 detectDragGestures(
-                    onDragEnd = { view.snapToNearestEdgeHalfway() }
+                    onDragEnd = { 
+                        // 如果当前是最小化状态，则吸附到边缘
+                        if (minimize) {
+                            view.snapToNearestEdgeHalfway()
+                        }
+                    }
                 ) { change, dragAmount ->
-                    change.consume() //TODO 这个需要吗
+                    change.consume()
                     val lp = view.layoutParams as MarginLayoutParams
                     lp.leftMargin += dragAmount.x.toInt()
                     lp.topMargin += dragAmount.y.toInt()

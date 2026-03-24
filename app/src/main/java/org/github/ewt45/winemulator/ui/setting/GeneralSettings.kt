@@ -117,6 +117,29 @@ fun GeneralSettings(
     }
 }
 
+/**
+ * 主题模式选择
+ * 0 = 跟随系统, 1 = 暗色主题, 2 = 亮色主题
+ */
+@Composable
+fun GeneralThemeMode(
+    themeMode: Int,
+    onThemeModeChange: (Int) -> Unit,
+) {
+    val themeOptions = listOf("跟随系统", "暗色主题", "亮色主题")
+    val themeModeNames = mapOf(0 to "跟随系统", 1 to "暗色主题", 2 to "亮色主题")
+    val currentThemeName = themeModeNames[themeMode] ?: "暗色主题"
+    
+    TitleAndContent("主题模式", "选择界面主题。默认使用暗色主题。") {
+        ComposeSpinner(currentThemeName, themeOptions, modifier = Modifier.fillMaxWidth()) { _, new ->
+            val newMode = themeOptions.indexOf(new)
+            if (newMode >= 0) {
+                onThemeModeChange(newMode)
+            }
+        }
+    }
+}
+
 
 @Composable
 fun GeneralRootfsLang(
