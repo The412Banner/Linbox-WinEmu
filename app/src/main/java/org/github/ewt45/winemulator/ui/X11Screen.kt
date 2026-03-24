@@ -203,14 +203,51 @@ private fun findLorieView(view: View): com.termux.x11.LorieView? {
 
 /** 
  * 用于在显示x11的视图时，点击展开其他视图 
+ * 可拖动: 由于x11的acitivity是View视图，所以拖动还是要用view的layoutParam实现。
  */
 @Composable
 private fun MiniButton2(modifier: Modifier = Modifier, onExpand: () -> Unit) {
+    val activity = LocalActivity.current
+    val miniIconPx = (Consts.Ui.minimizedIconSize * LocalDensity.current.density).toInt()
+
     val colorSurface = MaterialTheme.colorScheme.surfaceContainerHigh
     val colorContent = MaterialTheme.colorScheme.onSurface
+
+    // 记住最小化时的位置。全屏后再次最小化时恢复到上一次位置而非默认位置
+    val margin = remember { mutableListOf(0, 100) }
+
     IconButton(
-        onExpand,
-        modifier,
+        onClick = {
+            val view = activity?.findViewById<View>(R.id.compose_view) ?: return@IconButton
+            view.apply {
+                val lp = layoutParams as MarginLayoutParams
+                lp.height = miniIconPx
+                lp.width = miniIconPx
+                lp.leftMargin = margin[0]
+                lp.topMargin = margin[1]
+                lp.rightMargin = 0
+                lp.bottomMargin = 0
+                requestLayout()
+                view.post { view.snapToNearestEdgeHalfway() }
+            }
+            onExpand()
+        },
+        modifier = modifier
+            .size(Consts.Ui.minimizedIconSize.dp)
+            .pointerInput(Unit) {
+                val view = activity?.findViewById<View>(R.id.compose_view) ?: return@pointerInput
+                detectDragGestures(
+                    onDragEnd = { view.snapToNearestEdgeHalfway() }
+                ) { change, dragAmount ->
+                    change.consume()
+                    val lp = view.layoutParams as MarginLayoutParams
+                    lp.leftMargin += dragAmount.x.toInt()
+                    lp.topMargin += dragAmount.y.toInt()
+                    margin[0] = lp.leftMargin
+                    margin[1] = lp.topMargin
+                    view.requestLayout()
+                }
+            },
         colors = IconButtonColors(colorSurface, colorContent, colorSurface, colorContent),
     ) {
         Icon(painterResource(R.drawable.ic_fullscreen), null)
