@@ -201,25 +201,22 @@ private fun MiniButton2(
     val density = LocalDensity.current
     val buttonSizePx = with(density) { Consts.Ui.minimizedIconSize.dp.toPx() }
     
-    // 拖动阈值：超过这个距离才认为是拖动（增大到30dp，避免轻微移动就触发）
+    // 拖动阈值：超过这个距离才认为是拖动
     val dragThreshold = with(density) { 30.dp.toPx() }
     
     // 初始位置（距离左上角 48dp，垂直方向 100dp）
     val initialX = with(density) { 48.dp.toPx() }
     val initialY = with(density) { 100.dp.toPx() }
     
-    // 存储位置
-    var offsetX by remember { mutableStateOf(initialX) }
-    var offsetY by remember { mutableStateOf(initialY) }
+    // 使用 rememberSaveable 持久化位置，避免重组时重置
+    var offsetX by rememberSaveable { mutableStateOf(initialX) }
+    var offsetY by rememberSaveable { mutableStateOf(initialY) }
     
     // 用于跟踪是否已经开始拖动
-    var hasDragged by remember { mutableStateOf(false) }
+    var hasDragged by rememberSaveable { mutableStateOf(false) }
     // 用于存储按下的起始位置
-    var pressStartX by remember { mutableFloatStateOf(0f) }
-    var pressStartY by remember { mutableFloatStateOf(0f) }
-    // 用于存储上次触摸位置
-    var lastTouchX by remember { mutableFloatStateOf(0f) }
-    var lastTouchY by remember { mutableFloatStateOf(0f) }
+    var pressStartX by rememberSaveable { mutableFloatStateOf(0f) }
+    var pressStartY by rememberSaveable { mutableFloatStateOf(0f) }
     
     // 当父容器尺寸变化时，确保悬浮球仍在边界内
     LaunchedEffect(parentWidth, parentHeight, buttonSizePx) {
@@ -247,8 +244,6 @@ private fun MiniButton2(
                     onDragStart = { offset ->
                         pressStartX = offset.x
                         pressStartY = offset.y
-                        lastTouchX = offset.x
-                        lastTouchY = offset.y
                         hasDragged = false
                     },
                     onDragEnd = {
@@ -270,7 +265,7 @@ private fun MiniButton2(
                         hasDragged = false
                     },
                     onDrag = { change, dragAmount ->
-                        // 计算总拖动距离
+                        // 计算总拖动距离（使用 change.position 计算，因为 dragAmount 可能已经消费）
                         val totalDragX = change.position.x - pressStartX
                         val totalDragY = change.position.y - pressStartY
                         val totalDistance = abs(totalDragX) + abs(totalDragY)
@@ -284,17 +279,10 @@ private fun MiniButton2(
                         if (hasDragged) {
                             change.consume()
                             
-                            val deltaX = change.position.x - lastTouchX
-                            val deltaY = change.position.y - lastTouchY
-                            
-                            // 拖动过程中允许超出边界，只在释放时才吸附
-                            val newX = offsetX + deltaX
-                            val newY = offsetY + deltaY
-                            offsetX = newX
-                            offsetY = newY
-                            
-                            lastTouchX = change.position.x
-                            lastTouchY = change.position.y
+                            // 使用 dragAmount 作为增量，这是 detectDragGestures 提供的正确增量
+                            // 直接加上 dragAmount，而不是再计算 delta
+                            offsetX = offsetX + dragAmount.x
+                            offsetY = offsetY + dragAmount.y
                         }
                     }
                 )
