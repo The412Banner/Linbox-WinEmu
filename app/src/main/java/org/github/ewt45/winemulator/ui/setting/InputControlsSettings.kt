@@ -37,6 +37,8 @@ fun InputControlsSettings(
     var selectedProfile by remember { mutableStateOf<ControlsProfile?>(null) }
     var showProfileDialog by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(false) }
+    // 添加启用虚拟按键的状态变量，确保Switch状态正确更新
+    var isControlsEnabled by remember { mutableStateOf(false) }
 
     val manager = remember { InputControlsManager(context) }
 
@@ -52,6 +54,8 @@ fun InputControlsSettings(
         }
         // 恢复虚拟按键显示状态
         showControls = prefs.getBoolean("show_touchscreen_controls", false)
+        // 恢复启用状态
+        isControlsEnabled = selectedProfile != null
     }
 
     // 监听SharedPreferences的变化
@@ -89,12 +93,13 @@ fun InputControlsSettings(
                 modifier = Modifier.weight(1f)
             )
             Switch(
-                checked = selectedProfile != null,
+                checked = isControlsEnabled,
                 onCheckedChange = { enabled ->
                     if (!enabled) {
                         // 关闭虚拟按键时，同时隐藏虚拟按键
                         selectedProfile = null
                         showControls = false
+                        isControlsEnabled = false
                         prefs.edit().remove(InputControlsFragment.SELECTED_PROFILE_ID).apply()
                         prefs.edit().putBoolean("show_touchscreen_controls", false).apply()
                     } else if (profiles.isEmpty()) {
@@ -103,6 +108,7 @@ fun InputControlsSettings(
                         profiles = manager.getProfiles()
                         selectedProfile = newProfile
                         showControls = true
+                        isControlsEnabled = true
                         prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, newProfile.id).apply()
                         prefs.edit().putBoolean("show_touchscreen_controls", true).apply()
                     } else {
@@ -118,6 +124,7 @@ fun InputControlsSettings(
                         }
                         // 开启虚拟按键时，同时显示虚拟按键
                         showControls = true
+                        isControlsEnabled = true
                         prefs.edit().putBoolean("show_touchscreen_controls", true).apply()
                     }
                 }
@@ -125,7 +132,7 @@ fun InputControlsSettings(
         }
 
         // 显示/隐藏虚拟按键开关（仅在启用虚拟按键时显示）
-        if (selectedProfile != null) {
+        if (isControlsEnabled) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -151,7 +158,7 @@ fun InputControlsSettings(
             }
         }
 
-        if (selectedProfile != null) {
+        if (isControlsEnabled) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // 配置选择器
