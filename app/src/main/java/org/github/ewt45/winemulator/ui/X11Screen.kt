@@ -11,6 +11,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -39,6 +40,7 @@ import androidx.preference.PreferenceManager
 import com.termux.x11.input.InputEventSender
 import com.termux.x11.input.InputStub
 import com.termux.x11.input.RenderData
+import kotlin.math.roundToInt
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
 import org.github.ewt45.winemulator.inputcontrols.InputControlsManager
@@ -168,13 +170,16 @@ fun X11Screen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Original minimize button
-        MiniButton2(
-            Modifier
-                .zIndex(1f) // 确保在虚拟按键之上
-                .padding(48.dp), // 避免被虚拟按键遮挡
-            onExpand = { onNavigateToOthers(Destination.ExceptX11) }
-        )
+        // 悬浮球：使用 BoxWithConstraints 获取父布局尺寸
+        BoxWithConstraints(
+            Modifier.fillMaxSize()
+        ) {
+            MiniButton2(
+                parentWidth = constraints.maxWidth.toFloat(),
+                parentHeight = constraints.maxHeight.toFloat(),
+                onExpand = { onNavigateToOthers(Destination.ExceptX11) }
+            )
+        }
     }
     
     // Cleanup on dispose
@@ -208,57 +213,52 @@ private fun findLorieView(view: View): com.termux.x11.LorieView? {
 
 /** 
  * 用于在显示x11的视图时，点击展开其他视图 
- * 可拖动: 由于x11的acitivity是View视图，所以拖动还是要用view的layoutParam实现。
+ * 可拖动: 完全由 Compose 管理位置和拖动。
  */
 @Composable
-private fun MiniButton2(modifier: Modifier = Modifier, onExpand: () -> Unit) {
-    val activity = LocalActivity.current
-    val miniIconPx = (Consts.Ui.minimizedIconSize * LocalDensity.current.density).toInt()
+private fun MiniButton2(
+    modifier: Modifier = Modifier,
+    parentWidth: Float,
+    parentHeight: Float,
+    onExpand: () -> Unit
+) {
+    val density = LocalDensity.current
+    val buttonSizePx = with(density) { Consts.Ui.minimizedIconSize.dp.toPx() }
 
-    val colorSurface = MaterialTheme.colorScheme.surfaceContainerHigh
-    val colorContent = MaterialTheme.colorScheme.onSurface
+    // 初始位置（距离左上角 48dp，垂直方向 100dp）
+    val initialX = with(density) { 48.dp.toPx() }
+    val initialY = with(density) { 100.dp.toPx() }
 
-    // 记住最小化时的位置。全屏后再次最小化时恢复到上一次位置而非默认位置
-    val margin = remember { mutableListOf(0, 100) }
+    var offsetX by remember { mutableStateOf(initialX.coerceIn(0f, parentWidth - buttonSizePx)) }
+    var offsetY by remember { mutableStateOf(initialY.coerceIn(0f, parentHeight - buttonSizePx)) }
 
     Box(
         modifier = modifier
             .size(Consts.Ui.minimizedIconSize.dp)
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
             .pointerInput(Unit) {
                 var hasDragged = false
                 detectDragGestures(
+                    onDragStart = { hasDragged = false },
                     onDragEnd = {
                         if (!hasDragged) {
-                            // 点击操作
-                            val view = activity?.findViewById<View>(R.id.compose_view) ?: return@detectDragGestures
-                            view.apply {
-                                val lp = layoutParams as MarginLayoutParams
-                                lp.height = miniIconPx
-                                lp.width = miniIconPx
-                                lp.leftMargin = margin[0]
-                                lp.topMargin = margin[1]
-                                lp.rightMargin = 0
-                                lp.bottomMargin = 0
-                                requestLayout()
-                                post { snapToNearestEdgeHalfway() }
-                            }
-                            onExpand()
+                            onExpand()          // 点击事件
                         } else {
-                            // 拖动结束，吸附到边缘
-                            val view = activity?.findViewById<View>(R.id.compose_view) ?: return@detectDragGestures
-                            view.snapToNearestEdgeHalfway()
+                            // 拖动结束，吸附到最近边缘（仅水平吸附）
+                            val halfWidth = buttonSizePx / 2
+                            val newX = if (offsetX + halfWidth < parentWidth / 2) 0f else parentWidth - buttonSizePx
+                            val newY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
+                            offsetX = newX
+                            offsetY = newY
                         }
                     }
                 ) { change, dragAmount ->
                     change.consume()
                     hasDragged = true
-                    val view = activity?.findViewById<View>(R.id.compose_view) ?: return@detectDragGestures
-                    val lp = view.layoutParams as MarginLayoutParams
-                    lp.leftMargin += dragAmount.x.toInt()
-                    lp.topMargin += dragAmount.y.toInt()
-                    margin[0] = lp.leftMargin
-                    margin[1] = lp.topMargin
-                    view.requestLayout()
+                    val newX = offsetX + dragAmount.x
+                    val newY = offsetY + dragAmount.y
+                    offsetX = newX.coerceIn(0f, parentWidth - buttonSizePx)
+                    offsetY = newY.coerceIn(0f, parentHeight - buttonSizePx)
                 }
             },
         contentAlignment = Alignment.Center
@@ -268,9 +268,12 @@ private fun MiniButton2(modifier: Modifier = Modifier, onExpand: () -> Unit) {
             contentDescription = "展开",
             modifier = Modifier
                 .size(36.dp)
-                .background(color = colorSurface, shape = MaterialTheme.shapes.small)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = MaterialTheme.shapes.small
+                )
                 .padding(8.dp),
-            tint = colorContent,
+            tint = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
