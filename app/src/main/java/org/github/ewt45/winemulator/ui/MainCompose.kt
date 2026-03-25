@@ -332,7 +332,6 @@ fun FloatingWindowContainer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(24.dp)
-                    .align(Alignment.BottomCenter)
             ) {
                 Box(
                     modifier = Modifier
