@@ -39,6 +39,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
@@ -340,17 +341,20 @@ fun MainScreenWithX11AsMain(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // X11界面作为底层（全屏显示）
-        X11Screen(tx11Content) { dest: Destination ->
-            when (dest) {
-                Destination.Terminal -> {
-                    terminalMinimized = false
+        X11Screen(
+            x11Content = tx11Content,
+            onNavigateToOthers = { dest: Destination ->
+                when (dest) {
+                    Destination.Terminal -> {
+                        terminalMinimized = false
+                    }
+                    Destination.Settings -> {
+                        settingsMinimized = false
+                    }
+                    else -> {}
                 }
-                Destination.Settings -> {
-                    settingsMinimized = false
-                }
-                else -> {}
             }
-        }
+        )
 
         // 快速访问按钮（始终显示在右上角）
         QuickAccessButtons(
