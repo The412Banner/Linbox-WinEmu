@@ -6,14 +6,13 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.MarginLayoutParams
 import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,12 +24,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,8 +39,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonColors
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
@@ -58,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -133,8 +130,8 @@ fun MainScreen(
 //            Column(Modifier.fillMaxHeight().widthIn(max = 600.dp)) { }
             NavHost(
                 navController, startDest.route,
-                enterTransition = { scaleIn() },
-                exitTransition = { scaleOut() },
+                enterTransition = { androidx.compose.animation.scaleIn() },
+                exitTransition = { androidx.compose.animation.scaleOut() },
             ) {
                 composable<RoutePrepare> {
                     PrepareScreen(prepareVm, settingVm) {
@@ -142,7 +139,7 @@ fun MainScreen(
                         navController.navigate(Destination.ExceptX11.route) { popUpTo(Destination.Prepare.route) { inclusive = true } }
                     }
                 }
-                composable<RouteX11> { X11Screen(tx11Content, navigateTo) }
+                composable<RouteX11> { X11Screen(tx11Content, { }) }
                 navigation<RouteExceptX11>(startDestination = RouteTerminal) {
                     composable<RouteTerminal> { ProotTerminalScreen(terminalVm) }
 //                        composable<NavDest.Terminal> { TerminalScreen() }
@@ -253,7 +250,7 @@ private fun MinimizeButton(
     val colorContent = MaterialTheme.colorScheme.onSurface
     val colors =
         if (!minimize) IconButtonDefaults.iconButtonColors()
-        else IconButtonColors(colorSurface, colorContent, colorSurface, colorContent)
+        else androidx.compose.material3.IconButtonDefaults.iconButtonColors(containerColor = colorSurface, contentColor = colorContent)
 
     // 记住最小化时的位置。全屏后再次最小化时恢复到上一次位置而非默认位置
     val margin = remember { mutableListOf(0, 100) }
@@ -324,7 +321,6 @@ fun SettingButton(show: Boolean, onClick: () -> Unit) {
  * X11作为主界面的主屏幕
  * X11界面全屏显示，终端和设置界面以浮动窗口形式叠加在X11界面上，默认处于最小化状态
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenWithX11AsMain(
     tx11Content: (Context) -> View,
@@ -334,7 +330,6 @@ fun MainScreenWithX11AsMain(
     prepareVm: PrepareViewModel,
 ) {
     val TAG = "MainScreenWithX11AsMain"
-    val navController = rememberNavController()
 
     val uiState by mainVm.uiState.collectAsState()
     val prepareUiState by prepareVm.uiState.collectAsStateWithLifecycle()
@@ -343,22 +338,9 @@ fun MainScreenWithX11AsMain(
     var terminalMinimized by remember { mutableStateOf(true) }
     var settingsMinimized by remember { mutableStateOf(true) }
 
-    // 记住最小化时的位置（像素）
-    val terminalMargin by remember { mutableStateOf(Pair(0, 100)) }
-    val settingsMargin by remember { mutableStateOf(Pair(300, 100)) }
-
-    // 监听prepare状态
-    LaunchedEffect(prepareUiState.isPrepareFinished) {
-        if (!prepareUiState.isPrepareFinished) {
-            navController.navigate(RoutePrepare) {
-                popUpTo(RouteX11Main) { inclusive = true }
-            }
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         // X11界面作为底层（全屏显示）
-        X11Screen(tx11Content) { dest ->
+        X11Screen(tx11Content) { dest: Destination ->
             when (dest) {
                 Destination.Terminal -> {
                     terminalMinimized = false
@@ -386,7 +368,6 @@ fun MainScreenWithX11AsMain(
         TerminalFloatingPanel(
             minimized = terminalMinimized,
             onMinimize = { terminalMinimized = true },
-            onExpand = { terminalMinimized = false },
             viewModel = terminalVm
         )
 
@@ -394,7 +375,6 @@ fun MainScreenWithX11AsMain(
         SettingsFloatingPanel(
             minimized = settingsMinimized,
             onMinimize = { settingsMinimized = true },
-            onExpand = { settingsMinimized = false },
             settingVm = settingVm,
             terminalVm = terminalVm,
             prepareVm = prepareVm
@@ -467,13 +447,12 @@ private fun QuickAccessButton(
 private fun TerminalFloatingPanel(
     minimized: Boolean,
     onMinimize: () -> Unit,
-    onExpand: () -> Unit,
     viewModel: TerminalViewModel
 ) {
     AnimatedVisibility(
         visible = !minimized,
-        enter = slideInHorizontally() + fadeIn(),
-        exit = slideOutHorizontally() + fadeOut()
+        enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(),
+        exit = slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
     ) {
         Card(
             modifier = Modifier
@@ -506,15 +485,14 @@ private fun TerminalFloatingPanel(
 private fun SettingsFloatingPanel(
     minimized: Boolean,
     onMinimize: () -> Unit,
-    onExpand: () -> Unit,
     settingVm: SettingViewModel,
     terminalVm: TerminalViewModel,
     prepareVm: PrepareViewModel
 ) {
     AnimatedVisibility(
         visible = !minimized,
-        enter = slideInHorizontally() + fadeIn(),
-        exit = slideOutHorizontally() + fadeOut()
+        enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(),
+        exit = slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
     ) {
         Card(
             modifier = Modifier
@@ -605,8 +583,8 @@ private fun MainScreenPreview() {
             ) {
                 NavHost(
                     navController, startDest.route,
-                    enterTransition = { scaleIn() },
-                    exitTransition = { scaleOut() },
+                    enterTransition = { androidx.compose.animation.scaleIn() },
+                    exitTransition = { androidx.compose.animation.scaleOut() },
                 ) {
                     composable<RoutePrepare> { PrepareScreenPreview() }
                     composable<RouteX11> { X11ScreenPreview() }
