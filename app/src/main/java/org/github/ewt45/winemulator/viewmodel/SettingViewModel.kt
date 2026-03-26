@@ -34,6 +34,14 @@ import org.github.ewt45.winemulator.Consts.Pref.inputcontrols_profile_id
 import org.github.ewt45.winemulator.Consts.Pref.proot_bool_options
 import org.github.ewt45.winemulator.Consts.Pref.proot_startup_cmd
 import org.github.ewt45.winemulator.Consts.Pref.general_theme_mode
+import org.github.ewt45.winemulator.Consts.Pref.x11_touch_mode
+import org.github.ewt45.winemulator.Consts.Pref.x11_screen_orientation
+import org.github.ewt45.winemulator.Consts.Pref.x11_display_scale
+import org.github.ewt45.winemulator.Consts.Pref.x11_keep_screen_on
+import org.github.ewt45.winemulator.Consts.Pref.x11_fullscreen
+import org.github.ewt45.winemulator.Consts.Pref.x11_hide_cutout
+import org.github.ewt45.winemulator.Consts.Pref.x11_pip_mode
+import org.github.ewt45.winemulator.Consts.Pref.x11_resolution
 import org.github.ewt45.winemulator.Consts.rootfsAllDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrDir
 import org.github.ewt45.winemulator.FuncOnChangeAction
@@ -97,6 +105,21 @@ class SettingViewModel : ViewModel() {
         general_theme_mode.run { pref[key] ?: default }
     }
     val themeState = stateInSimple(1, themeFlow)
+
+    // X11设置
+    val x11Flow = dataStore.data.map { pref ->
+        PrefX11(
+            x11_touch_mode.run { pref[key] ?: default },
+            x11_screen_orientation.run { pref[key] ?: default },
+            x11_display_scale.run { pref[key] ?: default },
+            x11_keep_screen_on.run { pref[key] ?: default },
+            x11_fullscreen.run { pref[key] ?: default },
+            x11_hide_cutout.run { pref[key] ?: default },
+            x11_pip_mode.run { pref[key] ?: default },
+            x11_resolution.run { pref[key] ?: default },
+        )
+    }
+    val x11State = stateInSimple(PrefX11_DEFAULT, x11Flow)
 
     init {
         //部分数据不会自动更新，请在 [updateValuesWhenEnterSettings] 中更新，确保进入设置界面时会获取一次最新的值
@@ -273,6 +296,26 @@ class SettingViewModel : ViewModel() {
     // Theme设置相关
     fun onChangeThemeMode(mode: Int) = editDateStoreAsync(general_theme_mode.key, mode)
 
+    // X11设置相关
+    fun onChangeX11TouchMode(mode: Int) = editDateStoreAsync(x11_touch_mode.key, mode)
+    fun onChangeX11ScreenOrientation(orientation: Int) = editDateStoreAsync(x11_screen_orientation.key, orientation)
+    fun onChangeX11DisplayScale(scale: Int) = editDateStoreAsync(x11_display_scale.key, scale)
+    fun onChangeX11KeepScreenOn(enabled: Boolean) = editDateStoreAsync(x11_keep_screen_on.key, enabled)
+    fun onChangeX11Fullscreen(enabled: Boolean) = editDateStoreAsync(x11_fullscreen.key, enabled)
+    fun onChangeX11HideCutout(enabled: Boolean) = editDateStoreAsync(x11_hide_cutout.key, enabled)
+    fun onChangeX11PipMode(enabled: Boolean) = editDateStoreAsync(x11_pip_mode.key, enabled)
+
+    /** X11分辨率变更处理，支持预设分辨率和自定义分辨率 */
+    fun onChangeX11Resolution(text: String, forceFormat: Boolean) {
+        var formatted = formatResolution(text)
+        if (forceFormat && formatted == null) {
+            formatted = Pref.x11_resolution.default
+        }
+        if (formatted != null) {
+            editDateStoreAsync(x11_resolution.key, formatted)
+        }
+    }
+
 }
 
 data class PrefProot(
@@ -313,6 +356,28 @@ private val PrefInputControls_DEFAULT = PrefInputControls(
     inputcontrols_profile_id.default,
     inputcontrols_opacity.default,
     inputcontrols_haptics.default,
+)
+
+data class PrefX11(
+    val touchMode: Int,
+    val screenOrientation: Int,
+    val displayScale: Int,
+    val keepScreenOn: Boolean,
+    val fullscreen: Boolean,
+    val hideCutout: Boolean,
+    val pipMode: Boolean,
+    val resolution: String,
+)
+
+private val PrefX11_DEFAULT = PrefX11(
+    x11_touch_mode.default,
+    x11_screen_orientation.default,
+    x11_display_scale.default,
+    x11_keep_screen_on.default,
+    x11_fullscreen.default,
+    x11_hide_cutout.default,
+    x11_pip_mode.default,
+    x11_resolution.default,
 )
 
 /** 顶部操作按钮类型 */

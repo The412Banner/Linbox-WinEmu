@@ -103,6 +103,23 @@ object Consts {
         // 主题偏好: 0 = 跟随系统, 1 = 暗色主题, 2 = 亮色主题
         val general_theme_mode by item("general_theme_mode", 1)
 
+        // X11 Settings - 触摸方式: 0=虚拟触控板, 1=模拟触摸, 2=触摸屏
+        val x11_touch_mode by item("x11_touch_mode", 0)
+        // X11 Settings - 屏幕方向: 10=跟随系统, 11=横屏, 12=竖屏, 13=反向横屏, 14=反向竖屏
+        val x11_screen_orientation by item("x11_screen_orientation", 10)
+        // X11 Settings - 显示缩放: 30-300
+        val x11_display_scale by item("x11_display_scale", 100)
+        // X11 Settings - 保持屏幕常亮
+        val x11_keep_screen_on by item("x11_keep_screen_on", true)
+        // X11 Settings - 全屏模式
+        val x11_fullscreen by item("x11_fullscreen", false)
+        // X11 Settings - 隐藏刘海屏
+        val x11_hide_cutout by item("x11_hide_cutout", false)
+        // X11 Settings - PIP画中画模式
+        val x11_pip_mode by item("x11_pip_mode", false)
+        // X11 Settings - 分辨率: 格式为"宽x高"，如"1280x720"
+        val x11_resolution by item("x11_resolution", "1280x720")
+
         /** 仅在此设备存储，不应用于导出导入。 */
         object Local {
             /** 当前使用的rootfs名，[Consts.rootfsAllDir]目录下的某个文件夹名，可能为空字符串或对应文件夹不存在 */
