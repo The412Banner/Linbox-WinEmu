@@ -70,36 +70,39 @@ class SettingViewModel : ViewModel() {
     /** 初始化SharedPreferences，需要在Activity中调用 */
     fun initSharedPreferences(context: Context) {
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(context)
-        // 初始化时同步一次当前X11设置
-        syncX11SettingsToSharedPrefs()
     }
 
-    /** 将当前X11设置同步到SharedPreferences */
+    /** 将当前X11设置同步到SharedPreferences - 使用DataStore直接获取值避免闪退 */
     private fun syncX11SettingsToSharedPrefs() {
         val prefs = sharedPrefs ?: return
-        prefs.edit().apply {
-            // 触摸模式: 0=虚拟触控板(1), 1=模拟触摸(2), 2=触摸屏(3) - termux-x11使用1,2,3
-            putString("touchMode", (x11State.value.touchMode + 1).toString())
-            // 屏幕方向: 10=auto, 11=landscape, 12=portrait, 13=reverseLandscape, 14=reversePortrait
-            val orientationMap = mapOf(10 to "auto", 11 to "landscape", 12 to "portrait", 13 to "reverseLandscape", 14 to "reversePortrait")
-            putString("forceOrientation", orientationMap[x11State.value.screenOrientation] ?: "auto")
-            // 显示缩放
-            putInt("displayScale", x11State.value.displayScale)
-            // 保持屏幕常亮
-            putBoolean("keepScreenOn", x11State.value.keepScreenOn)
-            // 全屏
-            putBoolean("fullscreen", x11State.value.fullscreen)
-            // 隐藏刘海屏
-            putBoolean("hideCutout", x11State.value.hideCutout)
-            // 画中画
-            putBoolean("PIP", x11State.value.pipMode)
-            // 分辨率模式: 使用exact模式，分辨率使用custom
-            val resolution = x11State.value.resolution
-            if (resolution.contains("x")) {
-                putString("displayResolutionMode", "custom")
-                putString("displayResolutionCustom", resolution)
+        viewModelScope.launch {
+            try {
+                val data = dataStore.data.first()
+                prefs.edit().apply {
+                    // 触摸模式: 0=虚拟触控板(1), 1=模拟触摸(2), 2=触摸屏(3)
+                    val touchMode = data[x11_touch_mode.key] ?: x11_touch_mode.default
+                    putString("touchMode", (touchMode + 1).toString())
+                    // 屏幕方向: 10=auto, 11=landscape, 12=portrait, 13=reverseLandscape, 14=reversePortrait
+                    val orientationMap = mapOf(10 to "auto", 11 to "landscape", 12 to "portrait", 13 to "reverseLandscape", 14 to "reversePortrait")
+                    val orientation = data[x11_screen_orientation.key] ?: x11_screen_orientation.default
+                    putString("forceOrientation", orientationMap[orientation] ?: "auto")
+                    // 显示缩放
+                    val scale = data[x11_display_scale.key] ?: x11_display_scale.default
+                    putInt("displayScale", scale)
+                    // 保持屏幕常亮
+                    val keepScreenOn = data[x11_keep_screen_on.key] ?: x11_keep_screen_on.default
+                    putBoolean("keepScreenOn", keepScreenOn)
+                    // 分辨率: 使用general_resolution保持与原有逻辑一致
+                    val resolution = data[general_resolution.key] ?: general_resolution.default
+                    if (resolution.contains("x")) {
+                        putString("displayResolutionMode", "custom")
+                        putString("displayResolutionCustom", resolution)
+                    }
+                    apply()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "syncX11SettingsToSharedPrefs failed", e)
             }
-            apply()
         }
     }
 
@@ -353,30 +356,6 @@ class SettingViewModel : ViewModel() {
     fun onChangeX11KeepScreenOn(enabled: Boolean) {
         editDateStoreAsync(x11_keep_screen_on.key, enabled)
         syncX11SettingsToSharedPrefs()
-    }
-    fun onChangeX11Fullscreen(enabled: Boolean) {
-        editDateStoreAsync(x11_fullscreen.key, enabled)
-        syncX11SettingsToSharedPrefs()
-    }
-    fun onChangeX11HideCutout(enabled: Boolean) {
-        editDateStoreAsync(x11_hide_cutout.key, enabled)
-        syncX11SettingsToSharedPrefs()
-    }
-    fun onChangeX11PipMode(enabled: Boolean) {
-        editDateStoreAsync(x11_pip_mode.key, enabled)
-        syncX11SettingsToSharedPrefs()
-    }
-
-    /** X11分辨率变更处理，支持预设分辨率和自定义分辨率 */
-    fun onChangeX11Resolution(text: String, forceFormat: Boolean) {
-        var formatted = formatResolution(text)
-        if (forceFormat && formatted == null) {
-            formatted = Pref.x11_resolution.default
-        }
-        if (formatted != null) {
-            editDateStoreAsync(x11_resolution.key, formatted)
-            syncX11SettingsToSharedPrefs()
-        }
     }
 
 }
