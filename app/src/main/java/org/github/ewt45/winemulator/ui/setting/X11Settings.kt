@@ -33,7 +33,10 @@ fun X11Resolution(
     val realText = if (isCustom) "自定义" else text
     var expanded by remember { mutableStateOf(false) }
 
-    TitleAndContent("分辨率", "格式：宽x高，x为字母。编辑自定义分辨率后点击末尾对号图标或输入法回车保存。") {
+    TitleAndContent(
+        title = "分辨率",
+        subTitle = "格式：宽x高，x为字母。编辑自定义分辨率后点击末尾对号图标或输入法回车保存。"
+    ) {
         ExposedDropdownMenuBox(
             modifier = Modifier.fillMaxWidth(),
             expanded = expanded,
@@ -158,28 +161,27 @@ fun X11TouchMode(
     currentMode: Int,
     onModeChange: (Int) -> Unit,
 ) {
-    val touchModeOptions = listOf("虚拟触控板", "模拟触摸", "触摸屏")
+    val touchModeOptions = listOf(0, 1, 2)
+    val touchModeNames = listOf("虚拟触控板", "模拟触摸", "触摸屏")
     val touchModeDescriptions = listOf(
         "单指移动光标，点击模拟鼠标",
         "单指点击移动光标，长按模拟右键",
         "直接在屏幕上触摸操作"
     )
-    val currentModeName = touchModeOptions.getOrElse(currentMode) { touchModeOptions[0] }
+    val currentModeName = touchModeNames.getOrElse(currentMode) { touchModeNames[0] }
     val currentDescription = touchModeDescriptions.getOrElse(currentMode) { touchModeDescriptions[0] }
 
     TitleAndContent(
         title = "触摸方式",
-        description = "选择触摸屏的操作方式。\n当前: $currentModeName\n$currentDescription"
+        subTitle = "选择触摸屏的操作方式。\n当前: $currentModeName\n$currentDescription"
     ) {
         ComposeSpinner(
-            selectedValue = currentModeName,
-            options = touchModeOptions,
+            currKey = currentMode,
+            keyList = touchModeOptions,
+            nameList = touchModeNames,
             modifier = Modifier.fillMaxWidth()
         ) { _, newValue ->
-            val newMode = touchModeOptions.indexOf(newValue)
-            if (newMode >= 0) {
-                onModeChange(newMode)
-            }
+            onModeChange(newValue)
         }
     }
 }
@@ -193,26 +195,20 @@ fun X11ScreenOrientation(
     currentOrientation: Int,
     onOrientationChange: (Int) -> Unit,
 ) {
-    val orientationOptions = listOf("跟随系统", "横屏(固定)", "竖屏(固定)", "反向横屏", "反向竖屏")
-    val orientationValues = listOf(10, 11, 12, 13, 14)
-    
-    // 找到当前值对应的显示名称
-    val currentIndex = orientationValues.indexOf(currentOrientation)
-    val currentName = if (currentIndex >= 0) orientationOptions[currentIndex] else orientationOptions[0]
+    val orientationOptions = listOf(10, 11, 12, 13, 14)
+    val orientationNames = listOf("跟随系统", "横屏(固定)", "竖屏(固定)", "反向横屏", "反向竖屏")
 
     TitleAndContent(
         title = "屏幕方向",
-        description = "控制X11显示的屏幕方向。注意: 此设置为X11专用，不影响系统方向设置。"
+        subTitle = "控制X11显示的屏幕方向。注意: 此设置为X11专用，不影响系统方向设置。"
     ) {
         ComposeSpinner(
-            selectedValue = currentName,
-            options = orientationOptions,
+            currKey = currentOrientation,
+            keyList = orientationOptions,
+            nameList = orientationNames,
             modifier = Modifier.fillMaxWidth()
         ) { _, newValue ->
-            val newIndex = orientationOptions.indexOf(newValue)
-            if (newIndex >= 0) {
-                onOrientationChange(orientationValues[newIndex])
-            }
+            onOrientationChange(newValue)
         }
     }
 }
@@ -227,7 +223,7 @@ fun X11DisplayScale(
 ) {
     TitleAndContent(
         title = "显示缩放",
-        description = "调整X11显示的缩放比例。当前: ${scale}%"
+        subTitle = "调整X11显示的缩放比例。当前: ${scale}%"
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Slider(
@@ -259,7 +255,7 @@ fun X11KeepScreenOn(
 ) {
     TitleAndContent(
         title = "运行时保持屏幕常亮",
-        description = "启用后，X11运行时防止屏幕自动熄灭。"
+        subTitle = "启用后，X11运行时防止屏幕自动熄灭。"
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -284,7 +280,7 @@ fun X11Fullscreen(
 ) {
     TitleAndContent(
         title = "全屏模式",
-        description = "启用后，X11以全屏模式运行。"
+        subTitle = "启用后，X11以全屏模式运行。"
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -309,7 +305,7 @@ fun X11HideCutout(
 ) {
     TitleAndContent(
         title = "隐藏刘海屏",
-        description = "启用后，X11显示区域将避开屏幕刘海/挖孔区域。"
+        subTitle = "启用后，X11显示区域将避开屏幕刘海/挖孔区域。"
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -334,7 +330,7 @@ fun X11PIPMode(
 ) {
     TitleAndContent(
         title = "画中画模式",
-        description = "启用后，X11可以进入画中画模式显示。"
+        subTitle = "启用后，X11可以进入画中画模式显示。"
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -364,7 +360,7 @@ fun X11SettingsPreview() {
     var pipMode by remember { mutableStateOf(false) }
 
     CollapsePanel("X11设置预览") {
-        X11Resolution(resolution, { resolution = it; if (it.second) resolution = it.first })
+        X11Resolution(resolution) { newValue, _ -> resolution = newValue }
         X11TouchMode(touchMode, { touchMode = it })
         X11ScreenOrientation(screenOrientation, { screenOrientation = it })
         X11DisplayScale(displayScale, { displayScale = it })
