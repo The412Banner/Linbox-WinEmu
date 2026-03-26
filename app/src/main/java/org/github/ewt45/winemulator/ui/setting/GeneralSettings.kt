@@ -99,7 +99,8 @@ fun GeneralSettings(
 
 
     CollapsePanel("一般选项", vPadding = 32.dp) {
-        GeneralResolution(settingVM.resolutionText, settingVM::onChangeResolutionText)
+        // 分辨率设置已移动到X11显示设置中
+        // GeneralResolution(settingVM.resolutionText, settingVM::onChangeResolutionText)
         GeneralRootfsLang(state.rootfsLang, listOf("en_US.utf8", "zh_CN.utf8"), settingVM::onChangeRootfsLang)
         GeneralShareDir(state.sharedExtPath, settingVM::onChangeShareExtPath)
 //        MoreContent {
