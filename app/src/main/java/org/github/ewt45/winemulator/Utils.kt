@@ -447,7 +447,10 @@ object Utils {
          */
         suspend fun installRootfsFromAssets(ctx: Context, reporter: TaskReporter): File? = withContext(IO) {
             // 查找assets中的rootfs压缩包
-            val rootfsFileNames = listOf("rootfs.tar.xz", "rootfs.tar.gz", "rootfs.tar.zst")
+            val rootfsFileNames = listOf(
+                "rootfs.tar.xz", "rootfs.tar.gz", "rootfs.tar.zst",
+                "rootfs.tzst"
+            )
             var foundFileName: String? = null
             
             for (fileName in rootfsFileNames) {
@@ -477,7 +480,7 @@ object Utils {
             val compType = when {
                 foundFileName.endsWith(".xz") -> CompressedType.XZ
                 foundFileName.endsWith(".gz") -> CompressedType.GZ
-                foundFileName.endsWith(".zst") -> CompressedType.TZST
+                foundFileName.endsWith(".zst") || foundFileName.endsWith(".tzst") -> CompressedType.TZST
                 else -> throw RuntimeException("不支持的压缩格式: $foundFileName")
             }
             
