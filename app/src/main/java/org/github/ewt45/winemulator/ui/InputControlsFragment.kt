@@ -179,6 +179,7 @@ class InputControlsFragment : Fragment() {
                 loadProfileSpinner(sProfile)
                 updateLayout!!.run()
             }
+            @Suppress("DEPRECATION")
             startActivityForResult(intent, 1)
         }
 
@@ -261,7 +262,9 @@ class InputControlsFragment : Fragment() {
             .show()
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1 && resultCode == Activity.RESULT_OK) {
             data?.data?.let { uri ->
