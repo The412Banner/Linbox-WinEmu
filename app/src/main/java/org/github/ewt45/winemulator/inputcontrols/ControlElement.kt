@@ -178,6 +178,7 @@ class ControlElement(
 
     fun getBindingAt(index: Int): Binding = if (index < bindings.size) bindings[index] else Binding.NONE
 
+    @Suppress("UNCHECKED_CAST")
     fun setBindingAt(index: Int, binding: Binding) {
         if (index >= bindings.size) {
             val oldLength = bindings.size
