@@ -54,4 +54,12 @@
     <methods>;
 }
 
+# Zstd 压缩库 - R8 需要保留这些类
+-keep class com.github.luben.zstd.** { *; }
+-dontwarn com.github.luben.zstd.**
+
+# Apache Commons Compress Zstd
+-keep class org.apache.commons.compress.compressors.zstandard.** { *; }
+-dontwarn org.apache.commons.compress.compressors.zstandard.**
+
 

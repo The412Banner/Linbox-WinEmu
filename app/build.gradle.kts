@@ -40,8 +40,7 @@ android {
         jvmTarget = "11"
         freeCompilerArgs += listOf(
             "-Xno-call-assertions",
-            "-Xno-param-assertions",
-            "-Xno-strict-levenshtein-matching"
+            "-Xno-param-assertions"
         )
     }
     buildFeatures {
