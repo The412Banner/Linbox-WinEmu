@@ -133,6 +133,7 @@ object Consts {
         /**
          * 初始化Item需要在读取assets之后，lazy的话 第一次用到Pref时Consts应该已经初始化好了吧。用lateinit的话还需要多写一行
          */
+        @Suppress("UNCHECKED_CAST")
         private inline fun <reified T> item(name: String, default: T): Lazy<Item<T>> = lazy {
             val key: Preferences.Key<T> = when (T::class) {
                 Set::class -> stringSetPreferencesKey(name)
@@ -149,6 +150,7 @@ object Consts {
         }
 
         /** 反射获取全部设置项 */
+        @Suppress("UNCHECKED_CAST")
         private fun getAllPrefItems(): List<Item<Any>> {
             return Pref::class.declaredMemberProperties
                 .filter { it.returnType.classifier == Pref.Item::class }
