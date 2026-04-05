@@ -485,7 +485,9 @@ object Utils {
             }
             
             reporter.progress(0F)
-            reporter.totalValue = 100L
+            // 获取 assets 文件大小
+            val compSize = ctx.assets.openFd(foundFileName).use { it.length }
+            reporter.totalValue = compSize
             
             reporter.msg(null, "(1/3) 正在解压到临时文件夹...")
             val compressedTarInput = Archive.getCompressedInput(compType, ctx.assets.open(foundFileName))
