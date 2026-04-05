@@ -537,7 +537,7 @@ fun GeneralResolution(
 @Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun GeneralSettingsPreview() {
-    val langOptions = listOf("en_US.utf8", "zh_CN.utf9")
+    val langOptions = listOf("en_US.utf8", "zh_CN.utf8")
     var lang by remember { mutableStateOf(langOptions[0]) }
     var shareDirSet by remember { mutableStateOf(setOf("/storage/emulated/0/Download", "/storage/emulated/0/MT2")) }
     val onChangeShareDir: FuncOnChange<String> = { old, new, action ->

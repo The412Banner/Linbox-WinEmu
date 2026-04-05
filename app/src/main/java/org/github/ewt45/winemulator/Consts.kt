@@ -88,7 +88,7 @@ object Consts {
         val allItems by lazy { getAllPrefItems() }
 
         val general_resolution by item("general_resolution", "1280x720")
-        val general_rootfs_lang by item("general_rootfs_lang", "zh_CN")
+        val general_rootfs_lang by item("general_rootfs_lang", "zh_CN.utf8")
         val general_shared_ext_path by item("shared_ext_path", setOf("/storage/emulated/0/Download"))
         val proot_bool_options by item("proot_bool_options", setOf( "-L", "--link2symlink", "--sysvipc", "--kill-on-exit", /*"--root-id",*/))
         val proot_startup_cmd by item("proot_startup_cmd", "")

@@ -179,8 +179,8 @@ class MainEmuActivity : MainActivity() {
             lifecycle.addObserver(EmuManager(lifecycleScope))
         }
         val LANG = general_rootfs_lang.get()
-        // grep的$LANG应该还是从环境变量获取 因为有时候如果没生效的话LANG会被还原会C,可以用这个判断是否需要
-        terminalViewModel.runCommand("""if [ "$(locale -a | grep ${'$'}LANG)" != $LANG ]; then locale-gen; fi; export LANG=$LANG""")
+        // 检查目标 locale 是否已生成，未生成则执行 locale-gen
+        terminalViewModel.runCommand("""if ! locale -a | grep -qi "${LANG%%.*}"; then locale-gen $LANG; fi; export LANG=$LANG""")
         //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
         proot_startup_cmd.get().takeIf { it.isNotBlank() }?.let {
             terminalViewModel.runCommand("$it &")
