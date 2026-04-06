@@ -116,13 +116,19 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                     prepareVm.onRootfsExtracted(extractedRootfs.name)
                 } else {
                     // 未找到assets中的rootfs，回退到手动选择
-                    reporter.msg("未在assets中找到rootfs压缩包", "请手动选择rootfs压缩包")
+                    reporter.msg("未在assets中找到rootfs压缩包", "请手动选择rootfs压缩包（支持 .tar.xz、.tar.gz、.tar.zst 格式）")
                     reporter.stage = ProgressStage.NOT_STARTED
                     autoExtractStarted = false
                 }
             } catch (e: Throwable) {
                 e.printStackTrace()
-                reporter.msg("自动提取rootfs过程中出现错误：${e.stackTraceToString()}", "自动提取失败，请手动选择rootfs压缩包。\n（日志可点击展开查看）")
+                val errorMsg = e.message ?: ""
+                val specificErrorTip = when {
+                    errorMsg.contains("xz") -> "\n提示：如果是.tar.xz文件解压失败，可能是因为该压缩包使用了.tar.gz格式。"
+                    errorMsg.contains("gz") -> "\n提示：如果是.tar.gz文件解压失败，可能是因为该压缩包使用了.tar.zst格式。"
+                    else -> ""
+                }
+                reporter.msg("自动提取rootfs过程中出现错误：${e.stackTraceToString()}", "自动提取失败，请手动选择rootfs压缩包（支持 .tar.xz、.tar.gz、.tar.zst 格式）。\n（日志可点击展开查看）$specificErrorTip")
                 reporter.stage = ProgressStage.DONE_FAILURE
                 autoExtractStarted = false
             }
@@ -245,7 +251,7 @@ private fun RootfsSelect(
     val TAG = "RootfsSelectScreen"
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    val reporter = initReporter ?: rememberTaskReporter(msgTitle = "缺少Rootfs。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。")
+    val reporter = initReporter ?: rememberTaskReporter(msgTitle = "缺少Rootfs。请点击按钮选择一个包含Rootfs的压缩包（支持 .tar.xz、.tar.gz、.tar.zst 格式）。")
     var rootfsName by remember { mutableStateOf(initRootfsName) }
     var isSetCurrent by remember { mutableStateOf(true) }
     val dialogState = rememberConfirmDialogState()
@@ -264,9 +270,15 @@ private fun RootfsSelect(
                 reporter.stage = ProgressStage.DONE_SUCCESS
             } catch (e: Throwable) {
                 e.printStackTrace()
+                val errorMsg = e.message ?: ""
+                val specificErrorTip = when {
+                    errorMsg.contains("xz") -> "\n提示：如果是.tar.xz文件解压失败，可能是因为该压缩包使用了.tar.gz格式。"
+                    errorMsg.contains("gz") -> "\n提示：如果是.tar.gz文件解压失败，可能是因为该压缩包使用了.tar.zst格式。"
+                    else -> ""
+                }
                 reporter.msg(
                     "解压rootfs过程中出现错误，结束。\n" + e.stackTraceToString(),
-                    "解压失败。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。\n（日志可点击展开查看）"
+                    "解压失败。请选择一个包含Rootfs的压缩包（支持 .tar.xz、.tar.gz、.tar.zst 格式）。\n（日志可点击展开查看）$specificErrorTip"
                 )
                 reporter.stage = ProgressStage.DONE_FAILURE
             }
@@ -302,7 +314,7 @@ private fun RootfsSelect(
                     }) { Text("从App内置提取") }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                Button({ readFileLauncher.launch(arrayOf("application/x-xz", "application/gzip", "*/*")) })
+                Button({ readFileLauncher.launch(arrayOf("application/x-xz", "application/gzip", "application/zstd", "application/x-zstd", "*/*")) })
                 { Text("手动选择") }
             }
             // 解压成功后显示完成按钮
