@@ -3,6 +3,7 @@ package org.github.ewt45.winemulator.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.github.ewt45.winemulator.FuncOnChangeAction
 import org.github.ewt45.winemulator.ui.Destination
 
@@ -80,9 +82,14 @@ class MainViewModel : ViewModel() {
      */
     suspend fun showConfirmDialog(msg: String = "您确定吗？"):Result<Boolean>  {
         dialogDeferred = CompletableDeferred()
-        _uiState.update { it.copy(dialogType = DialogType.CONFIRM, msg = msg)  }
+        // 确保状态更新在主线程执行，避免首次启动时的竞态条件
+        withContext(Dispatchers.Main) {
+            _uiState.update { it.copy(dialogType = DialogType.CONFIRM, msg = msg)  }
+        }
         val result = dialogDeferred!!.await()
-        _uiState.update { it.copy(dialogType = DialogType.NONE) }
+        withContext(Dispatchers.Main) {
+            _uiState.update { it.copy(dialogType = DialogType.NONE) }
+        }
         return result
     }
 

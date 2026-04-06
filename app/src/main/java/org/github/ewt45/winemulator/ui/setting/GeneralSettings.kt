@@ -187,8 +187,13 @@ fun GeneralRootfsSelect(
                 onRootfsSelectChange(rootfsName)
             }
         } else if (type == TYPE_DEL) {
-            dialogState.showConfirm("确定删除该Rootfs吗？\n其内部所有文件都将被删除，请谨慎操作！\n\n$rootfsName") {
-                onRootfsNameChange(rootfsName, rootfsName, FuncOnChangeAction.DEL)
+            // 如果是当前正在运行的rootfs，直接显示提示，不执行删除
+            if (isCurr) {
+                dialogState.showConfirm("该Rootfs当前正在运行，无法删除。\n\n$rootfsName")
+            } else {
+                dialogState.showConfirm("确定删除该Rootfs吗？\n其内部所有文件都将被删除，请谨慎操作！\n\n$rootfsName") {
+                    onRootfsNameChange(rootfsName, rootfsName, FuncOnChangeAction.DEL)
+                }
             }
         }
     }
@@ -267,9 +272,17 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
 
     fun getMimeType(extension: String) = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
     if (showDialog) {
-        var currCompType by remember { mutableStateOf(CompressedType.GZ) }
-        val compSuffix = mapOf(CompressedType.GZ to ".tar.gz", CompressedType.XZ to ".tar.xz")
-        val compMimeTypes = mapOf(CompressedType.GZ to "application/gzip", CompressedType.XZ to "application/x-xz")
+        var currCompType by remember { mutableStateOf(CompressedType.TZST) }
+        val compSuffix = mapOf(
+            CompressedType.GZ to ".tar.gz", 
+            CompressedType.XZ to ".tar.xz",
+            CompressedType.TZST to ".tar.zst"
+        )
+        val compMimeTypes = mapOf(
+            CompressedType.GZ to "application/gzip", 
+            CompressedType.XZ to "application/x-xz",
+            CompressedType.TZST to "application/zstd"
+        )
         val ctx = LocalContext.current
         val scope = rememberCoroutineScope()
         val reporter = rememberTaskReporter(msgTitle = "将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。")

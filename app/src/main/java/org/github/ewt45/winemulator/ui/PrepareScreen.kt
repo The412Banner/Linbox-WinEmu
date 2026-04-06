@@ -21,9 +21,13 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -78,8 +82,18 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
     val state by prepareVm.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    val reporter = rememberTaskReporter(msgTitle = "首次启动准备中...")
+    // 标题会在后续根据场景动态设置
+    val reporter = rememberTaskReporter(msgTitle = "")
     var autoExtractStarted by remember { mutableStateOf(false) } // 标记是否已经开始自动提取
+    
+    // 根据场景设置 reporter 标题
+    LaunchedEffect(state.forceNoRootfs, state.noRootfs) {
+        reporter.msgTitle = when {
+            state.forceNoRootfs -> "新建容器"
+            state.noRootfs -> "请选择或提取Rootfs"
+            else -> ""
+        }
+    }
 
     // 退出prepareScreen
     LaunchedEffect(state.isPrepareFinished) {
@@ -130,6 +144,34 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
             reporter.progress = 100
         }
     }
+    
+    // 新建容器时，用户点击"从App内置提取"按钮后执行提取逻辑
+    LaunchedEffect(autoExtractStarted, state.forceNoRootfs) {
+        if (autoExtractStarted && state.forceNoRootfs && reporter.stage == ProgressStage.NOT_STARTED) {
+            reporter.msgTitle = "正在提取Rootfs..."
+            reporter.stage = ProgressStage.PROCESSING
+            reporter.progress = 0
+            reporter.msg = "日志："
+            
+            try {
+                val extractedRootfs = Utils.Rootfs.installRootfsFromAssets(ctx, reporter)
+                if (extractedRootfs != null) {
+                    reporter.msg("提取rootfs成功：${extractedRootfs.name}", "提取成功！\n（日志可点击展开查看）")
+                    reporter.stage = ProgressStage.DONE_SUCCESS
+                } else {
+                    reporter.msg("未在assets中找到rootfs压缩包", "请手动选择rootfs压缩包")
+                    reporter.stage = ProgressStage.DONE_FAILURE
+                    autoExtractStarted = false
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                reporter.msg("提取rootfs过程中出现错误：${e.stackTraceToString()}", "提取失败，请手动选择rootfs压缩包。\n（日志可点击展开查看）")
+                reporter.stage = ProgressStage.DONE_FAILURE
+                autoExtractStarted = false
+            }
+            reporter.progress = 100
+        }
+    }
 
     // 准备完成 启动模拟器
     if (state.isPrepareFinished) {
@@ -161,20 +203,22 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                     }
                 }
             } else if (state.noRootfs || state.forceNoRootfs) {
-                // 首次启动时，如果正在自动提取，显示进度
-                if (state.noRootfs && !state.forceNoRootfs && 
+                // 首次启动自动提取时，显示进度（用 autoExtractStarted 区分自动提取和手动选择）
+                if (state.noRootfs && !state.forceNoRootfs && autoExtractStarted &&
                     (reporter.stage == ProgressStage.PROCESSING || 
-                     reporter.stage == ProgressStage.DONE_SUCCESS || 
-                     reporter.stage == ProgressStage.DONE_FAILURE)) {
+                     reporter.stage == ProgressStage.DONE_SUCCESS)) {
                     RootfsAutoExtractProgress(reporter)
                 }
-                // 新建容器或自动提取失败/未开始时，显示手动选择
-                else if (state.forceNoRootfs || (reporter.stage == ProgressStage.NOT_STARTED && !autoExtractStarted)) {
+                // 其他情况（新建容器、自动提取失败、手动选择）显示手动选择界面
+                else if (state.forceNoRootfs || !autoExtractStarted || reporter.stage == ProgressStage.DONE_FAILURE) {
                     RootfsSelect(
                         getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
                         settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName,
                         initReporter = reporter,
-                        onAutoExtractStart = { autoExtractStarted = true }
+                        onAutoExtractStart = { autoExtractStarted = true },
+                        onRootfsExtracted = { rootfsName -> prepareVm.onRootfsExtracted(rootfsName) },
+                        onSetCurrentRootfs = { rootfsName -> Utils.Rootfs.makeCurrent(File(Consts.rootfsAllDir, rootfsName)) },
+                        onCancel = if (state.forceNoRootfs) { { prepareVm.onCancelForceNoRootfs() } } else null
                     )
                 } else {
                     // 等待自动提取完成
@@ -232,6 +276,9 @@ private fun PermissionGrant(
  * @param onRootfsNameChange 参考 [SettingViewModel.onChangeRootfsName]
  * @param initReporter 可选的初始进度报告器
  * @param onAutoExtractStart 回调函数，当用户触发自动提取时调用
+ * @param onRootfsExtracted rootfs提取/选择完成后的回调，用于更新状态
+ * @param onSetCurrentRootfs 设置当前rootfs的回调
+ * @param onCancel 取消/返回的回调，用于新建容器时返回
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -243,6 +290,9 @@ private fun RootfsSelect(
     initRootfsName: String = "",
     initReporter: SimpleTaskReporter? = null,
     onAutoExtractStart: (() -> Unit)? = null,
+    onRootfsExtracted: ((String) -> Unit)? = null,
+    onSetCurrentRootfs: (suspend (String) -> Unit)? = null,
+    onCancel: (() -> Unit)? = null,
 ) {
     val TAG = "RootfsSelectScreen"
     val scope = rememberCoroutineScope()
@@ -278,7 +328,16 @@ private fun RootfsSelect(
 
     ConfirmDialog(dialogState)
 
-    CenterAlignedTopAppBar(title = { Text("Rootfs") })
+    CenterAlignedTopAppBar(
+        title = { Text("Rootfs") },
+        navigationIcon = {
+            if (onCancel != null) {
+                IconButton(onClick = onCancel) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                }
+            }
+        }
+    )
     Spacer(Modifier.height(16.dp))
     Column(
         Modifier
@@ -310,10 +369,17 @@ private fun RootfsSelect(
             // 解压成功后显示完成按钮
             else if (reporter.stage == ProgressStage.DONE_SUCCESS) {
                 Button({
-                    //TODO forceNoRootfs 是否需要设置为false？
                     scope.launch {
-                        if (isSetCurrent) MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
-                        else MainEmuActivity.instance.finish()
+                        // 更新 prepareVm 状态
+                        onRootfsExtracted?.invoke(rootfsName)
+                        if (isSetCurrent && onSetCurrentRootfs != null) {
+                            // 设置当前rootfs（不调用onChangeRootfsSelect避免触发finish）
+                            onSetCurrentRootfs(rootfsName)
+                        } else if (isSetCurrent) {
+                            // 兼容旧逻辑：如果没有提供 onSetCurrentRootfs，使用原来的方式
+                            MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
+                        }
+                        // 状态更新后，isPrepareFinished 会变为 true，自动触发跳转
                     }
                 }) { Text("完成") }
             }
