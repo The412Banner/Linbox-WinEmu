@@ -273,8 +273,16 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
     fun getMimeType(extension: String) = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
     if (showDialog) {
         var currCompType by remember { mutableStateOf(CompressedType.GZ) }
-        val compSuffix = mapOf(CompressedType.GZ to ".tar.gz", CompressedType.XZ to ".tar.xz")
-        val compMimeTypes = mapOf(CompressedType.GZ to "application/gzip", CompressedType.XZ to "application/x-xz")
+        val compSuffix = mapOf(
+            CompressedType.GZ to ".tar.gz", 
+            CompressedType.XZ to ".tar.xz",
+            CompressedType.TZST to ".tar.zst"
+        )
+        val compMimeTypes = mapOf(
+            CompressedType.GZ to "application/gzip", 
+            CompressedType.XZ to "application/x-xz",
+            CompressedType.TZST to "application/zstd"
+        )
         val ctx = LocalContext.current
         val scope = rememberCoroutineScope()
         val reporter = rememberTaskReporter(msgTitle = "将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。")

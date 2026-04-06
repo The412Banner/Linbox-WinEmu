@@ -63,6 +63,7 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorOutputStream
 import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream
+import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream
 import org.apache.commons.compress.utils.InputStreamStatistics
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
@@ -666,11 +667,11 @@ object Utils {
             CompressedType.TZST -> ZstdCompressorInputStream(rawInput)
         }
 
-        /** 将一个普通输出流转换为对应的压缩器输出流 如 [XZCompressorInputStream] [GzipCompressorOutputStream] */
+        /** 将一个普通输出流转换为对应的压缩器输出流 如 [XZCompressorOutputStream] [GzipCompressorOutputStream] */
         fun getCompressedOutput(type: CompressedType, rawOutput: OutputStream?): CompressorOutputStream<out OutputStream> = when (type) {
             CompressedType.XZ -> XZCompressorOutputStream(rawOutput)
             CompressedType.GZ -> GzipCompressorOutputStream(rawOutput)
-            CompressedType.TZST -> throw RuntimeException("Zstd压缩输出暂不支持")
+            CompressedType.TZST -> ZstdCompressorOutputStream(rawOutput)
         }
 
         /**
