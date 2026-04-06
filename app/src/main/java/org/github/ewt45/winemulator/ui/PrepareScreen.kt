@@ -161,15 +161,14 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                     }
                 }
             } else if (state.noRootfs || state.forceNoRootfs) {
-                // 首次启动时，如果正在自动提取，显示进度
-                if (state.noRootfs && !state.forceNoRootfs && 
+                // 首次启动自动提取时，显示进度（用 autoExtractStarted 区分自动提取和手动选择）
+                if (state.noRootfs && !state.forceNoRootfs && autoExtractStarted &&
                     (reporter.stage == ProgressStage.PROCESSING || 
-                     reporter.stage == ProgressStage.DONE_SUCCESS || 
-                     reporter.stage == ProgressStage.DONE_FAILURE)) {
+                     reporter.stage == ProgressStage.DONE_SUCCESS)) {
                     RootfsAutoExtractProgress(reporter)
                 }
-                // 新建容器或自动提取失败/未开始时，显示手动选择
-                else if (state.forceNoRootfs || (reporter.stage == ProgressStage.NOT_STARTED && !autoExtractStarted)) {
+                // 其他情况（新建容器、自动提取失败、手动选择）显示手动选择界面
+                else if (state.forceNoRootfs || !autoExtractStarted || reporter.stage == ProgressStage.DONE_FAILURE) {
                     RootfsSelect(
                         getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
                         settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName,
