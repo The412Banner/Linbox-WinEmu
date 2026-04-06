@@ -174,7 +174,9 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                         getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
                         settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName,
                         initReporter = reporter,
-                        onAutoExtractStart = { autoExtractStarted = true }
+                        onAutoExtractStart = { autoExtractStarted = true },
+                        onRootfsExtracted = { rootfsName -> prepareVm.onRootfsExtracted(rootfsName) },
+                        onSetCurrentRootfs = { rootfsName -> Utils.Rootfs.makeCurrent(File(Consts.rootfsAllDir, rootfsName)) }
                     )
                 } else {
                     // 等待自动提取完成
@@ -232,6 +234,8 @@ private fun PermissionGrant(
  * @param onRootfsNameChange 参考 [SettingViewModel.onChangeRootfsName]
  * @param initReporter 可选的初始进度报告器
  * @param onAutoExtractStart 回调函数，当用户触发自动提取时调用
+ * @param onRootfsExtracted rootfs提取/选择完成后的回调，用于更新状态
+ * @param onSetCurrentRootfs 设置当前rootfs的回调
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -243,6 +247,8 @@ private fun RootfsSelect(
     initRootfsName: String = "",
     initReporter: SimpleTaskReporter? = null,
     onAutoExtractStart: (() -> Unit)? = null,
+    onRootfsExtracted: ((String) -> Unit)? = null,
+    onSetCurrentRootfs: (suspend (String) -> Unit)? = null,
 ) {
     val TAG = "RootfsSelectScreen"
     val scope = rememberCoroutineScope()
@@ -310,10 +316,17 @@ private fun RootfsSelect(
             // 解压成功后显示完成按钮
             else if (reporter.stage == ProgressStage.DONE_SUCCESS) {
                 Button({
-                    //TODO forceNoRootfs 是否需要设置为false？
                     scope.launch {
-                        if (isSetCurrent) MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
-                        else MainEmuActivity.instance.finish()
+                        // 更新 prepareVm 状态
+                        onRootfsExtracted?.invoke(rootfsName)
+                        if (isSetCurrent && onSetCurrentRootfs != null) {
+                            // 设置当前rootfs（不调用onChangeRootfsSelect避免触发finish）
+                            onSetCurrentRootfs(rootfsName)
+                        } else if (isSetCurrent) {
+                            // 兼容旧逻辑：如果没有提供 onSetCurrentRootfs，使用原来的方式
+                            MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
+                        }
+                        // 状态更新后，isPrepareFinished 会变为 true，自动触发跳转
                     }
                 }) { Text("完成") }
             }
