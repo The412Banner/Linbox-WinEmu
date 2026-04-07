@@ -192,10 +192,6 @@ fun ColoredTerminalOutput(
     output: List<String>,
     coloredPrompt: AnnotatedString
 ) {
-    // 提示符的正则表达式模式：匹配 "用户名@主机:路径$" 或 "用户名@主机:路径#"
-    // 例如：root@localhost:~$ 或 afei@localhost:~$
-    val promptPattern = Regex("""^([\w]+)@([\w.]+):([/~][^\s]*)([#$])(\s*)$""")
-    
     // 颜色定义
     val rootUserColor = Color(0xFFE0E0E0)  // root用户白色
     val normalUserColor = Color(0xFF64B5F6)  // 普通用户蓝色
@@ -205,49 +201,68 @@ fun ColoredTerminalOutput(
     
     // 构建带样式的输出
     val annotatedOutput = buildAnnotatedString {
-        output.forEachIndexed { index, line ->
-            // 检查这一行是否是提示符行
-            val matchResult = promptPattern.find(line.trimEnd())
-            
-            if (matchResult != null) {
-                // 这是提示符行，使用彩色样式
-                val userName = matchResult.groupValues[1]
-                val hostName = matchResult.groupValues[2]
-                val path = matchResult.groupValues[3]
-                val symbol = matchResult.groupValues[4]
-                val trailing = matchResult.groupValues[5]
+        // 先将所有输出按行分割
+        output.forEach { line ->
+            // 处理每一行，可能包含多个换行符
+            val lines = line.split("\n", "\r\n", "\r")
+            lines.forEachIndexed { index, singleLine ->
+                if (singleLine.isNotEmpty()) {
+                    // 检查这一行是否是提示符行（以 用户名@主机:路径$ 或 用户名@主机:路径# 结尾）
+                    val isPromptLine = singleLine.contains("@") && 
+                        (singleLine.endsWith("$ ") || singleLine.endsWith("# ") || 
+                         singleLine.endsWith("$") || singleLine.endsWith("#"))
+                    
+                    if (isPromptLine) {
+                        // 尝试提取用户名
+                        val atIndex = singleLine.indexOf('@')
+                        val colonIndex = singleLine.lastIndexOf(':')
+                        val dollarIndex = singleLine.lastIndexOf('$')
+                        val hashIndex = singleLine.lastIndexOf('#')
+                        val symbolIndex = maxOf(dollarIndex, hashIndex)
+                        
+                        if (atIndex > 0 && colonIndex > atIndex && symbolIndex > colonIndex) {
+                            val userName = singleLine.substring(0, atIndex)
+                            val hostName = singleLine.substring(atIndex + 1, colonIndex)
+                            val path = singleLine.substring(colonIndex + 1, symbolIndex)
+                            
+                            // 用户名颜色：root为白色，其他为蓝色
+                            val userColor = if (userName == "root") rootUserColor else normalUserColor
+                            
+                            // 添加彩色提示符
+                            withStyle(SpanStyle(color = userColor, fontWeight = FontWeight.Bold)) {
+                                append(userName)
+                            }
+                            withStyle(SpanStyle(color = symbolColor)) {
+                                append("@")
+                            }
+                            withStyle(SpanStyle(color = hostColor, fontWeight = FontWeight.Bold)) {
+                                append(hostName)
+                            }
+                            withStyle(SpanStyle(color = symbolColor)) {
+                                append(":")
+                            }
+                            withStyle(SpanStyle(color = pathColor, fontWeight = FontWeight.Bold)) {
+                                append(path)
+                            }
+                            // 添加剩余部分（$ 或 # 和后面的空格）
+                            val remaining = singleLine.substring(symbolIndex)
+                            withStyle(SpanStyle(color = symbolColor)) {
+                                append(remaining)
+                            }
+                        } else {
+                            // 无法解析，直接添加原文本
+                            append(singleLine)
+                        }
+                    } else {
+                        // 普通输出行，直接添加
+                        append(singleLine)
+                    }
+                }
                 
-                // 用户名颜色：root为白色，其他为蓝色
-                val userColor = if (userName == "root") rootUserColor else normalUserColor
-                
-                // 添加彩色提示符
-                withStyle(SpanStyle(color = userColor, fontWeight = FontWeight.Bold)) {
-                    append(userName)
-                }
-                withStyle(SpanStyle(color = symbolColor)) {
-                    append("@")
-                }
-                withStyle(SpanStyle(color = hostColor, fontWeight = FontWeight.Bold)) {
-                    append(hostName)
-                }
-                withStyle(SpanStyle(color = symbolColor)) {
-                    append(":")
-                }
-                withStyle(SpanStyle(color = pathColor, fontWeight = FontWeight.Bold)) {
-                    append(path)
-                }
-                withStyle(SpanStyle(color = symbolColor)) {
-                    append(symbol)
-                    append(trailing)
-                }
-                
-                // 如果原行有换行符，添加换行
-                if (line.endsWith("\n")) {
+                // 除最后一行外，添加换行符
+                if (index < lines.size - 1) {
                     append("\n")
                 }
-            } else {
-                // 普通输出行，直接添加
-                append(line)
             }
         }
     }
