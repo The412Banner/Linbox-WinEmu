@@ -373,9 +373,16 @@ class SettingViewModel : ViewModel() {
      * 从rootfs_login_user_json中读取当前rootfs对应的用户名
      */
     suspend fun getCurrentLoginUser(): String {
-        val currentRootfsName = Consts.rootfsCurrDir.canonicalFile.name
-        val loginUsersMap = generalState.value.localRootfsLoginUsersMap
-        return loginUsersMap[currentRootfsName] ?: "root"
+        try {
+            val currentRootfsName = Consts.rootfsCurrDir.canonicalFile.name
+            // 直接从DataStore读取最新数据，而不是使用可能未更新的缓存状态
+            val jsonString = dataStore.data.first()[rootfs_login_user_json.key] ?: "{}"
+            val loginUsersMap: Map<String, String> = Json.decodeFromString(jsonString)
+            return loginUsersMap[currentRootfsName] ?: "root"
+        } catch (e: Exception) {
+            Log.e(TAG, "getCurrentLoginUser failed: ${e.message}")
+            return "root"
+        }
     }
 
 }
