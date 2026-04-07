@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -25,23 +24,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
@@ -81,21 +82,8 @@ fun ProotTerminalContent(
     viewModel: TerminalViewModel,
     onRunCommand: (String) -> Unit
 ) {
+    val TAG = "ProotOutputScreen"
     var execCommand by remember { mutableStateOf("") }
-    
-    // 将原始输出合并为完整文本（每个列表元素已包含换行符）
-    val fullOutputText by remember {
-        derivedStateOf {
-            viewModel.output.value.joinToString("")
-        }
-    }
-    
-    // 解析 ANSI 转义序列，生成带颜色的 AnnotatedString
-    val coloredOutput by remember(fullOutputText) {
-        derivedStateOf {
-            parseAnsiToAnnotatedString(fullOutputText)
-        }
-    }
     
     Column(
         modifier = Modifier
@@ -108,24 +96,21 @@ fun ProotTerminalContent(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(textVScroll)
+                //emmm加这个横向滚动 导致文本很短时，Text无法占满宽度了. 好了，在外层套一个Column就行了。
                 .horizontalScroll(rememberScrollState())
                 .fillMaxWidth(),
         ) {
             SelectionContainer {
-                // 使用带颜色的终端输出
-                Text(
-                    text = coloredOutput,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                // 使用自定义的带颜色文本渲染
+                ColoredTerminalOutput(
+                    output = viewModel.output.value,
+                    coloredPrompt = viewModel.getColoredPrompt()
                 )
             }
         }
 
-        // 有内容更新时自动滚动到最底部
+
+        //有内容更新时自动滚动到最底部
         LaunchedEffect(viewModel.output.value) {
             textVScroll.animateScrollTo(textVScroll.maxValue)
         }
@@ -199,133 +184,108 @@ fun ProotTerminalContent(
 }
 
 /**
- * 解析 ANSI 转义序列（SGR 码）并转换为带样式的 AnnotatedString
- * 支持：
- * - 前景色：30-37（标准色），90-97（亮色）
- * - 背景色：40-47，100-107
- * - 样式：1（粗体），3（斜体），4（下划线），0（重置）
- * - 多个代码组合，如 "1;31" 表示粗体红色
+ * 带颜色的终端输出渲染
+ * 识别提示符行并使用彩色样式渲染
  */
-private fun parseAnsiToAnnotatedString(text: String): AnnotatedString {
-    val result = AnnotatedString.Builder()
-    var currentStyle = SpanStyle()
-    val buffer = StringBuilder()
+@Composable
+fun ColoredTerminalOutput(
+    output: List<String>,
+    coloredPrompt: AnnotatedString
+) {
+    // 颜色定义
+    val rootUserColor = Color(0xFFE0E0E0)  // root用户白色
+    val normalUserColor = Color(0xFF64B5F6)  // 普通用户蓝色
+    val hostColor = Color(0xFF4DD0E1)  // 主机名青色
+    val pathColor = Color(0xFF81C784)  // 路径绿色
+    val symbolColor = Color(0xFFFFD54F)  // 符号黄色
     
-    var i = 0
-    while (i < text.length) {
-        val c = text[i]
-        if (c == '\u001B' && i + 1 < text.length && text[i + 1] == '[') {
-            // 遇到转义序列，先输出缓冲区的文本
-            if (buffer.isNotEmpty()) {
-                result.pushStyle(currentStyle)
-                result.append(buffer.toString())
-                result.pop()
-                buffer.clear()
+    // 提示符的正则表达式：匹配 用户名@主机:路径$ 或 用户名@主机:路径#
+    // 这个模式用于在混合的字符串中找到提示符位置
+    val promptRegex = Regex("""([\w]+)@([\w.]+):([/~][^\s$#]*)([#$])(\s*)?$""")
+    
+    // 构建带样式的输出
+    val annotatedOutput = buildAnnotatedString {
+        // 先将所有输出按行分割
+        output.forEach { line ->
+            // 处理每一行，可能包含多个换行符
+            var remaining = line
+            while (remaining.isNotEmpty()) {
+                // 尝试在这一行中找到提示符
+                val matchResult = promptRegex.find(remaining)
+                
+                if (matchResult != null && matchResult.range.first >= 0) {
+                    // 如果找到了提示符在字符串中间或末尾
+                    val beforePrompt = remaining.substring(0, matchResult.range.first)
+                    val promptMatch = matchResult.value
+                    
+                    // 添加提示符之前的普通文本
+                    if (beforePrompt.isNotEmpty()) {
+                        append(beforePrompt)
+                    }
+                    
+                    // 解析并添加彩色提示符
+                    val userName = matchResult.groupValues[1]
+                    val hostName = matchResult.groupValues[2]
+                    val path = matchResult.groupValues[3]
+                    val symbol = matchResult.groupValues[4]
+                    val trailing = matchResult.groupValues[5]
+                    
+                    // 用户名颜色：root为白色，其他为蓝色
+                    val userColor = if (userName == "root") rootUserColor else normalUserColor
+                    
+                    // 添加彩色提示符
+                    withStyle(SpanStyle(color = userColor, fontWeight = FontWeight.Bold)) {
+                        append(userName)
+                    }
+                    withStyle(SpanStyle(color = symbolColor)) {
+                        append("@")
+                    }
+                    withStyle(SpanStyle(color = hostColor, fontWeight = FontWeight.Bold)) {
+                        append(hostName)
+                    }
+                    withStyle(SpanStyle(color = symbolColor)) {
+                        append(":")
+                    }
+                    withStyle(SpanStyle(color = pathColor, fontWeight = FontWeight.Bold)) {
+                        append(path)
+                    }
+                    withStyle(SpanStyle(color = symbolColor)) {
+                        append(symbol)
+                        if (trailing.isNotEmpty()) {
+                            append(trailing)
+                        }
+                    }
+                    
+                    // 继续处理提示符之后的剩余部分
+                    val afterPromptStart = matchResult.range.last + 1
+                    if (afterPromptStart < remaining.length) {
+                        remaining = remaining.substring(afterPromptStart)
+                    } else {
+                        remaining = ""
+                    }
+                } else {
+                    // 没有找到提示符，直接添加整行
+                    append(remaining)
+                    remaining = ""
+                }
             }
             
-            // 解析 ESC[ ... m
-            var j = i + 2
-            while (j < text.length && text[j] != 'm') {
-                j++
-            }
-            if (j < text.length) {
-                val codeStr = text.substring(i + 2, j)
-                val codes = codeStr.split(';').mapNotNull { it.toIntOrNull() }
-                currentStyle = applySgrCodes(codes, currentStyle)
-                i = j + 1
-                continue
-            } else {
-                // 未找到结束符，按普通字符处理
-                buffer.append(c)
-                i++
-                continue
-            }
-        } else {
-            buffer.append(c)
-            i++
+            // 每行结束后添加换行符
+            append("\n")
         }
     }
     
-    // 输出剩余文本
-    if (buffer.isNotEmpty()) {
-        result.pushStyle(currentStyle)
-        result.append(buffer.toString())
-        result.pop()
-    }
-    
-    return result.toAnnotatedString()
-}
-
-/**
- * 根据 ANSI SGR 代码更新 SpanStyle
- */
-private fun applySgrCodes(codes: List<Int>, currentStyle: SpanStyle): SpanStyle {
-    var newStyle = currentStyle
-    for (code in codes) {
-        when (code) {
-            0 -> newStyle = SpanStyle() // 重置所有样式
-            1 -> newStyle = newStyle.copy(fontWeight = FontWeight.Bold)
-            3 -> newStyle = newStyle.copy(fontStyle = FontStyle.Italic)
-            4 -> newStyle = newStyle.copy(textDecoration = TextDecoration.Underline)
-            in 30..37 -> newStyle = newStyle.copy(color = ansiForegroundColor(code))
-            in 40..47 -> newStyle = newStyle.copy(background = ansiBackgroundColor(code))
-            in 90..97 -> newStyle = newStyle.copy(color = ansiBrightForegroundColor(code))
-            in 100..107 -> newStyle = newStyle.copy(background = ansiBrightBackgroundColor(code))
-        }
-    }
-    return newStyle
-}
-
-// 标准前景色映射（30-37）
-private fun ansiForegroundColor(code: Int): Color = when (code) {
-    30 -> Color.Black
-    31 -> Color(0xFFD32F2F) // 红
-    32 -> Color(0xFF388E3C) // 绿
-    33 -> Color(0xFFF57C00) // 黄/橙
-    34 -> Color(0xFF1976D2) // 蓝
-    35 -> Color(0xFF7B1FA2) // 紫
-    36 -> Color(0xFF0097A7) // 青
-    37 -> Color(0xFFF5F5F5) // 白
-    else -> Color.White
-}
-
-// 标准背景色映射（40-47）
-private fun ansiBackgroundColor(code: Int): Color = when (code) {
-    40 -> Color.Black
-    41 -> Color(0xFFD32F2F)
-    42 -> Color(0xFF388E3C)
-    43 -> Color(0xFFF57C00)
-    44 -> Color(0xFF1976D2)
-    45 -> Color(0xFF7B1FA2)
-    46 -> Color(0xFF0097A7)
-    47 -> Color(0xFFF5F5F5)
-    else -> Color.Transparent
-}
-
-// 亮前景色映射（90-97）
-private fun ansiBrightForegroundColor(code: Int): Color = when (code) {
-    90 -> Color(0xFF9E9E9E)
-    91 -> Color(0xFFEF5350)
-    92 -> Color(0xFF66BB6A)
-    93 -> Color(0xFFFFA726)
-    94 -> Color(0xFF42A5F5)
-    95 -> Color(0xFFAB47BC)
-    96 -> Color(0xFF26C6DA)
-    97 -> Color.White
-    else -> Color.White
-}
-
-// 亮背景色映射（100-107）
-private fun ansiBrightBackgroundColor(code: Int): Color = when (code) {
-    100 -> Color(0xFF616161)
-    101 -> Color(0xFFEF5350)
-    102 -> Color(0xFF66BB6A)
-    103 -> Color(0xFFFFA726)
-    104 -> Color(0xFF42A5F5)
-    105 -> Color(0xFFAB47BC)
-    106 -> Color(0xFF26C6DA)
-    107 -> Color.White
-    else -> Color.Transparent
+    Text(
+        text = annotatedOutput,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Normal,
+            lineHeight = 18.sp
+        ),
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 /**
@@ -334,12 +294,33 @@ private fun ansiBrightBackgroundColor(code: Int): Color = when (code) {
  */
 @Composable
 fun ProotTerminalScreenImpl(
-    output: List<String>,
+    output: SnapshotStateList<String>,
     runCommand: (String) -> Unit,
     viewModel: TerminalViewModel? = null
 ) {
-    val fullText = remember(output) { output.joinToString("") }
-    val coloredOutput = remember(fullText) { parseAnsiToAnnotatedString(fullText) }
+    // 创建简单的预览用彩色提示符
+    val previewPrompt = remember {
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = Color(0xFFE0E0E0), fontWeight = FontWeight.Bold)) {
+                append("root")
+            }
+            withStyle(SpanStyle(color = Color(0xFFFFD54F))) {
+                append("@")
+            }
+            withStyle(SpanStyle(color = Color(0xFF4DD0E1), fontWeight = FontWeight.Bold)) {
+                append("localhost")
+            }
+            withStyle(SpanStyle(color = Color(0xFFFFD54F))) {
+                append(":")
+            }
+            withStyle(SpanStyle(color = Color(0xFF81C784), fontWeight = FontWeight.Bold)) {
+                append("~")
+            }
+            withStyle(SpanStyle(color = Color(0xFFFFD54F))) {
+                append("# ")
+            }
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -356,14 +337,9 @@ fun ProotTerminalScreenImpl(
                 .fillMaxWidth(),
         ) {
             SelectionContainer {
-                Text(
-                    text = coloredOutput,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                ColoredTerminalOutput(
+                    output = output.toList(),
+                    coloredPrompt = previewPrompt
                 )
             }
         }
@@ -414,18 +390,42 @@ fun ProotTerminalScreenImpl(
  */
 @Composable
 fun ProotTerminalScreenPreview() {
-    val output = listOf(
-        "\u001B[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001B[0m\n",
-        "\u001B[32m  终端开始运行\u001B[0m\n",
-        "\u001B[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001B[0m\n",
-        "\n",
-        "\u001B[1;32mroot\u001B[0m\u001B[1;33m@\u001B[0m\u001B[1;36mlocalhost\u001B[0m\u001B[1;33m:\u001B[0m\u001B[1;34m~\u001B[0m\u001B[1;33m$ \u001B[0mls --color=always\n",
-        "\u001B[0m\u001B[01;34mtotal 64\u001B[0m\n",
-        "\u001B[01;34mdrwxr-xr-x\u001B[0m \u001B[01;34m5\u001B[0m \u001B[34;01mroot\u001B[0m \u001B[34;01mroot\u001B[0m \u001B[01;34m4096\u001B[0m \u001B[35;01mApr\u001B[0m \u001B[00m7\u001B[0m \u001B[35;01m08:00\u001B[0m \u001B[01;34m.\u001B[0m\n",
-        "\u001B[01;34mdrwxr-xr-x\u001B[0m \u001B[01;34m3\u001B[0m \u001B[34;01mroot\u001B[0m \u001B[34;01mroot\u001B[0m \u001B[01;34m4096\u001B[0m \u001B[35;01mApr\u001B[0m \u001B[00m7\u001B[0m \u001B[35;01m08:00\u001B[0m \u001B[01;34m..\u001B[0m\n",
-        "\u001B[0m\u001B[01;34m-rw-r--r--\u001B[0m \u001B[01;34m1\u001B[0m \u001B[34;01mroot\u001B[0m \u001B[34;01mroot\u001B[0m \u001B[01;34m4096\u001B[0m \u001B[35;01mApr\u001B[0m \u001B[00m7\u001B[0m \u001B[35;01m08:00\u001B[0m \u001B[00mfile1.txt\u001B[0m\n",
-        "\u001B[1;32mroot\u001B[0m\u001B[1;33m@\u001B[0m\u001B[1;36mlocalhost\u001B[0m\u001B[1;33m:\u001B[0m\u001B[1;34m~\u001B[0m\u001B[1;33m$ \u001B[0m"
-    )
+    val output = remember { mutableStateListOf<String>(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "  终端开始运行",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "",
+        "root@localhost:~$ ls -la",
+        "total 64",
+        "drwxr-xr-x  5 root root 4096 Apr  7 08:00 .",
+        "drwxr-xr-x  3 root root root 4096 Apr  7 08:00 ..",
+        "-rw-r--r--  1 root root 4096 Apr  7 08:00 file1.txt",
+        "root@localhost:~$ "
+    ) }
+    
+    // 创建简单的预览用彩色提示符
+    val previewPrompt = remember {
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = Color(0xFFE0E0E0), fontWeight = FontWeight.Bold)) {
+                append("root")
+            }
+            withStyle(SpanStyle(color = Color(0xFFFFD54F))) {
+                append("@")
+            }
+            withStyle(SpanStyle(color = Color(0xFF4DD0E1), fontWeight = FontWeight.Bold)) {
+                append("localhost")
+            }
+            withStyle(SpanStyle(color = Color(0xFFFFD54F))) {
+                append(":")
+            }
+            withStyle(SpanStyle(color = Color(0xFF81C784), fontWeight = FontWeight.Bold)) {
+                append("~")
+            }
+            withStyle(SpanStyle(color = Color(0xFFFFD54F))) {
+                append("# ")
+            }
+        }
+    }
     
     SimpleTerminalStatusBar(
         currentUser = "root",
@@ -436,5 +436,64 @@ fun ProotTerminalScreenPreview() {
     
     Spacer(modifier = Modifier.height(4.dp))
     
-    ProotTerminalScreenImpl(output, {}, null)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        val textVScroll = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(textVScroll)
+                .horizontalScroll(rememberScrollState())
+                .fillMaxWidth(),
+        ) {
+            SelectionContainer {
+                ColoredTerminalOutput(
+                    output = output.toList(),
+                    coloredPrompt = previewPrompt
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = MaterialTheme.shapes.medium
+                )
+                .padding(4.dp)
+        ) {
+            TextField(
+                value = "",
+                modifier = Modifier.fillMaxWidth(),
+                onValueChange = { },
+                label = { 
+                    Text(
+                        text = "输入命令",
+                        fontFamily = FontFamily.Monospace
+                    ) 
+                },
+                placeholder = {
+                    Text(
+                        text = "请输入命令...",
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace
+                ),
+                enabled = false,
+                trailingIcon = { }
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+    }
 }
