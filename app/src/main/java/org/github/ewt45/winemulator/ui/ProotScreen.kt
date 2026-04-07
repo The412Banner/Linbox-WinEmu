@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -34,10 +35,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
@@ -45,6 +50,7 @@ import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 /**
  * Proot终端界面 - 集成美化后的终端UI
  * 支持显示用户名@主机:路径 格式的状态栏
+ * 支持彩色提示符和键盘适配
  */
 @Composable
 fun ProotTerminalScreen(viewModel: TerminalViewModel) {
@@ -61,7 +67,7 @@ fun ProotTerminalScreen(viewModel: TerminalViewModel) {
         
         // 终端输出和输入区域
         ProotTerminalContent(
-            output = viewModel.output.value,
+            viewModel = viewModel,
             onRunCommand = { viewModel.runCommand(it) }
         )
     }
@@ -69,10 +75,11 @@ fun ProotTerminalScreen(viewModel: TerminalViewModel) {
 
 /**
  * 终端内容区域 - 输出和输入
+ * 支持键盘弹出时自动调整布局
  */
 @Composable
 fun ProotTerminalContent(
-    output: List<String>,
+    viewModel: TerminalViewModel,
     onRunCommand: (String) -> Unit
 ) {
     val TAG = "ProotOutputScreen"
@@ -82,6 +89,7 @@ fun ProotTerminalContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
+            .imePadding() // 自动处理键盘弹出时的padding
     ) {
         val textVScroll = rememberScrollState()
         Column(
@@ -93,24 +101,17 @@ fun ProotTerminalContent(
                 .fillMaxWidth(),
         ) {
             SelectionContainer {
-                Text(
-                    // 处理回车符，将 \r\n 或单独的 \r 转换为换行
-                    text = output.joinToString(separator = "\n").replace("\r\n", "\n").replace("\r", "\n"),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        lineHeight = 18.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth()
+                // 使用自定义的带颜色文本渲染
+                ColoredTerminalOutput(
+                    output = viewModel.output.value,
+                    coloredPrompt = viewModel.getColoredPrompt()
                 )
             }
         }
 
 
         //有内容更新时自动滚动到最底部
-        LaunchedEffect(output.size) {
+        LaunchedEffect(viewModel.output.value) {
             textVScroll.animateScrollTo(textVScroll.maxValue)
         }
 
@@ -183,17 +184,81 @@ fun ProotTerminalContent(
 }
 
 /**
+ * 带颜色的终端输出渲染
+ * 识别提示符行并使用彩色样式渲染
+ */
+@Composable
+fun ColoredTerminalOutput(
+    output: List<String>,
+    coloredPrompt: AnnotatedString
+) {
+    // 提示符的正则表达式模式
+    val promptPattern = Regex("""^[\w@.:/~-]+[\$#]\s*$""")
+    
+    // 构建带样式的输出
+    val annotatedOutput = buildAnnotatedString {
+        output.forEachIndexed { index, line ->
+            // 检查这一行是否是提示符
+            val trimmedLine = line.trimEnd()
+            
+            if (promptPattern.matches(trimmedLine) || trimmedLine.endsWith("# ") || trimmedLine.endsWith("$ ")) {
+                // 这是提示符行，使用彩色提示符
+                append(coloredPrompt)
+                // 如果原行有换行符，添加换行
+                if (line.endsWith("\n")) {
+                    append("\n")
+                }
+            } else {
+                // 普通输出行
+                append(line)
+            }
+        }
+    }
+    
+    Text(
+        text = annotatedOutput,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Normal,
+            lineHeight = 18.sp
+        ),
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+/**
  * 兼容旧版本的函数（保留用于预览等场景）
  */
 @Composable
 fun ProotTerminalScreenImpl(
     output: SnapshotStateList<String>,
     runCommand: (String) -> Unit,
+    viewModel: TerminalViewModel? = null
 ) {
-    ProotTerminalContent(
-        output = output.toList(),
-        onRunCommand = runCommand
-    )
+    if (viewModel != null) {
+        ProotTerminalContent(
+            viewModel = viewModel,
+            onRunCommand = runCommand
+        )
+    } else {
+        // 如果没有viewModel，使用默认的简单渲染
+        val simpleViewModel = remember {
+            object : TerminalViewModel() {
+                init {
+                    currentUser = output.find { it.contains("@") }?.substringBefore("@") ?: "root"
+                    currentHost = "localhost"
+                    currentPath = "~"
+                    isConnected = true
+                }
+            }
+        }
+        ProotTerminalContent(
+            viewModel = simpleViewModel,
+            onRunCommand = runCommand
+        )
+    }
 }
 
 /**
@@ -209,10 +274,22 @@ fun ProotTerminalScreenPreview() {
         "root@localhost:~$ ls -la",
         "total 64",
         "drwxr-xr-x  5 root root 4096 Apr  7 08:00 .",
-        "drwxr-xr-x  3 root root 4096 Apr  7 08:00 ..",
+        "drwxr-xr-x  3 root root root 4096 Apr  7 08:00 ..",
         "-rw-r--r--  1 root root 4096 Apr  7 08:00 file1.txt",
         "root@localhost:~$ "
     ) }
+    
+    // 创建模拟的viewModel
+    val previewViewModel = remember {
+        object : TerminalViewModel() {
+            init {
+                currentUser = "root"
+                currentHost = "localhost"
+                currentPath = "~"
+                isConnected = true
+            }
+        }
+    }
     
     SimpleTerminalStatusBar(
         currentUser = "root",
@@ -224,7 +301,7 @@ fun ProotTerminalScreenPreview() {
     Spacer(modifier = Modifier.height(4.dp))
     
     ProotTerminalContent(
-        output = output.toList(),
+        viewModel = previewViewModel,
         onRunCommand = { output.add("root@localhost:~$ $it") }
     )
 }
