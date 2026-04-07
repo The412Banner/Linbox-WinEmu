@@ -234,27 +234,6 @@ class TerminalViewModel : ViewModel() {
     }
 
     /**
-     * 设置当前用户
-     */
-    fun setCurrentUser(user: String) {
-        currentUser = user
-    }
-
-    /**
-     * 设置当前主机名
-     */
-    fun setCurrentHost(host: String) {
-        currentHost = host
-    }
-
-    /**
-     * 设置当前路径
-     */
-    fun setCurrentPath(path: String) {
-        currentPath = path
-    }
-
-    /**
      * 更新提示符信息（从设置读取）
      */
     fun updatePromptFromSettings(userName: String) {
