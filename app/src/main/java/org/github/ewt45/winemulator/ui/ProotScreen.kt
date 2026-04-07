@@ -29,6 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -186,5 +190,38 @@ fun ProotTerminalScreenImpl(
     ProotTerminalContent(
         output = output.toList(),
         onRunCommand = runCommand
+    )
+}
+
+/**
+ * Proot终端预览函数
+ */
+@Composable
+fun ProotTerminalScreenPreview() {
+    val output = remember { mutableStateListOf<String>(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "  终端开始运行",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "",
+        "root@localhost:~$ ls -la",
+        "total 64",
+        "drwxr-xr-x  5 root root 4096 Apr  7 08:00 .",
+        "drwxr-xr-x  3 root root 4096 Apr  7 08:00 ..",
+        "-rw-r--r--  1 root root 4096 Apr  7 08:00 file1.txt",
+        "root@localhost:~$ "
+    ) }
+    
+    SimpleTerminalStatusBar(
+        currentUser = "root",
+        currentHost = "localhost",
+        currentPath = "~",
+        isConnected = true
+    )
+    
+    Spacer(modifier = Modifier.height(4.dp))
+    
+    ProotTerminalContent(
+        output = output.toList(),
+        onRunCommand = { output.add("root@localhost:~$ $it") }
     )
 }
