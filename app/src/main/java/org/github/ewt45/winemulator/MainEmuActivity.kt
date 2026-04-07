@@ -166,7 +166,8 @@ class MainEmuActivity : MainActivity() {
         emuStarted = true
 
         // 启动终端前，从设置中获取用户名并更新到TerminalViewModel
-        lifecycleScope.launch {
+        // 使用runBlocking确保在startTerminal之前获取用户名
+        runBlocking {
             val userName = settingViewModel.getCurrentLoginUser()
             terminalViewModel.updatePromptFromSettings(userName)
             Log.d(TAG, "startEmu: 已从设置获取用户名: $userName")
