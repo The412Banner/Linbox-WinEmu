@@ -16,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -163,6 +164,13 @@ class MainEmuActivity : MainActivity() {
         Utils.Rootfs.makeCurrent(selectedRootfs)
 
         emuStarted = true
+
+        // 启动终端前，从设置中获取用户名并更新到TerminalViewModel
+        lifecycleScope.launch {
+            val userName = settingViewModel.getCurrentLoginUser()
+            terminalViewModel.updatePromptFromSettings(userName)
+            Log.d(TAG, "startEmu: 已从设置获取用户名: $userName")
+        }
 
         //启动xserver
         if (Consts.rootfsCurrXkbDir.exists()) {
