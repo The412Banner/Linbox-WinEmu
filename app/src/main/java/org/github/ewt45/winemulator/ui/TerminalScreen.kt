@@ -1,10 +1,5 @@
 package org.github.ewt45.winemulator.ui
 
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -13,25 +8,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,15 +39,12 @@ import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 @Composable
 fun TerminalScreen(viewModel: TerminalViewModel) {
     val activity = LocalActivity.current as MainEmuActivity
-    val currentUser by viewModel.currentUser.collectAsState()
-    val currentHost by viewModel.currentHost.collectAsState()
-    val currentPath by viewModel.currentPath.collectAsState()
     
     TerminalScreenImpl(
         getViewClient = { activity.viewClient },
-        currentUser = currentUser,
-        currentHost = currentHost,
-        currentPath = currentPath,
+        currentUser = viewModel.currentUser,
+        currentHost = viewModel.currentHost,
+        currentPath = viewModel.currentPath,
         isConnected = viewModel.isConnected
     )
 }
@@ -145,16 +131,6 @@ fun TerminalStatusBar(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 终端图标
-        Icon(
-            imageVector = Icons.Default.Terminal,
-            contentDescription = "Terminal",
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
         // 用户名@主机
         Text(
             text = "$currentUser@$currentHost",
