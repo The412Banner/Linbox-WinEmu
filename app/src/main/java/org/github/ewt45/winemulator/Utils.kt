@@ -651,6 +651,7 @@ object Utils {
         /**
          * 解压rootfs后，需要对其做一些一次性处理
          * - 修改网络相关配置文件
+         * - 修复 --link2symlink 产生的符号链接
          */
         suspend fun postExtractRootfs(rootfsDir: File) = withContext(Dispatchers.IO) {
             //来自proot-distro。修改网络配置文件
@@ -679,6 +680,62 @@ object Utils {
                     ff02::3     ip6-allhosts
                     """.trimIndent().plus("\n")
                 )
+            }
+            
+            // 修复 --link2symlink 产生的符号链接
+            fixL2sSymlinks(rootfsDir)
+        }
+
+        /**
+         * 修复 proot --link2symlink 产生的符号链接问题
+         * 当导入其他容器的导出包时，符号链接可能指向旧容器路径，需要修正为当前容器路径
+         */
+        private fun fixL2sSymlinks(rootfsDir: File) {
+            val root = rootfsDir.toPath().toAbsolutePath()
+            var fixedCount = 0
+            
+            try {
+                java.nio.file.Files.walkFileTree(root, object : java.nio.file.SimpleFileVisitor<Path>() {
+                    override fun visitFile(file: Path, attrs: java.nio.file.attribute.BasicFileAttributes): java.nio.file.FileVisitResult {
+                        runCatching {
+                            if (!java.nio.file.Files.isSymbolicLink(file)) return@runCatching
+
+                            val target = java.nio.file.Files.readSymbolicLink(file)
+                            if (!target.isAbsolute) return@runCatching
+
+                            val targetStr = target.toString()
+                            // 匹配 "rootfs/" 路径
+                            val rootfsIndex = targetStr.lastIndexOf("rootfs/")
+                            if (rootfsIndex == -1) return@runCatching
+
+                            // 从 rootfs/ 后面开始截取
+                            val afterRootfs = targetStr.substring(rootfsIndex + "rootfs/".length)
+                            val firstSlash = afterRootfs.indexOf('/')
+                            if (firstSlash == -1) return@runCatching
+
+                            val internalPath = afterRootfs.substring(firstSlash)
+                            val correctTarget = root.resolve(internalPath.substring(1))
+
+                            if (target == correctTarget) return@runCatching
+
+                            // 修复符号链接
+                            java.nio.file.Files.delete(file)
+                            java.nio.file.Files.createSymbolicLink(file, correctTarget)
+                            fixedCount++
+                        }
+                        return java.nio.file.FileVisitResult.CONTINUE
+                    }
+
+                    override fun visitFileFailed(file: Path, exc: java.io.IOException): java.nio.file.FileVisitResult {
+                        return java.nio.file.FileVisitResult.CONTINUE
+                    }
+                })
+                
+                if (fixedCount > 0) {
+                    Log.d("Rootfs", "fixL2sSymlinks: 修复了 $fixedCount 个符号链接")
+                }
+            } catch (e: Exception) {
+                Log.w("Rootfs", "fixL2sSymlinks: 修复符号链接时出错: ${e.message}")
             }
         }
     }
@@ -806,35 +863,12 @@ object Utils {
 
         /**
          * 修复l2s文件软链接指向的路径
-         * @param skipProcess 跳过处理。目前指定l2s变量会有问题，所以先不处理了
+         * @param skipProcess 跳过处理。目前指定l2s变量会有问题，所以先不处理了，但保留 .l2s 文件夹
          */
         private fun fixL2sFiles(outDir: File, symLinkList: List<SymLink>, reporter: TaskReporter, skipProcess: Boolean = false) {
             if (skipProcess) {
-                reporter.msg("跳过修复l2s文件, 全部删除...")
-                fun delL2s(files: List<File>, reporter: TaskReporter) =
-                    files.forEach { if (it.delete()) reporter.msg("删除l2s文件：${it.absolutePath}") }
-
-                val l2sDir = File(outDir, ".l2s")
-                //如果不处理，把相关文件都删掉。靠程序重新创建
-                for (item in symLinkList) {
-                    try {
-                        val symlinkFile = File(item.symlink)
-                        val pointToFile = File(item.pointTo)
-                        //自己是中间文件或硬链接模拟，都可以执行相同操作：删除自身，同目录/l2s目录下指向文件名
-                        if (symlinkFile.name.startsWith(".l2s.") || pointToFile.name.startsWith(".l2s.")) {
-                            delL2s(listOf(symlinkFile, File(symlinkFile.parentFile!!, pointToFile.name), File(l2sDir, pointToFile.name)), reporter)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        reporter.msg("删除l2s文件时出错。文件=$item 。错误消息 = ${e.stackTraceToString()}")
-                    }
-                }
-                try {
-                    File(outDir, "/.l2s").let { FileUtils.deleteDirectory(it) }.also { reporter.msg("删除 .l2s 文件夹") }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    reporter.msg("删除 .l2s 文件夹失败。错误消息 = ${e.stackTraceToString()}")
-                }
+                reporter.msg("跳过修复l2s文件，保留 .l2s 文件夹供后续处理...")
+                // 不再删除 .l2s 文件夹，让 postExtractRootfs 中的 fixL2sSymlinks 来处理符号链接
                 return
             }
 
