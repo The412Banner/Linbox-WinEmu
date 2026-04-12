@@ -115,6 +115,7 @@ class Proot {
         return@withContext ProcessBuilder(finalCommand)
             .directory(rootfs)
             .also {
+                it.environment().clear()  // 清除 Android 环境变量污染
                 it.environment()["PROOT_TMP_DIR"] = tmpDir.absolutePath
                 it.environment()["PROOT_NO_SECCOMP"] = "1"
                 it.environment()["LD_PRELOAD"] = ""  // 防止库冲突
