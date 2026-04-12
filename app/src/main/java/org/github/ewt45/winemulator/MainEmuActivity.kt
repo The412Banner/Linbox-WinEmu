@@ -130,6 +130,10 @@ class MainEmuActivity : MainActivity() {
         if (Consts.rootfsCurrXkbDir.exists()) {
             startService(startX11Intent)
             waitForXStartedWithDialog()
+        } else {
+            withContext(Dispatchers.Main) {
+                mainViewModel.showConfirmDialog("rootfs下缺少xkb文件夹，X11将不会启动。")
+            }
         }
 
         // 启动原生终端

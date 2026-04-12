@@ -23,13 +23,21 @@ class TerminalViewModel : ViewModel() {
     var currentHost by mutableStateOf("localhost")
     var currentPath by mutableStateOf("~")
     var isConnected by mutableStateOf(false)
+    var lastError by mutableStateOf<String?>(null)
+        private set
 
-    suspend fun startTerminal(sessionClient: SessionClientAImpl) {
-        if (terminalSession != null) return
+    suspend fun startTerminal(sessionClient: SessionClientAImpl): Boolean {
+        if (terminalSession != null) return true
         
         try {
+            lastError = null
             val pb = terminal.attach()
             val cmdList = pb.command()
+            if (cmdList.isEmpty()) {
+                lastError = "命令列表为空"
+                isConnected = false
+                return false
+            }
             val executable = cmdList[0]
             val args = cmdList.drop(1).toTypedArray()
             val cwd = pb.directory()?.absolutePath ?: "/"
@@ -51,13 +59,23 @@ class TerminalViewModel : ViewModel() {
                 terminalSession = session
                 isConnected = true
             }
+            return true
         } catch (e: Exception) {
             Log.e(TAG, "startTerminal 失败", e)
+            lastError = e.message ?: "未知错误"
+            isConnected = false
+            return false
         }
     }
 
-    fun runCommand(command: String) {
-        terminalSession?.write(command + "\n")
+    fun runCommand(command: String): Boolean {
+        val session = terminalSession
+        if (session == null) {
+            Log.w(TAG, "终端未启动，无法执行命令: $command")
+            return false
+        }
+        session.write(command + "\n")
+        return true
     }
 
     fun updatePromptFromSettings(userName: String) {
