@@ -3,11 +3,15 @@ package org.github.ewt45.winemulator.emu
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.apache.commons.io.FileUtils
 import org.github.ewt45.winemulator.Consts
+import org.github.ewt45.winemulator.Consts.Pref.general_shared_ext_path
+import org.github.ewt45.winemulator.Consts.Pref.proot_bool_options
 import org.github.ewt45.winemulator.Consts.tmpDir
 import org.github.ewt45.winemulator.Consts.rootfsCurrL2sDir
 import org.github.ewt45.winemulator.Utils.chmod
 import java.io.File
+import java.nio.charset.StandardCharsets
 
 class Proot {
     private val TAG = "Proot"
@@ -24,76 +28,85 @@ class Proot {
         chmod(rootfsCurrL2sDir, "755")
         
         ProotHelper.setup_fake_data()
+        editEtcLocaleGen(rootfs, lang)
         
         val userInfo = ProotRootfs.getPreferredUser(rootfs.canonicalFile.name)
-        Log.d(TAG, "启动 Proot，目标用户: ${userInfo.name} (UID: ${userInfo.uid})")
+        Log.d(TAG, "启动 Proot，目标用户: ${userInfo.name} (UID: ${userInfo.uid}, GID: ${userInfo.gid})")
 
-        // 1. 核心参数
+        // 1. 核心参数 - 使用用户设置的 proot 参数
         val prootArgs = mutableListOf(
             prootBin.absolutePath,
-            "-0",                     // Root 映射，解决 I have no name! 问题
-            "--link2symlink",         // 解决 Android f2fs 上的文件属性问题
-            "--sysvipc",              // 支持进程间通信
-            "--kill-on-exit",         // 主进程退出时清理子进程
-            "-r", rootfs.absolutePath,
-            "-b", "/dev",
-            "-b", "/proc",
-            "-b", "/sys",
-            "-b", "/storage",
-            "-b", "/system",
-            "-b", "${tmpDir.absolutePath}:/tmp",           // 临时目录
-            "-b", "${rootfs.absolutePath}/tmp:/dev/shm",   // 共享内存
-            "-b", "/proc/self/fd:/dev/fd",                 // 文件描述符
-            "-b", "/dev/urandom:/dev/random",              // 随机数
-            "-w", userInfo.home
+            *proot_bool_options.get().toTypedArray(),  // 用户自定义参数
+            "--kernel-release=${ProotHelper.DEFAULT_FAKE_KERNEL_VERSION}",  // 伪装内核版本
+            "--rootfs=${rootfs.absolutePath}",
+            "--change-id=${userInfo.uid}:${userInfo.gid}",  // 关键：包含 gid
+            "--cwd=${userInfo.home}",
+            "--bind=${tmpDir.absolutePath}:/tmp",
+            "--bind=${rootfs.absolutePath}/tmp:/dev/shm",
+            "--bind=/sys",
+            "--bind=/proc/self/fd:/dev/fd",
+            "--bind=/proc",
+            "--bind=/dev/urandom:/dev/random",
+            "--bind=/dev",
         )
 
-        // SELinux 伪装 - 某些程序检测 SELinux 会失败
-        val selinuxEmpty = File(rootfs, "sys/.empty")
-        if (selinuxEmpty.exists() || runCatching { selinuxEmpty.parentFile?.mkdirs(); selinuxEmpty.createNewFile() }.getOrDefault(false)) {
-            prootArgs.add("-b")
-            prootArgs.add("${selinuxEmpty.absolutePath}:/sys/fs/selinux")
+        // 绑定标准文件描述符（如果不存在）
+        File("/dev/stderr").takeIf { !it.exists() }?.let {
+            prootArgs.add("--bind=/proc/self/fd/2:/dev/stderr")
         }
+        File("/dev/stdout").takeIf { !it.exists() }?.let {
+            prootArgs.add("--bind=/proc/self/fd/1:/dev/stdout")
+        }
+        File("/dev/stdin").takeIf { !it.exists() }?.let {
+            prootArgs.add("--bind=/proc/self/fd/0:/dev/stdin")
+        }
+
+        // SELinux 伪装
+        ProotHelper.setup_fake_data()
+        prootArgs.add("--bind=${rootfs.absolutePath}/sys/.empty:/sys/fs/selinux")
+
+        // /proc 伪装绑定 - 提供伪造的系统信息
+        prootArgs.addAll(
+            mapOf(
+                "/proc/.loadavg" to "/proc/loadavg",
+                "/proc/.stat" to "/proc/stat",
+                "/proc/.uptime" to "/proc/uptime",
+                "/proc/.version" to "/proc/version",
+                "/proc/.vmstat" to "/proc/vmstat",
+                "/proc/.sysctl_entry_cap_last_cap" to "/proc/sys/kernel/cap_last_cap",
+                "/proc/.sysctl_inotify_max_user_watches" to "/proc/sys/fs/inotify/max_user_watches",
+            ).mapNotNull { bindIfNotReadable(rootfs, it.key, it.value) })
 
         // 动态绑定用户配置的外部存储路径
-        val sharedPaths = Consts.Pref.general_shared_ext_path.get()
-        sharedPaths.forEach { path ->
-            if (File(path).exists()) {
-                prootArgs.add("-b")
-                prootArgs.add(path)
-            }
-        }
-
-        // 如果不是登录 root，则使用 change-id
-        if (userInfo.uid != 0L) {
-            prootArgs.add("--change-id=${userInfo.uid}")
-        }
+        prootArgs.addAll(general_shared_ext_path.get().map { bindPath ->
+            File(rootfs, bindPath).runCatching { takeIf { FileUtils.isSymlink(it) }?.delete() }
+            "--bind=$bindPath"
+        })
 
         // 2. 构建环境变量 - 先读取 /etc/environment
-        val loginEnvs = mutableMapOf<String, String>()
+        val loginEnvs = EnvMap()
         readEtcEnvironment(rootfs, loginEnvs)
         
         // 覆盖/添加必要的环境变量
-        loginEnvs["TERM"] = "xterm-256color"
-        loginEnvs["HOME"] = userInfo.home
-        loginEnvs["USER"] = userInfo.name
-        loginEnvs["LOGNAME"] = userInfo.name
-        loginEnvs["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-        loginEnvs["SHELL"] = userInfo.shell
-        loginEnvs["LANG"] = lang
-        loginEnvs["TMPDIR"] = "/tmp"
-        loginEnvs["DISPLAY"] = ":13"                              // X11 显示
-        loginEnvs["PULSE_SERVER"] = "tcp:127.0.0.1:4713"          // 音频
-        loginEnvs["PROOT_NO_SECCOMP"] = "1"                       // Android 12+ 兼容
+        loginEnvs.put("LANG", lang, true)
+        loginEnvs.put("HOME", userInfo.home, true)
+        loginEnvs.put("USER", userInfo.name, true)
+        loginEnvs.put("LOGNAME", userInfo.name, true)
+        loginEnvs.put("TMPDIR", "/tmp", true)
+        loginEnvs.put("DISPLAY", ":13", true)
+        loginEnvs.put("PULSE_SERVER", "tcp:127.0.0.1:4713", true)
+        loginEnvs.put("TERM", "xterm-256color", true)
+        loginEnvs.put("SHELL", userInfo.shell, true)
+        loginEnvs.put("PROOT_NO_SECCOMP", "1", true)
 
         // 3. 组装最终命令
         val finalCommand = mutableListOf<String>().apply {
             addAll(prootArgs)
             add("/usr/bin/env")
-            add("-i") // 彻底清除宿主环境变量污染
-            loginEnvs.forEach { (k, v) -> add("$k=$v") }
+            add("-i")  // 彻底清除宿主环境变量污染
+            loginEnvs.toArray().forEach { add(it) }
             add(userInfo.shell)
-            add("-l") // 登录模式，加载 /etc/profile 等
+            add("-l")  // 登录模式，加载 /etc/profile 等
         }
 
         lastTimeCmd = finalCommand.joinToString(" ")
@@ -102,7 +115,6 @@ class Proot {
         return@withContext ProcessBuilder(finalCommand)
             .directory(rootfs)
             .also {
-                it.environment().clear()
                 it.environment()["PROOT_TMP_DIR"] = tmpDir.absolutePath
                 it.environment()["PROOT_NO_SECCOMP"] = "1"
                 it.environment()["LD_PRELOAD"] = ""  // 防止库冲突
@@ -113,13 +125,13 @@ class Proot {
     /**
      * 读取 /etc/environment 下的环境变量并添加到 envMap
      */
-    private fun readEtcEnvironment(rootfs: File, envMap: MutableMap<String, String>) {
+    private fun readEtcEnvironment(rootfs: File, envMap: EnvMap) {
         try {
             for (line in File(rootfs, "/etc/environment").readLines()) {
                 val trimmed = line.trim()
                 if (!trimmed.startsWith('#') && trimmed.contains('=')) {
-                    val (key, value) = trimmed.split('=', limit = 2)
-                    envMap[key.trim()] = value.trim('"')
+                    val split = trimmed.split('=', limit = 2)
+                    envMap.put(split[0], split[1].trim('"'))
                 }
             }
         } catch (e: Exception) {
@@ -127,7 +139,63 @@ class Proot {
         }
     }
 
+    /**
+     * 编辑 /etc/locale.gen，启用对应语言
+     */
+    private fun editEtcLocaleGen(rootfs: File, targetLocale: String) {
+        try {
+            val file = File(rootfs, "/etc/locale.gen").takeIf { it.exists() } ?: return
+            val regexCharNum = "[^a-zA-Z0-9]".toRegex()
+            val lines = FileUtils.readLines(file, StandardCharsets.UTF_8).map { line ->
+                val uncommentLine = line.trimStart('#').trim()
+                val locale = uncommentLine.split(' ').takeIf { it.size == 2 }?.get(0) ?: return@map line
+                val comp1 = locale.replace(regexCharNum, "").lowercase()
+                val comp2 = targetLocale.replace(regexCharNum, "").lowercase()
+                return@map if (comp1 == comp2) uncommentLine else line
+            }
+            FileUtils.writeLines(file, lines)
+        } catch (e: Exception) {
+            Log.w(TAG, "编辑 locale.gen 失败: ${e.message}")
+        }
+    }
+
+    /**
+     * 如果文件存在且可读，返回 null；否则返回绑定参数
+     */
+    private fun bindIfNotReadable(rootfs: File, bindFrom: String, bindTo: String): String? {
+        return try {
+            File(bindTo).takeUnless { it.exists() && it.canRead() }?.let { 
+                "--bind=${File(rootfs, bindFrom).absolutePath}:$bindTo" 
+            }
+        } catch (e: Exception) {
+            "--bind=${File(rootfs, bindFrom).absolutePath}:$bindTo"
+        }
+    }
+
     companion object {
         var lastTimeCmd = ""
     }
+}
+
+/**
+ * 环境变量 Map，支持拼接或覆盖
+ */
+class EnvMap {
+    val map = mutableMapOf<String, String>()
+
+    /**
+     * 新增/更改环境变量。将 value 放在现有 value 之前。如果 override 为 true 则替换
+     */
+    fun put(k: String, v: String, override: Boolean = false) {
+        val k1 = k.trim()
+        val v1 = v.trim()
+        if (k1.contains("=")) Log.w("EnvMap", "key 不应包含 =: key=$k1 value=$v1")
+        val oldV = map[k1]
+        map[k1] = if (oldV != null && !override) "$v1:$oldV" else v1
+    }
+
+    fun get(k: String): String = map.getOrDefault(k, "")
+
+    /** 返回数组，每个元素是 k=v 格式 */
+    fun toArray(): Array<String> = map.toList().map { "${it.first}=${it.second}" }.toTypedArray()
 }
