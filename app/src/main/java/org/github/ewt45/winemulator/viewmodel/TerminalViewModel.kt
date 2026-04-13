@@ -127,7 +127,7 @@ class TerminalViewModel : ViewModel() {
         //另起协程获取输出以及等待关闭
         viewModelScope.launch(Dispatchers.IO) {
             // 简洁的启动提示
-            updateOutput("终端已连接")
+            updateOutput("Terminal connected")
             updateOutput("---")
             try {
                 BufferedReader(InputStreamReader(process!!.inputStream)).use { reader ->
@@ -223,7 +223,7 @@ class TerminalViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                updateOutput("错误: ${e.message}")
+                updateOutput("Error: ${e.message}")
             }
             process?.waitFor()
             isConnected = false
@@ -231,7 +231,7 @@ class TerminalViewModel : ViewModel() {
         }
 
         if (Proot.lastTimeCmd.isNotBlank()) {
-            updateOutput("使用以下参数启动proot：")
+            updateOutput("Starting proot with arguments:")
             updateOutput(Proot.lastTimeCmd)
             updateOutput("")
         }
@@ -301,7 +301,7 @@ class TerminalViewModel : ViewModel() {
     fun runCommand(command: String, display: Boolean = true) = viewModelScope.launch(Dispatchers.IO) {
 
         if (processWriter == null || process?.isAlive != true) {
-            updateOutput("进程已关闭。无法执行命令 $command")
+            updateOutput("Process closed. Cannot execute command $command")
             stopTerminal()
             return@launch
         }
