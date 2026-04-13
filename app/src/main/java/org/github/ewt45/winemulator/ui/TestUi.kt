@@ -32,7 +32,7 @@ fun Test1() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConditionalTextFieldDropdown() {
-    val options = listOf("可编辑选项", "只读选项 1", "只读选项 2")
+    val options = listOf("Editable Options", "只读选项 1", "只读选项 2")
     var expanded by remember { mutableStateOf(false) }
     var selectedOptionText by remember { mutableStateOf(options[0]) }
     val isTextFieldEditable = remember(selectedOptionText) { selectedOptionText == options[0] }
@@ -51,7 +51,7 @@ fun ConditionalTextFieldDropdown() {
                     selectedOptionText = it // 同步下拉菜单的显示
                 }
             },
-            label = { Text("选择或输入") },
+            label = { Text("Select or Input") },
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
