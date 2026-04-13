@@ -110,7 +110,8 @@ fun TopBarActions(
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val th = settingVM.exportSettings(ctx, uri).exceptionOrNull()
-            val resultStr = if (th != null) "导出失败。错误信息：\n\n${th.stackTraceToString()}" else "导出成功！"
+            val resultStr = if (th != null) "Export failed. Error:
+\n\n${th.stackTraceToString()}" else "Export successful!"
             dialogState.showConfirm(resultStr)
         }
 
@@ -121,7 +122,8 @@ fun TopBarActions(
         scope.launch {
             val th = settingVM.importSettings(ctx, uri).exceptionOrNull()
             th?.printStackTrace()
-            val resultStr = if (th != null) "导入失败。错误信息：\n\n${th.stackTraceToString()}" else "导入成功！"
+            val resultStr = if (th != null) "Import failed. Error:
+\n\n${th.stackTraceToString()}" else "Import successful!"
             dialogState.showConfirm(resultStr)
         }
     }
@@ -129,13 +131,13 @@ fun TopBarActions(
     val onClick: (SettingAction) -> Unit = { action ->
         when (action) {
             SettingAction.EXPORT ->
-                dialogState.showConfirm("将设置导出为Json文件。请选择文件保存位置。") { saveFileLauncher.launch("preferences.json") }
+                dialogState.showConfirm("Export settings to a JSON file. Select where to save it.") { saveFileLauncher.launch("preferences.json") }
 
             SettingAction.IMPORT ->
-                dialogState.showConfirm("导入本地Json文件更新设置。请选择文件所在位置。") { readFileLauncher.launch(arrayOf("text/*", "application/json")) }
+                dialogState.showConfirm("Import a local JSON file to update settings. Select the file location.") { readFileLauncher.launch(arrayOf("text/*", "application/json")) }
 
             SettingAction.RESET ->
-                dialogState.showConfirm("导入本地Json文件更新设置。请选择文件所在位置。") { settingVM.resetSettings() }
+                dialogState.showConfirm("Import a local JSON file to update settings. Select the file location.") { settingVM.resetSettings() }
         }
     }
 
@@ -149,9 +151,9 @@ fun TopBarActions(
     onClick: (SettingAction) -> Unit = {},
 ) {
     Row(modifier = modifier) {
-        TextButton(onClick = { onClick(SettingAction.EXPORT) }) { Text("导出") }
-        TextButton(onClick = { onClick(SettingAction.IMPORT) }) { Text("导入") }
-        TextButton(onClick = { onClick(SettingAction.RESET) }) { Text("重置") }
+        TextButton(onClick = { onClick(SettingAction.EXPORT) }) { Text("Export") }
+        TextButton(onClick = { onClick(SettingAction.IMPORT) }) { Text("Import") }
+        TextButton(onClick = { onClick(SettingAction.RESET) }) { Text("Reset") }
     }
 }
 
