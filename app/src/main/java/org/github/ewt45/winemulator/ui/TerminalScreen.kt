@@ -60,6 +60,7 @@ private fun TerminalScreenImpl(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF121212))
+            .imePadding()
     ) {
         TerminalStatusBar(currentUser, currentHost, currentPath, isConnected)
         
@@ -71,7 +72,6 @@ private fun TerminalScreenImpl(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .imePadding()
                 .fillMaxWidth()
         ) {
             AndroidView(
@@ -103,6 +103,7 @@ private fun TerminalScreenImpl(
                     if (terminalSession != null && view.mTermSession != terminalSession) {
                         view.attachSession(terminalSession)
                     }
+                    view.setTextSize(22)
                     view.post {
                         if (view.width > 0 && view.height > 0) {
                             view.updateSize()
@@ -161,7 +162,6 @@ fun TerminalStatusBar(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
-                .imePadding()
         )
         
         Text(
