@@ -296,7 +296,7 @@ object Utils {
                     IOUtils.write(content, output, StandardCharsets.UTF_8)
                 }
                 if (result == null)
-                    throw RuntimeException("无法获取文件输出流")
+                    throw RuntimeException("Unable to get file output stream")
             }
         }
 
@@ -306,7 +306,7 @@ object Utils {
                     IOUtils.readLines(input, StandardCharsets.UTF_8).joinToString(separator = "")
                 }
                 if (jsonStr == null)
-                    throw RuntimeException("无法获取文件输入流")
+                    throw RuntimeException("Unable to get file input stream")
                 return@runCatching jsonStr
             }
         }
@@ -856,7 +856,7 @@ object Utils {
                     Os.chmod(item.first, item.second)
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    reporter.msg("恢复文件夹权限时出错")
+                    reporter.msg("Error restoring folder permissions")
                 }
             }
         }
