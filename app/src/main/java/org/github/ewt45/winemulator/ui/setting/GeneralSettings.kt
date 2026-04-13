@@ -98,7 +98,7 @@ fun GeneralSettings(
     val scope = rememberCoroutineScope()
 
 
-    CollapsePanel("一般选项", vPadding = 32.dp) {
+    CollapsePanel("General Options", vPadding = 32.dp) {
         // 分辨率设置已移动到X11显示设置中
         // GeneralResolution(settingVM.resolutionText, settingVM::onChangeResolutionText)
         GeneralRootfsLang(state.rootfsLang, listOf("en_US.utf8", "zh_CN.utf8"), settingVM::onChangeRootfsLang)
@@ -129,11 +129,11 @@ fun GeneralThemeMode(
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
 ) {
-    val themeOptions = listOf("跟随系统", "暗色主题", "亮色主题")
-    val themeModeNames = mapOf(0 to "跟随系统", 1 to "暗色主题", 2 to "亮色主题")
-    val currentThemeName = themeModeNames[themeMode] ?: "暗色主题"
+    val themeOptions = listOf("Follow System", "Dark Theme", "Light Theme")
+    val themeModeNames = mapOf(0 to "Follow System", 1 to "Dark Theme", 2 to "Light Theme")
+    val currentThemeName = themeModeNames[themeMode] ?: "Dark Theme"
     
-    TitleAndContent("主题模式", "选择界面主题。默认使用暗色主题。") {
+    TitleAndContent("Theme Mode", "选择界面主题。默认使用暗色主题。") {
         ComposeSpinner(currentThemeName, themeOptions, modifier = Modifier.fillMaxWidth()) { _, new ->
             val newMode = themeOptions.indexOf(new)
             if (newMode >= 0) {
@@ -150,7 +150,7 @@ fun GeneralRootfsLang(
     langOptions: List<String>,
     onLangChange: (String) -> Unit,
 ) {
-    TitleAndContent("容器语言", "启动容器时作为环境变量 LANG 的值。") {
+    TitleAndContent("Container Language", "启动容器时作为环境变量 LANG 的值。") {
         ComposeSpinner(currLang, langOptions, modifier = Modifier.fillMaxWidth()) { _, new -> onLangChange(new) }
     }
 }
@@ -188,15 +188,15 @@ fun GeneralRootfsSelect(
     val TYPE_DEL = 1 // 删除
     fun onClickBtn(type: Int, rootfsName: String, rootfsAlias: String, isCurr: Boolean, newRootfsName: String? = null) = scope.launch {
         if (type == TYPE_SEL && !isCurr) {
-            dialogState.showConfirm("将此文件夹设置为Proot使用的rootfs？\n确定后将退出app, 请手动重启。\n\n$rootfsAlias") {
+            dialogState.showConfirm("Set this folder as the rootfs for Proot?\nThe app will exit after confirming. Please restart manually.\n\n$rootfsAlias") {
                 onRootfsSelectChange(rootfsName)
             }
         } else if (type == TYPE_DEL) {
             // 如果是当前正在运行的rootfs，直接显示提示，不执行删除
             if (isCurr) {
-                dialogState.showConfirm("该Rootfs当前正在运行，无法删除。\n\n$rootfsAlias")
+                dialogState.showConfirm("This rootfs is currently running and cannot be deleted.\n\n$rootfsAlias")
             } else {
-                dialogState.showConfirm("确定删除该Rootfs吗？\n其内部所有文件都将被删除，请谨慎操作！\n\n$rootfsAlias") {
+                dialogState.showConfirm("Are you sure you want to delete this rootfs?\nAll files inside will be permanently deleted!\n\n$rootfsAlias") {
                     onRootfsNameChange(rootfsName, rootfsName, FuncOnChangeAction.DEL)
                 }
             }
@@ -295,16 +295,16 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
             if (uri == null) return@rememberLauncherForActivityResult
             reporter.stage = ProgressStage.PROCESSING
             reporter.progress = 0
-            reporter.msgTitle = "正在压缩中"
+            reporter.msgTitle = "Compressing"
             reporter.msg = "日志："
             scope.launch {
                 try {
                     Utils.Rootfs.exportRootfsArchive(ctx, uri, File(Consts.rootfsAllDir, rootfsName), currCompType, reporter)
-                    reporter.msg("导出成功。", "导出成功！已保存到指定目录。\n（日志可点击展开查看）")
+                    reporter.msg("Export successful.", "Export successful! Saved to the specified directory.\n(Tap logs to expand)")
                     reporter.stage = ProgressStage.DONE_SUCCESS
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    reporter.msg("压缩rootfs过程中出现错误，结束。错误：${e.stackTraceToString()}", "导出失败！\n（日志可点击展开查看）")
+                    reporter.msg("Error during rootfs compression:${e.stackTraceToString()}", "Export failed!\n(Tap logs to expand)")
                     reporter.stage = ProgressStage.DONE_FAILURE
                 }
             }
@@ -323,19 +323,19 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
                     Spacer(Modifier.height(16.dp))
                     // 只有在最初的时候可以设置并导出
                     if (reporter.stage == ProgressStage.NOT_STARTED) {
-                        ComposeSpinner(currCompType, compSuffix.keys.toList(), compSuffix.values.toList(), label = "压缩格式")
+                        ComposeSpinner(currCompType, compSuffix.keys.toList(), compSuffix.values.toList(), label = "Compression Format")
                         { _, new -> currCompType = new }
                         Spacer(Modifier.height(24.dp))
                         Button({
                             // 添加时间防止文件名冲突，因为冲突后序号会被默认放在中间 .tar(1).gz 这种
                             val timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy-MM-dd_HH-mm-ss"))
                             launcher.launch("${rootfsName}_$timeStr${compSuffix[currCompType]!!}")
-                        }) { Text("导出到...") }
-                        TextButton({ showDialog = false }) { Text("取消") }
+                        }) { Text("Export to...") }
+                        TextButton({ showDialog = false }) { Text("Cancel") }
                     }
                     // 压缩结束后 显示关闭按钮
                     if (reporter.stage == ProgressStage.DONE_SUCCESS || reporter.stage == ProgressStage.DONE_FAILURE) {
-                        Button({ showDialog = false }) { Text("关闭") }
+                        Button({ showDialog = false }) { Text("Close") }
                     }
 
                 }
@@ -354,7 +354,7 @@ fun GeneralRootfsSelect_LoginUserSelect(
     userNameOptions: List<String>,
     onUserSelectChange: (String, String) -> Unit,
 ) {
-    ComposeSpinner(userName, userNameOptions, label = "登陆用户名", modifier = Modifier.fillMaxWidth()) { _, newValue ->
+    ComposeSpinner(userName, userNameOptions, label = "Login Username", modifier = Modifier.fillMaxWidth()) { _, newValue ->
         onUserSelectChange(rootfsName, newValue)
     }
 }
@@ -434,9 +434,9 @@ fun GeneralShareDir(
         val fullPath = if (path != null) "/storage/emulated/0/$path" else ""
         scope.launch {
             if (fullPath.isEmpty()) {
-                dialogState.showConfirm("添加失败！无法获取该文件夹路径。\n\nuri: $uri")
+                dialogState.showConfirm("Add failed! Cannot get folder path.\n\nuri: $uri")
             } else if (!File(fullPath).exists()) {
-                dialogState.showConfirm("添加失败！该文件夹不存在。\n\npath: $fullPath \n\nuri: $uri")
+                dialogState.showConfirm("Add failed! The folder does not exist.\n\npath: $fullPath \n\nuri: $uri")
             } else {
                 onPathChange(fullPath, fullPath, FuncOnChangeAction.ADD)
             }
@@ -445,7 +445,7 @@ fun GeneralShareDir(
 
     ConfirmDialog(dialogState)
 
-    TitleAndContent("共享文件夹", "在此处添加安卓上的文件夹。模拟器启动后可在容器内部访问这些文件夹。") {
+    TitleAndContent("Shared Folder", "在此处添加安卓上的文件夹。模拟器启动后可在容器内部访问这些文件夹。") {
         Column(
             Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -464,14 +464,14 @@ fun GeneralShareDir(
                     TextFieldOption(bind, Modifier.weight(1F), outlined = true) { newPath ->
                         scope.launch {
                             if (!File(newPath).exists())
-                                dialogState.showConfirm("添加失败！该文件夹不存在。\n\npath: $newPath")
+                                dialogState.showConfirm("Add failed! The folder does not exist.\n\npath: $newPath")
                             else
                                 onPathChange(bind, newPath, FuncOnChangeAction.EDIT)
                         }
                     }
                     IconButton(onClick = {
                         scope.launch {
-                            dialogState.showConfirm("确定取消该文件夹共享吗？\n\n$bind") {
+                            dialogState.showConfirm("Are you sure you want to unshare this folder?\n\n$bind") {
                                 onPathChange(bind, bind, FuncOnChangeAction.DEL)
                             }
                         }
@@ -494,14 +494,14 @@ fun GeneralResolution(
     val textInOptions = options.contains(text)
     // isCustom初始根据 分辨率是否在给定列表中 设定。后续可以手动修改用于表示用户点击了 该选项
     var isCustom by remember { mutableStateOf(!textInOptions) }
-    val realText = if (isCustom) "自定义" else text
+    val realText = if (isCustom) "Custom" else text
     var expanded by remember { mutableStateOf(false) }
 
     // 用户点击菜单项“自定义” -> 回调中设置isCustom为true -> 这种情况下不调用onDone？
     // TextField显示文字在isCustom时为 “自定义” 否则为传进来的分辨率。
     // TextField onValueChange啥也不做吧，通知viewmodel都放到点击选项时的回调里
 
-    TitleAndContent("分辨率", "格式：宽x高，x为字母。编辑自定义分辨率后点击末尾对号图标或输入法回车保存。") {
+    TitleAndContent("Resolution", "格式：宽x高，x为字母。编辑自定义分辨率后点击末尾对号图标或输入法回车保存。") {
         ExposedDropdownMenuBox(
             modifier = Modifier.fillMaxWidth(),
             expanded = expanded,
@@ -535,7 +535,7 @@ fun GeneralResolution(
 //                TextButton(onClick = {}) { Text("9:16") }
 //            }
                 DropdownMenuItem(
-                    text = { Text("自定义", style = MaterialTheme.typography.bodyLarge) },
+                    text = { Text("Custom", style = MaterialTheme.typography.bodyLarge) },
                     onClick = {
                         expanded = false
                         isCustom = true
@@ -577,7 +577,7 @@ fun GeneralSettingsPreview() {
     }
     val loginUsersOptions = mapOf("rootfs-1" to listOf("root"), "rootfs-2" to listOf("iuser", "root"), "rootfs-3" to listOf("iuser_3", "root"))
     val rootfsToLoginUserMap = loginUsersOptions.mapValues { entry -> entry.value.run { find { it != "root" } ?: find { it == "root" }!! } }
-    CollapsePanel("一般选项") {
+    CollapsePanel("General Options") {
 //        GeneralResolution("1280x720", { _, _ -> })
 //        GeneralRootfsLang(lang, langOptions, { lang = it })
 //        GeneralShareDir(shareDirSet, onChangeShareDir)
