@@ -75,13 +75,13 @@ fun DebugSettingsImpl(
     var showNotImpl by rememberNotImplDialog()
     val notImplClick = { showNotImpl = true }
 
-    CollapsePanel("调试选项", initExpanded = false) {
-        Button(onClick = startX11Service) { Text("手动启动TX11 Service") }
-        Button(onClick = findSymlinkToTermux) { Text("检查当前rootfs内文件是否有指向termux的软链接") }
-        Button(onClick = sendSigStop) { Text("向终端和x11发送STOP信号") }
-        Button(onClick = sendSigCont) { Text("向终端和x11发送CONT信号") }
-        Button(onClick = gotoSelectRootfs) { Text("进入选择rootfs界面") }
-        Button(onClick = compareRootfsDir) { Text("对比文件夹内文件") }
+    CollapsePanel("Debug Options", initExpanded = false) {
+        Button(onClick = startX11Service) { Text("Manually start TX11 Service") }
+        Button(onClick = findSymlinkToTermux) { Text("Check for symlinks pointing to Termux in current rootfs") }
+        Button(onClick = sendSigStop) { Text("Send STOP signal to terminal and x11") }
+        Button(onClick = sendSigCont) { Text("Send CONT signal to terminal and x11") }
+        Button(onClick = gotoSelectRootfs) { Text("Open rootfs selection screen") }
+        Button(onClick = compareRootfsDir) { Text("Compare folder contents") }
     }
 }
 
@@ -120,15 +120,15 @@ private fun compareRootfsDirDialog(): MutableState<Boolean> {
                             }.toSet()
                             val in1ButNotIn2List = list1.subtract(list2)
                             val in2ButNotIn1List = list2.subtract(list1)
-                            infoText = "对比结果：" +
+                            infoText = "Comparison result:" +
                                     "\n\n$rootfs1 中独有的文件：\n" +
                                     in1ButNotIn2List.joinToString("\n") +
                                     "\n\n$rootfs2 中独有的文件： \n" +
                                     in2ButNotIn1List.joinToString("\n")
                             finished = true
                         }
-                    }) { Text("开始") }
-                    if (finished) Button({ visibility.value = false }) { Text("关闭") }
+                    }) { Text("Start") }
+                    if (finished) Button({ visibility.value = false }) { Text("Close") }
                     Text(
                         infoText,
                         modifier = Modifier
@@ -150,7 +150,7 @@ private fun compareRootfsDirDialog(): MutableState<Boolean> {
 //                val list2 = File(Consts.rootfsAllDir, rootfs2).walkTopDown().map { it.absolutePath }.toSet()
 //                val in1ButNotIn2List = list1.subtract(list2)
 //                val in2ButNotIn1List = list2.subtract(list1)
-//                infoText = "对比结果：" +
+//                infoText = "Comparison result:" +
 //                        "\n\n$rootfs1 中独有的文件：\n" +
 //                        in1ButNotIn2List.joinToString("\n") +
 //                        "\n\n$rootfs2 中独有的文件： \n" +
@@ -175,7 +175,7 @@ private fun filterSymlinkDialog(): MutableState<Boolean> {
             confirmButton = {},
             text = {
                 Column {
-                    if (finished) Button({ visibility.value = false }) { Text("关闭") }
+                    if (finished) Button({ visibility.value = false }) { Text("Close") }
                     Text(infoText, modifier = Modifier.verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -207,9 +207,9 @@ private fun filterSymlinkDialog(): MutableState<Boolean> {
                     }
                 }
 
-                infoText = "读取完毕。\n\n以下路径为符号链接但指向了/data/data/termux目录或路径包含 /com.termux/:" +
+                infoText = "Reading complete.\n\nThe following paths are symlinks pointing to /data/data/termux or contain /com.termux/:" +
                         linkPointToTermuxList.joinToString("\n") +
-                        "\n\n以下路径为以 .l2s. 开头的文件但不在.l2s文件夹内" +
+                        "\n\nThe following paths start with .l2s. but are not inside the .l2s folder" +
                         l2sNotInL2sDirList.joinToString("\n")
 
                 finished = true
