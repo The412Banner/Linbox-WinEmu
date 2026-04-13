@@ -84,7 +84,7 @@ fun ProotStartupCmd(
     cmd: String,
     onChange: (String) -> Unit
 ) {
-    TextFieldOption(title = "启动后执行命令", text = cmd, onDone = onChange)
+    TextFieldOption(title = "Execute command after startup", text = cmd, onDone = onChange)
 }
 
 @Preview(widthDp = 300, heightDp = 600)
