@@ -91,7 +91,7 @@ fun MyDialog(
     if (visible) {
         AlertDialog(
             onDismissRequest = { if (!hideBtns) onDismiss() },
-//                title = { Text("加载中") },
+//                title = { Text("Loading") },
             text = {
                 Column(
                     modifier = Modifier
