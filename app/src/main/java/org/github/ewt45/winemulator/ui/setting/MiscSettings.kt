@@ -17,7 +17,7 @@ import org.github.ewt45.winemulator.ui.components.rememberConfirmDialogState
 
 @Composable
 fun MiscSettings(navigateTo: (Destination) -> Unit) {
-    CollapsePanel("杂项")  {
+    CollapsePanel("Miscellaneous")  {
         CheckPermissions(navigateTo)
     }
 }
@@ -34,16 +34,16 @@ private fun CheckPermissions(navigateTo: (Destination) -> Unit) {
                 dataStore.edit { it[Consts.Pref.Local.skip_permissions.key] = false }
                 navigateTo(Destination.Prepare)
             } else {
-                dialog.showConfirm("app所需权限已经全部授予！")
+                dialog.showConfirm("All required app permissions have been granted!")
             }
         }
-    }) { Text("检查未授予权限") }
+    }) { Text("Check ungrant permissions") }
 }
 
 @Preview
 @Composable
 fun MiscSettingsPreview() {
-    CollapsePanel("杂项")  {
+    CollapsePanel("Miscellaneous")  {
         CheckPermissions({  })
     }
 }
