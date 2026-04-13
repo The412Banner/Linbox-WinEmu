@@ -242,7 +242,7 @@ fun IntegratedCommandInput(
                 Box {
                     if (value.text.isEmpty()) {
                         Text(
-                            text = "点击输入命令...",
+                            text = "Click to enter command...",
                             fontFamily = FontFamily.Monospace,
                             fontSize = 14.sp,
                             color = TerminalOnSurface.copy(alpha = 0.4f)
@@ -260,7 +260,7 @@ fun IntegratedCommandInput(
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "发送",
+                    text = "Send",
                     color = TabIndicatorPurple,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
