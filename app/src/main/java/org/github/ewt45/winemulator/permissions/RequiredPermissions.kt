@@ -13,13 +13,13 @@ enum class RequiredPermissions(
     val permission: String
 ) {
     Storage(
-        "存储权限",
-        "用于读取rootfs,执行文件等。",
+        "Storage Permission",
+        "Required for reading rootfs and executing files.",
         Manifest.permission.WRITE_EXTERNAL_STORAGE
     ),
     Notification(
-        "通知权限",
-        "用于发送通知。",
+        "Notification Permission",
+        "Required for sending notifications.",
         Settings.ACTION_APP_NOTIFICATION_SETTINGS
     ), ;
 
