@@ -58,7 +58,7 @@ class Proot {
             "--kernel-release=${ProotHelper.DEFAULT_FAKE_KERNEL_VERSION}",  // 伪装内核版本
             "--rootfs=${rootfs.absolutePath}",
             "--change-id=${userInfo.uid}:${userInfo.gid}",  // 关键：包含 gid
-            // 注意：不使用 --cwd 参数，让 HOME 环境变量和 shell -l 来处理初始目录
+            "--cwd=${userInfo.home}",  // proot 容器内初始工作目录
             "--bind=${tmpDir.absolutePath}:/tmp",
             "--bind=${rootfs.absolutePath}/tmp:/dev/shm",
             "--bind=/sys",

@@ -40,9 +40,10 @@ class TerminalViewModel : ViewModel() {
             }
             val executable = cmdList[0]
             val args = cmdList.drop(1).toTypedArray()
-            // 关键修复：使用 proot 容器内的路径（如 /root），而不是 Android 文件系统路径
-            // termux JNI 层会调用 chdir(cwd)，这个路径必须在 proot 容器内存在
-            val cwd = terminal.containerCwd
+            // 关键修复：cwd 是 Android 文件系统路径，termux JNI 的 chdir 在 proot 启动前执行
+            // 必须传入存在的路径，否则 chdir 会报 ENOSYS 错误
+            // proot 启动后通过 --cwd 参数切换到容器内的正确目录
+            val cwd = pb.directory()?.absolutePath ?: "/"
 
             // 关键修复：从 ProcessBuilder 提取环境变量
             // 如果不传这个 envs，proot 就会因为找不到临时目录而回退到 Termux 默认路径，导致权限报错
