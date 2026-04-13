@@ -12,11 +12,13 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.github.ewt45.winemulator.ui.theme.*
@@ -115,7 +118,7 @@ fun TerminalStatusBar(
  * 简化版状态栏（用于预览）
  */
 @Composable
-fun SimpleTerminalStatusBar(
+fun PreviewTerminalStatusBar(
     currentUser: String,
     currentHost: String,
     currentPath: String,
@@ -194,7 +197,6 @@ fun ProotTerminalContent(
     viewModel: TerminalViewModel,
     onRunCommand: (String) -> Unit
 ) {
-    val TAG = "ProotOutputScreen"
     var execCommand by remember { mutableStateOf("") }
     
     Column(
@@ -229,9 +231,6 @@ fun ProotTerminalContent(
             LaunchedEffect(viewModel.output.value) {
                 textVScroll.animateScrollTo(textVScroll.maxValue)
             }
-            
-            // 光标提示
-            CursorBlink()
         }
         
         // 命令输入区域 - 浅色键盘风格
@@ -244,31 +243,6 @@ fun ProotTerminalContent(
                     execCommand = ""
                 }
             }
-        )
-    }
-}
-
-/**
- * 光标闪烁动画
- */
-@Composable
-fun CursorBlink() {
-    var visible by remember { mutableStateOf(true) }
-    
-    LaunchedEffect(Unit) {
-        while (true) {
-            visible = !visible
-            kotlinx.coroutines.delay(530)
-        }
-    }
-    
-    if (visible) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 12.dp, bottom = 8.dp)
-                .size(width = 10.dp, height = 18.dp)
-                .background(TerminalCursorBlock)
         )
     }
 }
@@ -376,7 +350,7 @@ fun FunctionKeysBar() {
             .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        FunctionKeyItem(icon = Icons.Default.ChevronRight, label = "Tab")
+        FunctionKeyItem(icon = Icons.Default.KeyboardArrowRight, label = "Tab")
         FunctionKeyItem(icon = null, label = "Ctrl")
         FunctionKeyItem(icon = null, label = "Alt")
         FunctionKeyItem(icon = null, label = "Esc")
@@ -445,8 +419,6 @@ fun FunctionKeyItem(
  */
 @Composable
 fun VirtualKeyboardPlaceholder() {
-    // 这里预留位置给现有的InputControlsView或自定义键盘
-    // 目前显示一个简单的提示
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -685,68 +657,6 @@ fun ColoredTerminalOutput(
 }
 
 /**
- * 兼容旧版本的函数（保留用于预览等场景）
- */
-@Composable
-fun ProotTerminalScreenImpl(
-    output: SnapshotStateList<String>,
-    runCommand: (String) -> Unit,
-    viewModel: TerminalViewModel? = null
-) {
-    val previewPrompt = remember {
-        buildAnnotatedString {
-            withStyle(SpanStyle(color = TerminalRootWhite, fontWeight = FontWeight.Bold)) {
-                append("root")
-            }
-            withStyle(SpanStyle(color = TerminalSymbolYellow)) {
-                append("@")
-            }
-            withStyle(SpanStyle(color = TerminalHostCyan, fontWeight = FontWeight.Bold)) {
-                append("localhost")
-            }
-            withStyle(SpanStyle(color = TerminalSymbolYellow)) {
-                append(":")
-            }
-            withStyle(SpanStyle(color = TerminalPathWhite)) {
-                append("~")
-            }
-            withStyle(SpanStyle(color = TerminalSymbolYellow)) {
-                append("# ")
-            }
-        }
-    }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
-    ) {
-        val textVScroll = rememberScrollState()
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .background(TerminalBackground)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .verticalScroll(textVScroll)
-                .horizontalScroll(rememberScrollState())
-        ) {
-            SelectionContainer {
-                ColoredTerminalOutput(
-                    output = output.toList(),
-                    coloredPrompt = previewPrompt
-                )
-            }
-        }
-        
-        KeyboardInputArea(
-            execCommand = "",
-            onCommandChange = { },
-            onSendCommand = { }
-        )
-    }
-}
-
-/**
  * Proot终端预览函数
  */
 @Composable
@@ -788,7 +698,7 @@ fun ProotTerminalScreenPreview() {
     }
     
     Column(modifier = Modifier.fillMaxSize()) {
-        SimpleTerminalStatusBar(
+        PreviewTerminalStatusBar(
             currentUser = "root",
             currentHost = "localhost",
             currentPath = "~",
