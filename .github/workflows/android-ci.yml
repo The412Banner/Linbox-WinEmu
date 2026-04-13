@@ -23,6 +23,14 @@ jobs:
     if: ${{ github.event.inputs.build_type == 'onlyXfce4' || github.event.inputs.build_type == 'both' }}
 
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc || true
+          sudo rm -rf /usr/local/lib/android/sdk/ndk || true
+          sudo rm -rf /usr/local/lib/android/sdk/system-images || true
+          sudo chmod -R 777 /usr/local/lib/android || true
+          df -h
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -47,12 +55,31 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-gradle-
 
+      - name: Download cached xfce4 rootfs from Assets release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Downloading rootfs-xfce4.tar.xz from Assets release..."
+          gh release download assets \
+            --repo ${{ github.repository }} \
+            --pattern "rootfs-xfce4.tar.xz" \
+            --dir app/src/main/assets/
+          # Rename to rootfs.tar.xz so the app finds it
+          mv app/src/main/assets/rootfs-xfce4.tar.xz app/src/main/assets/rootfs.tar.xz
+          ls -lh app/src/main/assets/rootfs.tar.xz
+
+      - name: Patch build.gradle.kts to not recompress .xz assets
+        run: |
+          sed -i '/buildFeatures {/i\    aaptOptions {\n        noCompress += listOf("xz")\n    }' app/build.gradle.kts
+          grep -A 2 "aaptOptions" app/build.gradle.kts
+
       - name: Build onlyXfce4 APK
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease \
             -PminSdk=26 \
             -PtargetSdk=28 \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=512m" \
             --no-daemon \
             --stacktrace
 
