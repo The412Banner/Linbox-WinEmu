@@ -110,8 +110,7 @@ fun TopBarActions(
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val th = settingVM.exportSettings(ctx, uri).exceptionOrNull()
-            val resultStr = if (th != null) "Export failed. Error:
-\n\n${th.stackTraceToString()}" else "Export successful!"
+            val resultStr = if (th != null) "Export failed. Error:\n\n${th.stackTraceToString()}" else "Export successful!"
             dialogState.showConfirm(resultStr)
         }
 
@@ -122,8 +121,7 @@ fun TopBarActions(
         scope.launch {
             val th = settingVM.importSettings(ctx, uri).exceptionOrNull()
             th?.printStackTrace()
-            val resultStr = if (th != null) "Import failed. Error:
-\n\n${th.stackTraceToString()}" else "Import successful!"
+            val resultStr = if (th != null) "Import failed. Error:\n\n${th.stackTraceToString()}" else "Import successful!"
             dialogState.showConfirm(resultStr)
         }
     }
