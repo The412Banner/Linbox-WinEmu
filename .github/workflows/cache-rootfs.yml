@@ -1,0 +1,52 @@
+name: Cache Rootfs Asset
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract-rootfs:
+    name: Extract rootfs from All APK and cache it
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          df -h
+
+      - name: Download All APK from afeimod release
+        run: |
+          echo "Downloading Linbox-WinEmu-1.0.1-All.apk (~1.7 GB)..."
+          wget -q --show-progress \
+            "https://github.com/afeimod/Linbox-WinEmu/releases/download/Linbox-WinEmu1.0.1/Linbox-WinEmu-1.0.1-All.apk" \
+            -O All.apk
+          ls -lh All.apk
+
+      - name: Extract rootfs.tar.xz from APK
+        run: |
+          # APK is a ZIP — extract just the assets/rootfs.tar.xz entry
+          unzip -p All.apk "assets/rootfs.tar.xz" > rootfs.tar.xz
+          ls -lh rootfs.tar.xz
+          # Verify it's a valid xz archive
+          file rootfs.tar.xz
+
+      - name: Create Assets release if not exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view assets \
+            --repo ${{ github.repository }} 2>/dev/null || \
+          gh release create assets \
+            --repo ${{ github.repository }} \
+            --title "Build Assets" \
+            --notes "Cached rootfs and large build assets. Do not delete." \
+            --prerelease
+
+      - name: Upload rootfs to Assets release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload assets rootfs.tar.xz \
+            --repo ${{ github.repository }} \
+            --clobber
+          echo "rootfs.tar.xz uploaded successfully"
