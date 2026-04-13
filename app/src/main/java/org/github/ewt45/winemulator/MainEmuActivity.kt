@@ -178,7 +178,7 @@ class MainEmuActivity : MainActivity() {
             startService(startX11Intent)
             waitForXStartedWithDialog() // 等待x11启动完成
         } else {
-            mainViewModel.showConfirmDialog("rootfs下缺少xkb文件夹，x11不会启动。可以安装类似 ' libxkbcommon-x11 ' 的软件包来补全。")
+            mainViewModel.showConfirmDialog("Missing xkb folder in rootfs — x11 will not start. Install a package like libxkbcommon-x11 to fix this.")
         }
 
         terminalViewModel.startTerminal()
@@ -227,7 +227,7 @@ class MainEmuActivity : MainActivity() {
     }
 
     suspend fun waitForXStartedWithDialog() {
-        mainViewModel.showBlockDialog("xserver启动中") {
+        mainViewModel.showBlockDialog("Starting xserver") {
             waitForXStarted()
         }
     }
@@ -240,7 +240,7 @@ class MainEmuActivity : MainActivity() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         val builder: NotificationCompat.Builder =
             (NotificationCompat.Builder(this, channelName)).setContentTitle(channelName)
-                .setSmallIcon(R.mipmap.ic_launcher).setContentText("模拟器正在运行")
+                .setSmallIcon(R.mipmap.ic_launcher).setContentText("Emulator is running")
                 .setOngoing(true).setPriority(NotificationCompat.PRIORITY_MAX)
                 .setSilent(true).setShowWhen(false)
 //                .setContentIntent(PendingIntent.getActivity(this, 0, Intent.makeMainActivity(componentName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
