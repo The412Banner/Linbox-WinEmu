@@ -136,12 +136,20 @@ jobs:
             --dir app/src/main/assets/
           ls -lh app/src/main/assets/rootfs.tar.xz
 
+      - name: Patch build.gradle.kts to not recompress .xz assets
+        run: |
+          # Insert aaptOptions block so AGP stores rootfs.tar.xz uncompressed
+          # (it's already compressed — recompressing causes OOM on 1.3 GB files)
+          sed -i '/buildFeatures {/i\    aaptOptions {\n        noCompress += listOf("xz")\n    }' app/build.gradle.kts
+          grep -A 2 "aaptOptions" app/build.gradle.kts
+
       - name: Build All APK
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease \
             -PminSdk=26 \
             -PtargetSdk=28 \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=512m" \
             --no-daemon \
             --stacktrace
 
