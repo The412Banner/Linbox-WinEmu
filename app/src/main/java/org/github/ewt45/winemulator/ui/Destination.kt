@@ -20,7 +20,7 @@ enum class Destination(
     val baseRoute: Any = route,
 ) {
     Prepare(
-        "准备阶段",
+        "Setup",
         RoutePrepare,
     ),
     X11(
@@ -28,16 +28,16 @@ enum class Destination(
         RouteX11,
     ),
     ExceptX11(
-        "非X11",
+        "Non-X11",
         RouteExceptX11,
     ),
     Terminal(
-        "终端",
+        "Terminal",
         RouteTerminal,
     ),
 
     Settings(
-        "设置",
+        "Settings",
         RouteSettings,
     )
 }
