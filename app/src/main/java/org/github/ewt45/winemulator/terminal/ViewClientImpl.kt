@@ -1,6 +1,7 @@
 package org.github.ewt45.winemulator.terminal
 
 import android.util.Log
+import android.util.TypedValue
 import android.view.MotionEvent
 import com.termux.view.TerminalView
 import org.github.ewt45.winemulator.MainEmuActivity
@@ -10,7 +11,8 @@ class ViewClientImpl(
     val sessionClient: SessionClientAImpl,
 ) : ViewClientBase() {
 
-    private var mCurrentFontSize = 22
+    // 默认字体大小，单位 dp
+    private var mCurrentFontSizeDp = 14
 
     /**
      * 优化后的双指缩放：
@@ -21,19 +23,25 @@ class ViewClientImpl(
     override fun onScale(scale: Float): Float {
         // 降低阈值（0.05），让操作更灵敏
         if (scale < 0.95f || scale > 1.05f) {
-            val oldSize = mCurrentFontSize
+            val oldSize = mCurrentFontSizeDp
             if (scale > 1.0f) {
-                mCurrentFontSize++
+                mCurrentFontSizeDp++
             } else {
-                mCurrentFontSize--
+                mCurrentFontSizeDp--
             }
             
-            // 限制字号范围在 4 到 40 之间
-            mCurrentFontSize = mCurrentFontSize.coerceIn(4, 40)
+            // 限制字号范围在 4dp 到 40dp 之间
+            mCurrentFontSizeDp = mCurrentFontSizeDp.coerceIn(4, 40)
             
-            if (oldSize != mCurrentFontSize) {
+            if (oldSize != mCurrentFontSizeDp) {
                 findTerminalView(activity.window.decorView)?.let { view ->
-                    view.setTextSize(mCurrentFontSize)
+                    // dp 转像素
+                    val fontSizePx = TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        mCurrentFontSizeDp.toFloat(),
+                        view.resources.displayMetrics
+                    ).toInt()
+                    view.setTextSize(fontSizePx)
                     // 字号改变后，Termux 需要重算行列并刷新
                     view.post { view.onScreenUpdated() }
                 }

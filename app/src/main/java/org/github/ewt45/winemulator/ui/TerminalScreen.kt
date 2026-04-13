@@ -1,5 +1,6 @@
 package org.github.ewt45.winemulator.ui
 
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.background
@@ -76,13 +77,20 @@ private fun TerminalScreenImpl(
         ) {
             AndroidView(
                 factory = { ctx ->
+                    // dp 转像素：TerminalView.setTextSize 接收像素值，不是 dp
+                    val fontSizePx = TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        14f,  // 14dp，比 Termux 默认的 12dp 稍大
+                        ctx.resources.displayMetrics
+                    ).toInt()
+                    
                     TerminalView(ctx, null).apply {
                         isFocusable = true
                         isFocusableInTouchMode = true
                         isClickable = true
                         
                         viewClient?.let { setTerminalViewClient(it) }
-                        setTextSize(22)
+                        setTextSize(fontSizePx)
                         
                         terminalSession?.let { attachSession(it) }
                         
@@ -103,7 +111,6 @@ private fun TerminalScreenImpl(
                     if (terminalSession != null && view.mTermSession != terminalSession) {
                         view.attachSession(terminalSession)
                     }
-                    view.setTextSize(22)
                     view.post {
                         if (view.width > 0 && view.height > 0) {
                             view.updateSize()
