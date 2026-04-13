@@ -90,7 +90,7 @@ fun InputControlsSettings(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "虚拟按键设置",
+            text = "Virtual key settings",
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(vertical = 8.dp)
         )
@@ -108,7 +108,7 @@ fun InputControlsSettings(
                 modifier = Modifier.padding(end = 8.dp)
             )
             Text(
-                text = "启用虚拟按键",
+                text = "Enable Virtual Keys",
                 modifier = Modifier.weight(1f)
             )
             Switch(
@@ -123,7 +123,7 @@ fun InputControlsSettings(
                         prefs.edit().putBoolean("show_touchscreen_controls", false).apply()
                     } else if (profiles.isEmpty()) {
                         // 创建默认配置
-                        val newProfile = manager.createProfile("默认配置")
+                        val newProfile = manager.createProfile("Default profile")
                         profiles = manager.getProfiles()
                         selectedProfile = newProfile
                         showControls = true
@@ -164,7 +164,7 @@ fun InputControlsSettings(
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Text(
-                    text = "显示虚拟按键",
+                    text = "Show Virtual Keys",
                     modifier = Modifier.weight(1f)
                 )
                 Switch(
@@ -182,7 +182,7 @@ fun InputControlsSettings(
 
             // 配置选择器
             Text(
-                text = "当前配置",
+                text = "Current profile",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -233,7 +233,7 @@ fun InputControlsSettings(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("新建")
+                    Text("New")
                 }
 
                 if (profiles.size > 1) {
@@ -254,7 +254,7 @@ fun InputControlsSettings(
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
-                        Text("删除")
+                        Text("Delete")
                     }
                 }
             }
@@ -271,7 +271,7 @@ fun InputControlsSettings(
             ) {
                 Icon(Icons.Default.Star, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("复制当前配置")
+                Text("Duplicate current profile")
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -289,12 +289,12 @@ fun InputControlsSettings(
             ) {
                 Icon(Icons.Default.Edit, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("编辑虚拟按键布局")
+                Text("Edit virtual key layout")
             }
 
             // 快捷预设（演示用）
             Text(
-                text = "快捷预设",
+                text = "Quick Presets",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
@@ -304,7 +304,7 @@ fun InputControlsSettings(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val presetNames = listOf(
-                    "FPS游戏", "RPG游戏", "RTS游戏", "赛车游戏", "格斗游戏"
+                    "FPS游戏", "RPG游戏", "RTS游戏", "Racing Game", "Fighting Game"
                 )
 
                 items(presetNames) { presetName ->
@@ -336,7 +336,7 @@ fun InputControlsSettings(
                             if (file != null) {
                                 dialogState.showConfirm("配置已导出到: ${file.absolutePath}")
                             } else {
-                                dialogState.showConfirm("导出失败")
+                                dialogState.showConfirm("Export failed")
                             }
                         }
                     },
@@ -344,7 +344,7 @@ fun InputControlsSettings(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("导出")
+                    Text("Export")
                 }
 
                 OutlinedButton(
@@ -356,7 +356,7 @@ fun InputControlsSettings(
                 ) {
                     Icon(Icons.Default.Home, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("导入")
+                    Text("Import")
                 }
             }
         }
@@ -368,12 +368,12 @@ fun InputControlsSettings(
 
         AlertDialog(
             onDismissRequest = { showProfileDialog = false },
-            title = { Text("新建配置") },
+            title = { Text("New Profile") },
             text = {
                 OutlinedTextField(
                     value = newProfileName,
                     onValueChange = { newProfileName = it },
-                    label = { Text("配置名称") },
+                    label = { Text("Profile name") },
                     singleLine = true
                 )
             },
@@ -389,12 +389,12 @@ fun InputControlsSettings(
                         }
                     }
                 ) {
-                    Text("创建")
+                    Text("Create")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showProfileDialog = false }) {
-                    Text("取消")
+                    Text("Cancel")
                 }
             }
         )
@@ -456,7 +456,7 @@ fun ControlsEditorDialog(
                                     profile.removeElement(element)
                                     profile.save()
                                 }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "删除")
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete")
                                 }
                             },
                             modifier = Modifier.clickable {
@@ -471,7 +471,7 @@ fun ControlsEditorDialog(
 
                 // Add element buttons
                 Text(
-                    text = "添加控件",
+                    text = "Add Control",
                     style = MaterialTheme.typography.titleSmall
                 )
 
@@ -483,9 +483,9 @@ fun ControlsEditorDialog(
                         selected = false,
                         onClick = {
                             // 此处应调用实际的添加逻辑，但需根据项目实现
-                            dialogState.showConfirm("请在游戏界面中长按屏幕来添加新的虚拟按键")
+                            dialogState.showConfirm("Long-press the screen in-game to add a new virtual key")
                         },
-                        label = { Text("按钮") },
+                        label = { Text("Button") },
                         leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
                     )
 
@@ -494,7 +494,7 @@ fun ControlsEditorDialog(
                         onClick = {
                             // 添加方向键
                         },
-                        label = { Text("方向键") },
+                        label = { Text("D-Pad") },
                         leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) }
                     )
 
@@ -503,7 +503,7 @@ fun ControlsEditorDialog(
                         onClick = {
                             // 添加摇杆
                         },
-                        label = { Text("摇杆") },
+                        label = { Text("Joystick") },
                         leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                     )
                 }
@@ -511,12 +511,12 @@ fun ControlsEditorDialog(
         },
         confirmButton = {
             TextButton(onClick = onSave) {
-                Text("完成")
+                Text("Done")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text("Cancel")
             }
         }
     )
@@ -550,14 +550,14 @@ fun ElementSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("控件设置") },
+        title = { Text("Control Settings") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Type selector
-                Text("类型", style = MaterialTheme.typography.labelMedium)
+                Text("Type", style = MaterialTheme.typography.labelMedium)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -576,7 +576,7 @@ fun ElementSettingsDialog(
 
                 // Shape selector (for buttons)
                 if (element.type == org.github.ewt45.winemulator.inputcontrols.ControlElement.Type.BUTTON) {
-                    Text("形状", style = MaterialTheme.typography.labelMedium)
+                    Text("Shape", style = MaterialTheme.typography.labelMedium)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -617,7 +617,7 @@ fun ElementSettingsDialog(
                 )
 
                 // Binding section
-                Text("按键绑定", style = MaterialTheme.typography.labelMedium)
+                Text("Key Binding", style = MaterialTheme.typography.labelMedium)
                 Column {
                     for (i in 0 until element.getBindingCount()) {
                         val binding = element.getBindingAt(i)
@@ -634,12 +634,12 @@ fun ElementSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = onSave) {
-                Text("保存")
+                Text("Save")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text("Cancel")
             }
         }
     )
