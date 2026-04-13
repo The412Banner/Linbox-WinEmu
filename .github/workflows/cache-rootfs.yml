@@ -1,34 +1,46 @@
-name: Cache Rootfs Asset
+name: Cache Rootfs Assets
 
 on:
   workflow_dispatch:
 
 jobs:
   extract-rootfs:
-    name: Extract rootfs from All APK and cache it
+    name: Extract rootfs from both APKs and cache them
     runs-on: ubuntu-latest
 
     steps:
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc || true
           df -h
 
-      - name: Download All APK from afeimod release
+      - name: Download All APK (~1.7 GB)
         run: |
-          echo "Downloading Linbox-WinEmu-1.0.1-All.apk (~1.7 GB)..."
           wget -q --show-progress \
             "https://github.com/afeimod/Linbox-WinEmu/releases/download/Linbox-WinEmu1.0.1/Linbox-WinEmu-1.0.1-All.apk" \
             -O All.apk
           ls -lh All.apk
 
-      - name: Extract rootfs.tar.xz from APK
+      - name: Extract rootfs.tar.xz from All APK
         run: |
-          # APK is a ZIP — extract just the assets/rootfs.tar.xz entry
           unzip -p All.apk "assets/rootfs.tar.xz" > rootfs.tar.xz
           ls -lh rootfs.tar.xz
-          # Verify it's a valid xz archive
           file rootfs.tar.xz
+          rm All.apk
+
+      - name: Download onlyXfce4 APK (~418 MB)
+        run: |
+          wget -q --show-progress \
+            "https://github.com/afeimod/Linbox-WinEmu/releases/download/Linbox-WinEmu1.0.1/Linbox-WinEmu-1.0.1-onlyXfce4.apk" \
+            -O onlyXfce4.apk
+          ls -lh onlyXfce4.apk
+
+      - name: Extract rootfs.tar.xz from onlyXfce4 APK
+        run: |
+          unzip -p onlyXfce4.apk "assets/rootfs.tar.xz" > rootfs-xfce4.tar.xz
+          ls -lh rootfs-xfce4.tar.xz
+          file rootfs-xfce4.tar.xz
+          rm onlyXfce4.apk
 
       - name: Create Assets release if not exists
         env:
@@ -42,11 +54,15 @@ jobs:
             --notes "Cached rootfs and large build assets. Do not delete." \
             --prerelease
 
-      - name: Upload rootfs to Assets release
+      - name: Upload both rootfs files to Assets release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload assets rootfs.tar.xz \
+          gh release upload assets \
+            rootfs.tar.xz \
+            rootfs-xfce4.tar.xz \
             --repo ${{ github.repository }} \
             --clobber
-          echo "rootfs.tar.xz uploaded successfully"
+          echo "Done. Assets:"
+          gh release view assets --repo ${{ github.repository }} --json assets \
+            --jq '.assets[] | "\(.name) \(.size / 1048576 | floor)MB"'
