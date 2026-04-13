@@ -241,7 +241,7 @@ fun TextFieldOption(
     val _modifier = modifier.fillMaxWidth()
     val _trailingIcon: @Composable() (() -> Unit) = {
         AnimatedSizeInCenter(isFocused) {
-            IconButton(onDoneClick, Modifier.size(32.dp)) { Icon(Icons.Filled.Check, contentDescription = "完成") }
+            IconButton(onDoneClick, Modifier.size(32.dp)) { Icon(Icons.Filled.Check, contentDescription = "Done") }
         }
     }
     val _keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
@@ -303,7 +303,7 @@ fun CollapsePanel(
             Text(text = title, style = MaterialTheme.typography.headlineMedium)
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                contentDescription = if (expanded) "收起" else "展开"
+                contentDescription = if (expanded) "Collapse" else "Expand"
             )
         }
         // 展开内容
@@ -323,10 +323,10 @@ fun CollapsePanel(
 @Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun TitleAndContentPreview() {
-    CollapsePanel("折叠标题") {
-        TitleAndContent("标题", "简介简介") {
-            Text("内容")
-            Button({}) { Text("按钮") }
+    CollapsePanel("Collapse") {
+        TitleAndContent("Title", "Description") {
+            Text("Content")
+            Button({}) { Text("Button") }
         }
     }
 }
