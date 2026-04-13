@@ -159,7 +159,7 @@ private fun MainDialog(uiState: MainUiState, onClose: (Boolean) -> Unit) {
     if (dialogType != DialogType.NONE) {
         AlertDialog(
             onDismissRequest = {}, //阻止点击外部区域关闭
-//                title = { Text("加载中") },
+//                title = { Text("Loading") },
             text = {
                 Column(
                     modifier = Modifier
@@ -305,11 +305,11 @@ fun SettingButton(show: Boolean, onClick: () -> Unit) {
     IconButton(onClick = onClick) {
         if (!show) Icon(
             imageVector = Icons.Filled.Settings,
-            contentDescription = "设置",
+            contentDescription = "Settings",
         )
         else Icon(
             painter = painterResource(R.drawable.ic_layout),
-            contentDescription = "主屏幕",
+            contentDescription = "Main Screen",
         )
     }
 }
