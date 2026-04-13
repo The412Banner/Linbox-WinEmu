@@ -31,12 +31,12 @@ fun X11Resolution(
     val textInOptions = options.contains(text)
     // isCustom初始根据分辨率是否在给定列表中设定。后续可以手动修改用于表示用户点击了该选项
     var isCustom by remember { mutableStateOf(!textInOptions) }
-    val realText = if (isCustom) "自定义" else text
+    val realText = if (isCustom) "Custom" else text
     var expanded by remember { mutableStateOf(false) }
 
     TitleAndContent(
-        title = "分辨率",
-        subTitle = "格式：宽x高，x为字母。编辑自定义分辨率后点击末尾对号图标或输入法回车保存。"
+        title = "Resolution",
+        subTitle = "Format: WxH (e.g. 1280x720). After editing tap the checkmark or press Enter to save."
     ) {
         ExposedDropdownMenuBox(
             modifier = Modifier.fillMaxWidth(),
@@ -61,7 +61,7 @@ fun X11Resolution(
                 onDismissRequest = { expanded = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text("自定义", style = MaterialTheme.typography.bodyLarge) },
+                    text = { Text("Custom", style = MaterialTheme.typography.bodyLarge) },
                     onClick = {
                         expanded = false
                         isCustom = true
@@ -145,17 +145,17 @@ fun X11TouchMode(
     onModeChange: (Int) -> Unit,
 ) {
     val touchModeOptions = listOf(0, 1, 2)
-    val touchModeNames = listOf("虚拟触控板", "模拟触摸", "触摸屏")
+    val touchModeNames = listOf("Virtual Touchpad", "Simulated Touch", "Touchscreen")
     val touchModeDescriptions = listOf(
         "单指移动光标，点击模拟鼠标",
         "单指点击移动光标，长按模拟右键",
-        "直接在屏幕上触摸操作"
+        "Direct touchscreen input"
     )
     val currentModeName = touchModeNames.getOrElse(currentMode) { touchModeNames[0] }
     val currentDescription = touchModeDescriptions.getOrElse(currentMode) { touchModeDescriptions[0] }
 
     TitleAndContent(
-        title = "触摸方式",
+        title = "Touch Mode",
         subTitle = "选择触摸屏的操作方式。\n当前: $currentModeName\n$currentDescription"
     ) {
         ComposeSpinner(
@@ -179,10 +179,10 @@ fun X11ScreenOrientation(
     onOrientationChange: (Int) -> Unit,
 ) {
     val orientationOptions = listOf(10, 11, 12, 13, 14)
-    val orientationNames = listOf("跟随系统", "横屏(固定)", "竖屏(固定)", "反向横屏", "反向竖屏")
+    val orientationNames = listOf("Follow System", "横屏(固定)", "竖屏(固定)", "Reverse Landscape", "Reverse Portrait")
 
     TitleAndContent(
-        title = "屏幕方向",
+        title = "Screen Orientation",
         subTitle = "控制X11显示的屏幕方向。注意: 此设置为X11专用，不影响系统方向设置。"
     ) {
         ComposeSpinner(
@@ -205,7 +205,7 @@ fun X11DisplayScale(
     onScaleChange: (Int) -> Unit,
 ) {
     TitleAndContent(
-        title = "显示缩放",
+        title = "Display Scale",
         subTitle = "调整X11显示的缩放比例。当前: ${scale}%"
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -237,14 +237,14 @@ fun X11KeepScreenOn(
     onEnabledChange: (Boolean) -> Unit,
 ) {
     TitleAndContent(
-        title = "运行时保持屏幕常亮",
+        title = "Keep screen on during runtime",
         subTitle = "启用后，X11运行时防止屏幕自动熄灭。"
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("保持屏幕常亮")
+            Text("Keep Screen On")
             Switch(
                 checked = enabled,
                 onCheckedChange = onEnabledChange
