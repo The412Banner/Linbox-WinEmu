@@ -214,6 +214,184 @@ private fun findLorieView(view: View): com.termux.x11.LorieView? {
     return null
 }
 
+/**
+ * Floating button implementation:
+ * - Uses IconButton for click handling (onClick)
+ * - Uses pointerInput for drag handling
+ * Both do not interfere with each other
+ */
+@Composable
+private fun MiniButton2(
+    modifier: Modifier = Modifier,
+    parentWidth: Float,
+    parentHeight: Float,
+    onExpand: () -> Unit
+) {
+    val density = LocalDensity.current
+    val buttonSizePx = with(density) { Consts.Ui.minimizedIconSize.dp.toPx() }
+
+    // Drag threshold: only considered dragging beyond this distance
+    val dragThreshold = with(density) { 30.dp.toPx() }
+
+    // Initial position (48dp from left edge, 100dp from top)
+    val initialX = with(density) { 48.dp.toPx() }
+    val initialY = with(density) { 100.dp.toPx() }
+
+    // Use rememberSaveable to persist position, avoiding reset on recomposition
+    var offsetX by rememberSaveable { mutableStateOf(initialX) }
+    var offsetY by rememberSaveable { mutableStateOf(initialY) }
+
+    // Track whether dragging has started
+    var hasDragged by rememberSaveable { mutableStateOf(false) }
+    // Store the initial press position
+    var pressStartX by rememberSaveable { mutableFloatStateOf(0f) }
+    var pressStartY by rememberSaveable { mutableFloatStateOf(0f) }
+
+    // When parent size changes, ensure floating button stays within bounds
+    LaunchedEffect(parentWidth, parentHeight, buttonSizePx) {
+        if (parentWidth > 0 && parentHeight > 0) {
+            offsetX = offsetX.coerceIn(0f, parentWidth - buttonSizePx)
+            offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
+        }
+    }
+
+    // Use IconButton for click handling; its onClick doesn't conflict with pointerInput
+    IconButton(
+        onClick = {
+            // Only triggers when not dragging
+            if (!hasDragged) {
+                onExpand()
+            }
+        },
+        modifier = Modifier
+            .size(Consts.Ui.minimizedIconSize.dp)
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+            .pointerInput(Unit) {
+                // Handle drag gestures
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        pressStartX = offset.x
+                        pressStartY = offset.y
+                        hasDragged = false
+                    },
+                    onDragEnd = {
+                        if (hasDragged) {
+                            // First clamp position to bounds
+                            offsetX = offsetX.coerceIn(0f, parentWidth - buttonSizePx)
+                            offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
+
+                            // Snap to nearest edge
+                            val halfWidth = buttonSizePx / 2
+                            val newX = if (offsetX + halfWidth < parentWidth / 2) 0f else parentWidth - buttonSizePx
+                            offsetX = newX
+                            offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
+                        }
+                        // Reset drag state
+                        hasDragged = false
+                    },
+                    onDragCancel = {
+                        hasDragged = false
+                    },
+                    onDrag = { change, dragAmount ->
+                        // Calculate total drag distance (using change.position since dragAmount may be consumed)
+                        val totalDragX = change.position.x - pressStartX
+                        val totalDragY = change.position.y - pressStartY
+                        val totalDistance = abs(totalDragX) + abs(totalDragY)
+
+                        // Only considered dragging when exceeding threshold
+                        if (totalDistance > dragThreshold) {
+                            hasDragged = true
+                        }
+
+                        // If in drag mode, update position
+                        if (hasDragged) {
+                            change.consume()
+
+                            // Use dragAmount as delta — the correct increment provided by detectDragGestures
+                            offsetX = offsetX + dragAmount.x
+                            offsetY = offsetY + dragAmount.y
+                        }
+                    }
+                )
+            }
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_fullscreen),
+            contentDescription = "Expand",
+            modifier = Modifier
+                .size(36.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = MaterialTheme.shapes.small
+                )
+                .padding(8.dp),
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Deprecated("No longer need to operate on View")
+@Composable
+private fun MiniButton(
+    minimize: Boolean,
+    onClick: () -> Unit,
+) {
+    val activity = LocalActivity.current
+    val miniIconPx = (Consts.Ui.minimizedIconSize * LocalDensity.current.density).toInt()
+    // Slightly change color when minimized, otherwise hard to see
+    val colorSurface = MaterialTheme.colorScheme.surfaceContainerHigh
+    val colorContent = MaterialTheme.colorScheme.onSurface
+    val colors =
+        if (!minimize) IconButtonDefaults.iconButtonColors()
+        else IconButtonColors(colorSurface, colorContent, colorSurface, colorContent)
+    // Remember minimized position. Restore to last position instead of default when minimizing again after fullscreen
+    val margin = remember { mutableListOf(0, 100) }
+    IconButton(
+        onClick = {
+            val view = activity?.findViewById<View>(R.id.compose_view) ?: return@IconButton
+            val nextValue = !minimize
+            view.apply {
+                val lp = layoutParams as MarginLayoutParams
+                lp.height = if (nextValue) miniIconPx else MATCH_PARENT
+                lp.width = if (nextValue) miniIconPx else MATCH_PARENT
+                lp.leftMargin = if (nextValue) margin[0] else 0
+                lp.topMargin = if (nextValue) margin[1] else 0
+                lp.rightMargin = 0
+                lp.bottomMargin = 0
+                requestLayout()
+                if (nextValue)
+                    view.post { view.snapToNearestEdgeHalfway() }
+            }
+            onClick()
+        },
+        modifier = Modifier
+            .size(Consts.Ui.minimizedIconSize.dp)
+            .pointerInput(minimize) {
+                if (!minimize)
+                    return@pointerInput
+                val view = activity?.findViewById<View>(R.id.compose_view) ?: return@pointerInput
+                detectDragGestures(
+                    onDragEnd = { view.snapToNearestEdgeHalfway() }
+                ) { change, dragAmount ->
+                    change.consume()
+                    val lp = view.layoutParams as MarginLayoutParams
+                    lp.leftMargin += dragAmount.x.toInt()
+                    lp.topMargin += dragAmount.y.toInt()
+                    margin[0] = lp.leftMargin
+                    margin[1] = lp.topMargin
+                    view.requestLayout()
+                }
+            },
+        colors = colors
+    ) {
+        Icon(
+            painter = painterResource(if (minimize) R.drawable.ic_fullscreen else R.drawable.ic_hide),
+            contentDescription = "Fullscreen/Minimize",
+        )
+    }
+}
+
+
 @Preview(widthDp = 300, heightDp = 500)
 @Composable
 fun X11ScreenPreview() {
