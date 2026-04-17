@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,8 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +53,7 @@ import kotlin.math.roundToInt
 
 /**
  * 可展开的悬浮菜单按钮
- * 点击主按钮展开子菜单，再次点击或点击外部收起
+ * 点击主按钮展开子菜单，子菜单以独立的悬浮小按钮形式显示在主按钮上方
  */
 @Composable
 fun ExpandableFloatingMenu(
@@ -65,6 +67,7 @@ fun ExpandableFloatingMenu(
 ) {
     val density = LocalDensity.current
     val buttonSizePx = with(density) { Consts.Ui.minimizedIconSize.dp.toPx() }
+    val miniButtonSizePx = with(density) { 40.dp.toPx() }
     
     // 拖动阈值：超过这个距离才认为是拖动
     val dragThreshold = with(density) { 30.dp.toPx() }
@@ -101,10 +104,13 @@ fun ExpandableFloatingMenu(
         }
     }
     
+    // 菜单项之间的间距
+    val menuItemSpacing = with(density) { 12.dp.toPx() }
+    
     Box(
         modifier = modifier.fillMaxSize()
     ) {
-        // 点击外部区域收起菜单
+        // 点击外部区域收起菜单（但菜单本身可以点击）
         if (isExpanded) {
             Box(
                 modifier = Modifier
@@ -119,19 +125,23 @@ fun ExpandableFloatingMenu(
             )
         }
         
-        // 展开的子菜单
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(offsetX.roundToInt(), (offsetY - 260f).roundToInt()) }
-        ) {
+        // 展开的子菜单 - 显示在主按钮上方
+        if (isExpanded) {
             Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .offset { 
+                        IntOffset(
+                            offsetX.roundToInt() + (buttonSizePx / 2 - miniButtonSizePx / 2).roundToInt(), 
+                            (offsetY - buttonSizePx - menuItemSpacing * 4).roundToInt() 
+                        ) 
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(menuItemSpacing.dp)
             ) {
-                // X11显示设置
-                FloatingMenuItem(
-                    icon = Icons.Filled.MoreVert,
-                    label = "X11显示设置",
+                // X11显示设置 - 最上面
+                MiniFloatingButton(
+                    icon = Icons.Filled.Monitor,
+                    contentDescription = "X11显示设置",
                     onClick = {
                         isExpanded = false
                         onX11SettingsClick()
@@ -139,9 +149,9 @@ fun ExpandableFloatingMenu(
                 )
                 
                 // 虚拟按键设置
-                FloatingMenuItem(
-                    icon = Icons.Filled.List,
-                    label = "虚拟按键设置",
+                MiniFloatingButton(
+                    icon = Icons.Filled.Keyboard,
+                    contentDescription = "虚拟按键设置",
                     onClick = {
                         isExpanded = false
                         onVirtualKeysClick()
@@ -149,19 +159,19 @@ fun ExpandableFloatingMenu(
                 )
                 
                 // 一般设置
-                FloatingMenuItem(
+                MiniFloatingButton(
                     icon = Icons.Filled.Settings,
-                    label = "一般设置",
+                    contentDescription = "一般设置",
                     onClick = {
                         isExpanded = false
                         onGeneralSettingsClick()
                     }
                 )
                 
-                // 主菜单
-                FloatingMenuItem(
-                    icon = Icons.Filled.List,
-                    label = "主菜单",
+                // 主菜单 - 最下面
+                MiniFloatingButton(
+                    icon = Icons.Filled.Home,
+                    contentDescription = "主菜单",
                     onClick = {
                         isExpanded = false
                         onMainMenuClick()
@@ -170,7 +180,7 @@ fun ExpandableFloatingMenu(
             }
         }
         
-        // 主悬浮按钮
+        // 主悬浮按钮（放在最上层）
         Box(
             modifier = Modifier
                 .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -246,38 +256,35 @@ fun ExpandableFloatingMenu(
 }
 
 /**
- * 悬浮菜单项
+ * 悬浮菜单中的小型悬浮按钮（圆形图标按钮）
  */
 @Composable
-private fun FloatingMenuItem(
+private fun MiniFloatingButton(
     icon: ImageVector,
-    label: String,
+    contentDescription: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = Modifier.clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 4.dp,
-        shadowElevation = 2.dp
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .background(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = CircleShape
+            )
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
+                onClick()
+            },
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.End
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
     }
 }
