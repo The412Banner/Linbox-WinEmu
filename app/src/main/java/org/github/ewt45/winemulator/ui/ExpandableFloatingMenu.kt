@@ -92,10 +92,6 @@ fun ExpandableFloatingMenu(
         }
     }
     
-    // 弧形排列参数
-    val arcRadius = with(density) { 80.dp.toPx() } // 弧线半径
-    val arcAngle = 90f // 弧线跨越的总角度（90度） 
-    
     // 判断悬浮球在屏幕哪一侧（用于决定弧度方向）
     val isOnLeftSide = offsetX < parentWidth / 2
     
@@ -117,7 +113,7 @@ fun ExpandableFloatingMenu(
             )
         }
         
-        // 展开的子菜单 - 向上弯曲的弧形排列
+        // 展开的子菜单 - 弧形排列，弧度朝向屏幕边缘
         if (isExpanded) {
             // 菜单项数据：图标、描述、点击回调
             val menuItems = listOf(
@@ -127,29 +123,32 @@ fun ExpandableFloatingMenu(
                 Triple(Icons.Default.Info, "X11显示设置", onX11SettingsClick)
             )
             
-            // 弧线的中心点（在主按钮上方）
-            val centerX = offsetX + buttonSizePx / 2 - miniButtonSizePx / 2
-            val centerY = offsetY - arcRadius
+            // 弧线参数
+            val arcRadius = with(density) { 80.dp.toPx() } // 弧线半径
+            val arcSpread = 60f // 弧线跨越的角度
+            
+            // 根据位置决定弧度方向
+            // 左侧时弧度向左，右侧时弧度向右
+            val bendDirection = if (isOnLeftSide) 1f else -1f
             
             menuItems.forEachIndexed { index, (icon, description, onClick) ->
-                // 计算在弧线上的角度
-                // 4个按钮，均匀分布在弧线上
-                // 如果在左侧，弧度向左弯；如果在右侧，弧度向右弯
-                val angleFraction = if (isOnLeftSide) {
-                    // 左侧：从右到左（弧度向左弯）
-                    1f - (index.toFloat() / (menuItems.size - 1))
-                } else {
-                    // 右侧：从左到右（弧度向右弯）
-                    index.toFloat() / (menuItems.size - 1)
-                }
+                // 计算在弧线上的位置
+                // 从一端到另一端均匀分布
+                val fraction = index.toFloat() / (menuItems.size - 1)
                 
-                // 角度从中间向两边分布：中间是0度，两边是±arcAngle/2
-                val angleDeg = arcAngle * (angleFraction - 0.5f)
+                // 角度：中间为0度，向两边延伸
+                val angleDeg = arcSpread * (fraction - 0.5f) * bendDirection
                 val angleRad = Math.toRadians(angleDeg.toDouble()).toFloat()
                 
-                // 计算位置：向上弯曲的弧形
-                // cos决定左右偏移，sin决定上下偏移（sin为正时向上）
-                val x = centerX + arcRadius * sin(angleRad)
+                // 位置计算
+                // 中心点在主按钮上方
+                val centerX = offsetX + buttonSizePx / 2 - miniButtonSizePx / 2
+                val centerY = offsetY - arcRadius
+                
+                // 使用三角函数计算位置
+                // x: 左右偏移（朝向屏幕边缘方向）
+                // y: 上下偏移（向上弯曲）
+                val x = centerX + arcRadius * sin(angleRad) * bendDirection
                 val y = centerY - arcRadius * (1 - cos(angleRad))
                 
                 Box(
