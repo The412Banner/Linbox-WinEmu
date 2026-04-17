@@ -23,8 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Monitor
+import androidx.compose.material.Icons.Default.Menu
+import androidx.compose.material.Icons.Default.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -140,7 +140,7 @@ fun ExpandableFloatingMenu(
             ) {
                 // X11显示设置 - 最上面
                 MiniFloatingButton(
-                    icon = Icons.Filled.Monitor,
+                    icon = Icons.Default.Info,
                     contentDescription = "X11显示设置",
                     onClick = {
                         isExpanded = false
@@ -150,7 +150,7 @@ fun ExpandableFloatingMenu(
                 
                 // 虚拟按键设置
                 MiniFloatingButton(
-                    icon = Icons.Filled.Keyboard,
+                    icon = Icons.Default.Menu,
                     contentDescription = "虚拟按键设置",
                     onClick = {
                         isExpanded = false
