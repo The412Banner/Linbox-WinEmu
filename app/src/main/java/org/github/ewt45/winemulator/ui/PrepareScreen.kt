@@ -69,7 +69,7 @@ private val TAG = "PrepareScreen"
 
 @Composable
 fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: suspend () -> Unit) {
-    //初次进入时 刷新状态
+    // Refresh state on first entry
     LaunchedEffect(Unit) {
         prepareVm.updateState()
     }
@@ -82,30 +82,30 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
     val state by prepareVm.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    // 标题会在后续根据场景动态设置
+    // Title will be set dynamically based on context
     val reporter = rememberTaskReporter(msgTitle = "")
-    var autoExtractStarted by remember { mutableStateOf(false) } // 标记是否已经开始自动提取
-    
-    // 根据场景设置 reporter 标题
+    var autoExtractStarted by remember { mutableStateOf(false) } // Track whether auto-extraction has started
+
+    // Set reporter title based on context
     LaunchedEffect(state.forceNoRootfs, state.noRootfs) {
         reporter.msgTitle = when {
             state.forceNoRootfs -> "New Container"
-            state.noRootfs -> "请选择或提取Rootfs"
+            state.noRootfs -> "Please select or extract a Rootfs"
             else -> ""
         }
     }
 
-    // 退出prepareScreen
+    // Exit PrepareScreen
     LaunchedEffect(state.isPrepareFinished) {
         if (!state.isPrepareFinished) return@LaunchedEffect
-        // TODO 尚未实现 restart
+        // TODO: restart not yet implemented
         if (state.shouldRestart) MainEmuActivity.instance.finish()
         else navigateToMainScreen()
 
     }
     
-    // 首次启动时（noRootfs），自动尝试从assets提取rootfs
-    // 新建容器时（forceNoRootfs）不自动提取，让用户手动选择
+    // On first launch (noRootfs), auto-attempt to extract rootfs from assets
+    // When creating a new container (forceNoRootfs), skip auto-extract and let the user choose manually
     LaunchedEffect(state.skipPermissions, state.unGrantedPermissions.isEmpty()) {
         val permissionsReady = state.skipPermissions || state.unGrantedPermissions.isEmpty()
         if (permissionsReady && !autoExtractStarted && state.noRootfs && !state.forceNoRootfs) {
@@ -118,26 +118,26 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
             try {
                 val extractedRootfs = Utils.Rootfs.installRootfsFromAssets(ctx, reporter)
                 if (extractedRootfs != null) {
-                    reporter.msg("Auto-extracted rootfs successfully:${extractedRootfs.name}", "Auto-extraction successful!\n（日志可点击展开查看）")
+                    reporter.msg("Auto-extracted rootfs successfully:${extractedRootfs.name}", "Auto-extraction successful!\n(Click logs to expand)")
                     reporter.stage = ProgressStage.DONE_SUCCESS
                     
-                    // 自动设置启动命令为linbox
+                    // Auto-set startup command to linbox
                     settingVm.onChangeProotStartupCmd("linbox")
                     reporter.msg("Startup command set to: linbox")
                     
-                    // 自动设置当前rootfs（直接设置符号链接，不调用onChangeRootfsSelect避免触发finish）
+                    // Auto-set current rootfs (set symlink directly, avoid calling onChangeRootfsSelect to prevent triggering finish)
                     Utils.Rootfs.makeCurrent(extractedRootfs)
-                    // 更新状态，让UI可以继续
+                    // Update state so UI can proceed
                     prepareVm.onRootfsExtracted(extractedRootfs.name)
                 } else {
-                    // 未找到assets中的rootfs，回退到手动选择
+                    // No rootfs found in assets, falling back to manual selection
                     reporter.msg("No rootfs archive found in assets", "Please select a rootfs archive manually")
                     reporter.stage = ProgressStage.NOT_STARTED
                     autoExtractStarted = false
                 }
             } catch (e: Throwable) {
                 e.printStackTrace()
-                reporter.msg("Error during auto-extraction of rootfs:${e.stackTraceToString()}", "Auto-extraction failed. Please select a rootfs archive manually.\n（日志可点击展开查看）")
+                reporter.msg("Error during auto-extraction of rootfs:${e.stackTraceToString()}", "Auto-extraction failed. Please select a rootfs archive manually.\n(Click logs to expand)")
                 reporter.stage = ProgressStage.DONE_FAILURE
                 autoExtractStarted = false
             }
@@ -145,7 +145,7 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
         }
     }
     
-    // 新建容器时，用户点击"从App内置提取"按钮后执行提取逻辑
+    // When creating a new container, run extraction logic after user taps "Extract from App"
     LaunchedEffect(autoExtractStarted, state.forceNoRootfs) {
         if (autoExtractStarted && state.forceNoRootfs && reporter.stage == ProgressStage.NOT_STARTED) {
             reporter.msgTitle = "Extracting rootfs..."
@@ -156,7 +156,7 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
             try {
                 val extractedRootfs = Utils.Rootfs.installRootfsFromAssets(ctx, reporter)
                 if (extractedRootfs != null) {
-                    reporter.msg("Rootfs extracted successfully:${extractedRootfs.name}", "Extraction successful!\n（日志可点击展开查看）")
+                    reporter.msg("Rootfs extracted successfully:${extractedRootfs.name}", "Extraction successful!\n(Click logs to expand)")
                     reporter.stage = ProgressStage.DONE_SUCCESS
                 } else {
                     reporter.msg("No rootfs archive found in assets", "Please select a rootfs archive manually")
@@ -165,7 +165,7 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                 }
             } catch (e: Throwable) {
                 e.printStackTrace()
-                reporter.msg("提取rootfs过程中出现错误：${e.stackTraceToString()}", "Extraction failed. Please select a rootfs archive manually.\n（日志可点击展开查看）")
+                reporter.msg("Error during rootfs extraction: ${e.stackTraceToString()}", "Extraction failed. Please select a rootfs archive manually.\n(Click logs to expand)")
                 reporter.stage = ProgressStage.DONE_FAILURE
                 autoExtractStarted = false
             }
@@ -173,22 +173,22 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
         }
     }
 
-    // 准备完成 启动模拟器
+    // Preparation complete, launching emulator
     if (state.isPrepareFinished) {
         Box(Modifier.fillMaxSize()) {
             Text("Starting emulator...", Modifier.align(Alignment.Center))
         }
     }
-    // 加载中
+    // Loading
     else if (state.loading) {
         Box(Modifier.fillMaxSize()) {
             Text("Loading...", Modifier.align(Alignment.Center))
         }
     }
-    // 显示对应内容
+    // Show appropriate content
     else {
         val lackPermissions = !(state.skipPermissions || state.unGrantedPermissions.isEmpty())
-        var isRequestingPermission by remember { mutableStateOf(false) } // 禁止重复点击授予按钮
+        var isRequestingPermission by remember { mutableStateOf(false) } // Prevent double-tapping grant button
         Column(
             Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -203,13 +203,13 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                     }
                 }
             } else if (state.noRootfs || state.forceNoRootfs) {
-                // 首次启动自动提取时，显示进度（用 autoExtractStarted 区分自动提取和手动选择）
+                // On first launch with auto-extract, show progress (autoExtractStarted distinguishes auto vs manual)
                 if (state.noRootfs && !state.forceNoRootfs && autoExtractStarted &&
                     (reporter.stage == ProgressStage.PROCESSING || 
                      reporter.stage == ProgressStage.DONE_SUCCESS)) {
                     RootfsAutoExtractProgress(reporter)
                 }
-                // 其他情况（新建容器、自动提取失败、手动选择）显示手动选择界面
+                // Other cases (new container, auto-extract failed, manual select) show manual selection UI
                 else if (state.forceNoRootfs || !autoExtractStarted || reporter.stage == ProgressStage.DONE_FAILURE) {
                     RootfsSelect(
                         getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
@@ -219,12 +219,12 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                         onRootfsExtracted = { rootfsName -> prepareVm.onRootfsExtracted(rootfsName) },
                         onSetCurrentRootfs = { rootfsName -> Utils.Rootfs.makeCurrent(File(Consts.rootfsAllDir, rootfsName)) },
                         onCancel = if (state.forceNoRootfs) { { prepareVm.onCancelForceNoRootfs() } } else null,
-                        defaultIsSetCurrent = !state.forceNoRootfs // 首次启动默认勾选，新建容器默认不勾选
+                        defaultIsSetCurrent = !state.forceNoRootfs // Checked by default on first launch, unchecked for new container
                     )
                 } else {
-                    // 等待自动提取完成
+                    // Wait for auto-extraction to complete
                     Box(Modifier.fillMaxSize()) {
-                        Text("正在准备中...", Modifier.align(Alignment.Center))
+                        Text("Preparing...", Modifier.align(Alignment.Center))
                     }
                 }
             }
@@ -233,8 +233,8 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
 }
 
 /**
- * 显示用户应该授予的权限
- * @param onRequest 用户点击“授权按钮”的回调
+ * Shows permissions the user should grant
+ * @param onRequest Callback when the user taps the grant button
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -250,7 +250,7 @@ private fun PermissionGrant(
     )
     Spacer(Modifier.height(16.dp))
     Column(Modifier.padding(16.dp)) {
-        Text("为确保app正常运行，请授予以下权限。或者点击“跳过”，不授予权限。")
+        Text(“To ensure the app works correctly, please grant the following permissions. Or tap \”Skip\” to proceed without granting them.”)
         Spacer(Modifier.height(32.dp))
         permissions.forEach { item ->
             Row(
@@ -272,15 +272,15 @@ private fun PermissionGrant(
 
 
 /**
- * @param getAvailableUsers 传入rootfs名，返回该rootfs可选择的用户列表
- * @param onChangeUser 参考 [SettingViewModel.onChangeRootfsLoginUser]
- * @param onRootfsNameChange 参考 [SettingViewModel.onChangeRootfsName]
- * @param initReporter 可选的初始进度报告器
- * @param onAutoExtractStart 回调函数，当用户触发自动提取时调用
- * @param onRootfsExtracted rootfs提取/选择完成后的回调，用于更新状态
- * @param onSetCurrentRootfs 设置当前rootfs的回调
- * @param onCancel 取消/返回的回调，用于新建容器时返回
- * @param defaultIsSetCurrent "下次启动app运行该容器"选项的默认勾选状态，首次启动时默认true，新建容器时默认false
+ * @param getAvailableUsers Takes a rootfs name, returns the list of available users for that rootfs
+ * @param onChangeUser See [SettingViewModel.onChangeRootfsLoginUser]
+ * @param onRootfsNameChange See [SettingViewModel.onChangeRootfsName]
+ * @param initReporter Optional initial task reporter
+ * @param onAutoExtractStart Callback invoked when the user triggers auto-extraction
+ * @param onRootfsExtracted Callback after rootfs extraction/selection completes, for updating state
+ * @param onSetCurrentRootfs Callback to set the current rootfs
+ * @param onCancel Cancel/back callback, used when creating a new container
+ * @param defaultIsSetCurrent Default checked state of the "run this container on next launch" option; true on first launch, false for new container
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -300,28 +300,28 @@ private fun RootfsSelect(
     val TAG = "RootfsSelectScreen"
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    val reporter = initReporter ?: rememberTaskReporter(msgTitle = "缺少Rootfs。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。")
+    val reporter = initReporter ?: rememberTaskReporter(msgTitle = "Rootfs missing. Please tap the button to select a .tar.xz or .tar.gz archive containing a Rootfs.")
     var rootfsName by remember { mutableStateOf(initRootfsName) }
     var isSetCurrent by remember { mutableStateOf(defaultIsSetCurrent) }
     val dialogState = rememberConfirmDialogState()
 
     val readFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        Log.d(TAG, "RootfsSelectScreen: 尝试从contentResolver获取mimetype？${ctx.contentResolver.getType(uri)}")
+        Log.d(TAG, "RootfsSelectScreen: trying to get mimetype from contentResolver? ${ctx.contentResolver.getType(uri)}")
         reporter.stage = ProgressStage.PROCESSING
         scope.launch {
             reporter.progress = 0
-            reporter.msgTitle = "正在解压中，请等待完成。"
+            reporter.msgTitle = "Extracting, please wait..."
             reporter.msg = "Logs:"
             try {
                 rootfsName = Utils.Rootfs.installRootfsArchive(ctx, uri, reporter).name
-                reporter.msg("解压rootfs成功。", "解压成功，点击按钮将退出。请手动重启。\n（日志可点击展开查看）")
+                reporter.msg("Rootfs extracted successfully.", "Extraction successful. Click the button to exit. Please restart manually.\n(Click logs to expand)")
                 reporter.stage = ProgressStage.DONE_SUCCESS
             } catch (e: Throwable) {
                 e.printStackTrace()
                 reporter.msg(
-                    "解压rootfs过程中出现错误，结束。\n" + e.stackTraceToString(),
-                    "解压失败。请点击按钮选择一个包含Rootfs的 .tar.xz 或 .tar.gz 压缩包。\n（日志可点击展开查看）"
+                    "Error during rootfs extraction.\n" + e.stackTraceToString(),
+                    "Extraction failed. Please tap the button to select a .tar.xz or .tar.gz archive containing a Rootfs.\n(Click logs to expand)"
                 )
                 reporter.stage = ProgressStage.DONE_FAILURE
             }
@@ -358,12 +358,12 @@ private fun RootfsSelect(
 
             // 需要解压时显示选择按钮
             if (reporter.stage == ProgressStage.NOT_STARTED || reporter.stage == ProgressStage.DONE_FAILURE) {
-                // 如果有自动提取回调，提供自动提取选项
+                // If auto-extract callback is available, offer auto-extract option
                 if (onAutoExtractStart != null) {
                     Button({
                         onAutoExtractStart()
-                        // 触发自动提取的逻辑已经在PrepareScreenImpl中处理
-                    }) { Text("从App内置提取") }
+                        // Auto-extract logic is handled in PrepareScreenImpl
+                    }) { Text("Extract from App") }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 Button({ readFileLauncher.launch(arrayOf("application/x-xz", "application/gzip", "*/*")) })
@@ -373,25 +373,25 @@ private fun RootfsSelect(
             else if (reporter.stage == ProgressStage.DONE_SUCCESS) {
                 Button({
                     scope.launch {
-                        // 更新 prepareVm 状态
+                        // Update prepareVm state
                         onRootfsExtracted?.invoke(rootfsName)
                         if (isSetCurrent && onSetCurrentRootfs != null) {
-                            // 设置当前rootfs（不调用onChangeRootfsSelect避免触发finish）
+                            // Set current rootfs (avoid calling onChangeRootfsSelect to prevent triggering finish)
                             onSetCurrentRootfs(rootfsName)
                         } else if (isSetCurrent) {
-                            // 兼容旧逻辑：如果没有提供 onSetCurrentRootfs，使用原来的方式
+                            // Fallback: if onSetCurrentRootfs not provided, use the old approach
                             MainEmuActivity.instance.settingViewModel.onChangeRootfsSelect(rootfsName)
                         }
-                        // 状态更新后，isPrepareFinished 会变为 true，自动触发跳转
+                        // After state update, isPrepareFinished becomes true and navigation triggers automatically
                     }
                 }) { Text("Done") }
             }
 
-            // 解压成功后后的其他选项，重命名，登陆用户，下次启动该容器。
+            // After successful extraction: rename, login user, set as current on next launch
             if (reporter.stage == ProgressStage.DONE_SUCCESS && rootfsName.isNotEmpty()) {
-                Log.e(TAG, "RootfsSelectScreen: 解压完成后进入这里检查可登陆用户列表。平时不会进入吧？")
+                Log.e(TAG, "RootfsSelectScreen: checking available login users after extraction. Should not normally reach here?")
                 HorizontalDivider(Modifier.padding(16.dp), 2.dp)
-                Text("退出之前，您还可以编辑以下内容")
+                Text("Before exiting, you can also edit the following")
 
                 var rootfsAlias by remember { mutableStateOf(Utils.Rootfs.getAlias(File(Consts.rootfsAllDir, rootfsName))) }
                 GeneralRootfsSelect_RootfsName(
@@ -403,7 +403,7 @@ private fun RootfsSelect(
                         Utils.Rootfs.setAlias(File(Consts.rootfsAllDir, rootfsName), newAlias)
                         rootfsAlias = newAlias
                     }
-                    // 不传入 onRootfsNameChange，只修改别名，不修改文件夹名
+                    // Not passing onRootfsNameChange — only modifying alias, not the folder name
                 )
 
                 val userList = getAvailableUsers(rootfsName)
@@ -416,7 +416,7 @@ private fun RootfsSelect(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("下次启动app运行该容器")
+                    Text("Run this container on next app launch")
                     Checkbox(isSetCurrent, { isSetCurrent = it })
                 }
             }
@@ -425,7 +425,7 @@ private fun RootfsSelect(
 }
 
 /**
- * 自动提取Rootfs时的进度显示组件
+ * Progress display component for auto-extracting Rootfs
  */
 @Composable
 private fun RootfsAutoExtractProgress(reporter: SimpleTaskReporter) {
@@ -436,19 +436,19 @@ private fun RootfsAutoExtractProgress(reporter: SimpleTaskReporter) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // 显示标题和进度
+        // Show title and progress
         ProgressDisplay(reporter)
-        
-        // 解压成功后显示提示
+
+        // Show message on success
         if (reporter.stage == ProgressStage.DONE_SUCCESS) {
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Rootfs提取成功！正在设置启动命令...", style = MaterialTheme.typography.bodyLarge)
+            Text("Rootfs extracted! Setting startup command...", style = MaterialTheme.typography.bodyLarge)
         }
-        
-        // 解压失败后显示提示
+
+        // Show message on failure
         if (reporter.stage == ProgressStage.DONE_FAILURE) {
             Spacer(modifier = Modifier.height(16.dp))
-            Text("提取失败，请手动选择rootfs压缩包", style = MaterialTheme.typography.bodyLarge)
+            Text("Extraction failed. Please select a rootfs archive manually.", style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
@@ -470,16 +470,16 @@ fun PrepareScreenPreview(
         )
     }
     var skipPermissions by remember { mutableStateOf(false) }
-    // 加载中
+    // Loading
     if (isLoading) {
         Box(Modifier.fillMaxSize()) {
             Text("Loading...", Modifier.align(Alignment.Center))
         }
     }
-    // 显示对应内容
+    // Show appropriate content
     else {
         val lackPermissions = !(skipPermissions || unGrantedPermissions.isEmpty()) && initLackPermissions
-        var isRequestingPermission by remember { mutableStateOf(false) } // 禁止重复点击授予按钮
+        var isRequestingPermission by remember { mutableStateOf(false) } // Prevent double-tapping grant button
         Column(
             Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -514,7 +514,7 @@ private fun PrepareStageScreenFinishPreview() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val rootfsName = "rootfs-1"
-            Text("退出之前，您还可以编辑以下内容。。")
+            Text("Before exiting, you can also edit the following")
 
             Spacer(Modifier.height(16.dp))
             GeneralRootfsSelect_RootfsName(

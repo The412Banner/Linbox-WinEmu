@@ -40,8 +40,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * 可展开的悬浮菜单按钮
- * 点击主按钮展开子菜单，子菜单以向上弯曲的弧形排列显示在主按钮上方
+ * Expandable floating menu button
+ * Tap the main button to expand the sub-menu, which fans out in an upward arc above the main button
  */
 @Composable
 fun ExpandableFloatingMenu(
@@ -97,10 +97,10 @@ fun ExpandableFloatingMenu(
 
         if (isExpanded) {
             val menuItems = listOf(
-                Triple(Icons.Default.Home, "主菜单", onMainMenuClick),
-                Triple(Icons.Filled.Settings, "一般设置", onGeneralSettingsClick),
-                Triple(Icons.Default.Menu, "虚拟按键设置", onVirtualKeysClick),
-                Triple(Icons.Default.Info, "X11显示设置", onX11SettingsClick)
+                Triple(Icons.Default.Home, "Main Menu", onMainMenuClick),
+                Triple(Icons.Filled.Settings, "General Settings", onGeneralSettingsClick),
+                Triple(Icons.Default.Menu, "Virtual Keys Settings", onVirtualKeysClick),
+                Triple(Icons.Default.Info, "X11 Display Settings", onX11SettingsClick)
             )
 
             val arcRadius = with(density) { 60.dp.toPx() }
@@ -148,7 +148,7 @@ fun ExpandableFloatingMenu(
             }
         }
 
-        // 主按钮（代码保持不变）
+        // Main button
         Box(
             modifier = Modifier
                 .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -204,7 +204,7 @@ fun ExpandableFloatingMenu(
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Filled.Close else Icons.Filled.Add,
-                    contentDescription = if (isExpanded) "收起菜单" else "展开菜单",
+                    contentDescription = if (isExpanded) "Collapse menu" else "Expand menu",
                     modifier = Modifier
                         .size(36.dp)
                         .rotate(rotationAngle),

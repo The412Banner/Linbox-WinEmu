@@ -35,7 +35,7 @@ import org.github.ewt45.winemulator.ui.setting.*
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 
 /**
- * 悬浮设置弹窗类型枚举
+ * Floating settings popup type enum
  */
 enum class FloatingPopupType {
     NONE,
@@ -45,7 +45,7 @@ enum class FloatingPopupType {
 }
 
 /**
- * 悬浮弹窗状态管理
+ * Floating popup state management
  */
 class FloatingPopupState {
     var currentPopup by mutableStateOf(FloatingPopupType.NONE)
@@ -61,18 +61,18 @@ class FloatingPopupState {
 }
 
 /**
- * 可组合的悬浮弹窗容器
- * 根据状态显示对应的设置弹窗
+ * Composable floating popup container
+ * Shows the appropriate settings popup based on current state
  */
 @Composable
 fun FloatingSettingsPopups(
     popupState: FloatingPopupState,
     settingVm: SettingViewModel,
-    onVirtualKeysSettingsChanged: () -> Unit = {},  // 新增：虚拟按键设置变更回调，用于即时刷新
+    onVirtualKeysSettingsChanged: () -> Unit = {},  // Added: virtual keys settings change callback for immediate refresh
     modifier: Modifier = Modifier
 ) {
     when (popupState.currentPopup) {
-        FloatingPopupType.NONE -> { /* 不显示任何弹窗 */ }
+        FloatingPopupType.NONE -> { /* Show no popup */ }
         FloatingPopupType.GENERAL_SETTINGS -> {
             GeneralSettingsPopup(
                 settingVm = settingVm,
@@ -82,7 +82,7 @@ fun FloatingSettingsPopups(
         FloatingPopupType.VIRTUAL_KEYS_SETTINGS -> {
             VirtualKeysSettingsPopup(
                 onDismiss = { popupState.dismissPopup() },
-                onSettingsChanged = onVirtualKeysSettingsChanged  // 传递回调
+                onSettingsChanged = onVirtualKeysSettingsChanged  // Pass callback
             )
         }
         FloatingPopupType.X11_SETTINGS -> {
@@ -95,7 +95,7 @@ fun FloatingSettingsPopups(
 }
 
 /**
- * 一般设置悬浮弹窗
+ * General settings floating popup
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,33 +124,33 @@ fun GeneralSettingsPopup(
             tonalElevation = 8.dp
         ) {
             Column {
-                // 标题栏
+                // Title bar
                 TopAppBar(
-                    title = { Text("一般设置") },
+                    title = { Text("General Settings") },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "关闭")
+                            Icon(Icons.Default.Close, contentDescription = "Close")
                         }
                     },
                     actions = {
                         IconButton(onClick = {
                             scope.launch {
-                                // 刷新配置
+                                // Refresh config
                             }
                         }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "刷新")
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                         }
                     }
                 )
 
-                // 设置内容
+                // Settings content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // 容器语言设置
+                    // Container language setting
                     GeneralRootfsLang(
                         currLang = generalState.rootfsLang,
                         langOptions = listOf("en_US.utf8", "zh_CN.utf8"),
@@ -159,7 +159,7 @@ fun GeneralSettingsPopup(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 共享文件夹设置
+                    // Shared folder setting
                     GeneralShareDir(
                         bindSet = generalState.sharedExtPath,
                         onPathChange = settingVm::onChangeShareExtPath
@@ -167,7 +167,7 @@ fun GeneralSettingsPopup(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Rootfs切换
+                    // Rootfs switch
                     GeneralRootfsSelect(
                         currRootfs = Consts.rootfsCurrDir.canonicalFile.name,
                         rootfsToLoginUserMap = generalState.localRootfsLoginUsersMap,
@@ -177,7 +177,7 @@ fun GeneralSettingsPopup(
                         onRootfsSelectChange = settingVm::onChangeRootfsSelect,
                         onUserSelectChange = { rootfs, user -> scope.launch { settingVm.onChangeRootfsLoginUser(rootfs, user) } },
                         onAliasChange = settingVm::onChangeRootfsAlias,
-                        navigateToNewRootfs = { /* 导航到新rootfs */ }
+                        navigateToNewRootfs = { /* Navigate to new rootfs */ }
                     )
 
                     Spacer(modifier = Modifier.height(32.dp))
@@ -188,14 +188,14 @@ fun GeneralSettingsPopup(
 }
 
 /**
- * 虚拟按键设置悬浮弹窗
- * @param onSettingsChanged 设置变更回调，用于通知外部立即刷新虚拟按键视图
+ * Virtual keys settings floating popup
+ * @param onSettingsChanged Settings change callback to notify the caller to immediately refresh the virtual keys view
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VirtualKeysSettingsPopup(
     onDismiss: () -> Unit,
-    onSettingsChanged: () -> Unit = {}  // 新增回调参数
+    onSettingsChanged: () -> Unit = {}  // Added callback parameter
 ) {
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -209,7 +209,7 @@ fun VirtualKeysSettingsPopup(
 
     val manager = remember { InputControlsManager(context) }
 
-    // 加载配置
+    // Load profiles
     LaunchedEffect(Unit) {
         manager.loadProfiles(ignoreTemplates = false)
         profiles = manager.getProfiles()
@@ -241,24 +241,24 @@ fun VirtualKeysSettingsPopup(
             tonalElevation = 8.dp
         ) {
             Column {
-                // 标题栏
+                // Title bar
                 TopAppBar(
-                    title = { Text("虚拟按键设置") },
+                    title = { Text("Virtual Keys Settings") },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "关闭")
+                            Icon(Icons.Default.Close, contentDescription = "Close")
                         }
                     }
                 )
 
-                // 设置内容
+                // Settings content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // 启用/禁用开关
+                    // Enable/disable switch
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -271,7 +271,7 @@ fun VirtualKeysSettingsPopup(
                             modifier = Modifier.padding(end = 8.dp)
                         )
                         Text(
-                            text = "启用虚拟按键",
+                            text = "Enable Virtual Keys",
                             modifier = Modifier.weight(1f)
                         )
                         Switch(
@@ -284,7 +284,7 @@ fun VirtualKeysSettingsPopup(
                                     prefs.edit().remove(InputControlsFragment.SELECTED_PROFILE_ID).apply()
                                     prefs.edit().putBoolean("show_touchscreen_controls", false).apply()
                                 } else if (profiles.isEmpty()) {
-                                    val newProfile = manager.createProfile("默认配置")
+                                    val newProfile = manager.createProfile("Default Profile")
                                     profiles = manager.getProfiles()
                                     selectedProfile = newProfile
                                     showControls = true
@@ -304,12 +304,12 @@ fun VirtualKeysSettingsPopup(
                                     isControlsEnabled = true
                                     prefs.edit().putBoolean("show_touchscreen_controls", true).apply()
                                 }
-                                onSettingsChanged()  // 通知外部刷新
+                                onSettingsChanged()  // Notify caller to refresh
                             }
                         )
                     }
 
-                    // 显示/隐藏虚拟按键开关
+                    // Show/hide virtual keys switch
                     if (isControlsEnabled) {
                         Row(
                             modifier = Modifier
@@ -323,7 +323,7 @@ fun VirtualKeysSettingsPopup(
                                 modifier = Modifier.padding(end = 8.dp)
                             )
                             Text(
-                                text = "显示虚拟按键",
+                                text = "Show Virtual Keys",
                                 modifier = Modifier.weight(1f)
                             )
                             Switch(
@@ -331,7 +331,7 @@ fun VirtualKeysSettingsPopup(
                                 onCheckedChange = { show ->
                                     showControls = show
                                     prefs.edit().putBoolean("show_touchscreen_controls", show).apply()
-                                    onSettingsChanged()  // 通知外部刷新
+                                    onSettingsChanged()  // Notify caller to refresh
                                 }
                             )
                         }
@@ -340,9 +340,9 @@ fun VirtualKeysSettingsPopup(
                     if (isControlsEnabled) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                        // 配置选择器
+                        // Profile selector
                         Text(
-                            text = "当前配置",
+                            text = "Current Profile",
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(vertical = 4.dp)
                         )
@@ -354,7 +354,7 @@ fun VirtualKeysSettingsPopup(
                             onExpandedChange = { expanded = !expanded }
                         ) {
                             OutlinedTextField(
-                                value = selectedProfile?.name ?: "未选择",
+                                value = selectedProfile?.name ?: "Not selected",
                                 onValueChange = {},
                                 readOnly = true,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -374,14 +374,14 @@ fun VirtualKeysSettingsPopup(
                                             selectedProfile = profile
                                             prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, profile.id).apply()
                                             expanded = false
-                                            onSettingsChanged()  // 通知外部刷新
+                                            onSettingsChanged()  // Notify caller to refresh
                                         }
                                     )
                                 }
                             }
                         }
 
-                        // 配置操作按钮
+                        // Profile action buttons
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -394,7 +394,7 @@ fun VirtualKeysSettingsPopup(
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null)
                                 Spacer(Modifier.width(4.dp))
-                                Text("新建")
+                                Text("New")
                             }
 
                             if (profiles.size > 1) {
@@ -409,19 +409,19 @@ fun VirtualKeysSettingsPopup(
                                             } else {
                                                 prefs.edit().remove(InputControlsFragment.SELECTED_PROFILE_ID).apply()
                                             }
-                                            onSettingsChanged()  // 通知外部刷新
+                                            onSettingsChanged()  // Notify caller to refresh
                                         }
                                     },
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(Icons.Default.Delete, contentDescription = null)
                                     Spacer(Modifier.width(4.dp))
-                                    Text("删除")
+                                    Text("Delete")
                                 }
                             }
                         }
 
-                        // 编辑布局按钮
+                        // Edit layout button
                         Button(
                             onClick = {
                                 selectedProfile?.let { profile ->
@@ -434,7 +434,7 @@ fun VirtualKeysSettingsPopup(
                         ) {
                             Icon(Icons.Default.Edit, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
-                            Text("编辑虚拟按键布局")
+                            Text("Edit Virtual Keys Layout")
                         }
                     }
 
@@ -444,18 +444,18 @@ fun VirtualKeysSettingsPopup(
         }
     }
 
-    // 新建配置对话框
+    // New profile dialog
     if (showProfileDialog) {
         var newProfileName by remember { mutableStateOf("") }
 
         AlertDialog(
             onDismissRequest = { showProfileDialog = false },
-            title = { Text("新建配置") },
+            title = { Text("New Profile") },
             text = {
                 OutlinedTextField(
                     value = newProfileName,
                     onValueChange = { newProfileName = it },
-                    label = { Text("配置名称") },
+                    label = { Text("Profile Name") },
                     singleLine = true
                 )
             },
@@ -468,16 +468,16 @@ fun VirtualKeysSettingsPopup(
                             selectedProfile = newProfile
                             prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, newProfile.id).apply()
                             showProfileDialog = false
-                            onSettingsChanged()  // 通知外部刷新
+                            onSettingsChanged()  // Notify caller to refresh
                         }
                     }
                 ) {
-                    Text("创建")
+                    Text("Create")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showProfileDialog = false }) {
-                    Text("取消")
+                    Text("Cancel")
                 }
             }
         )
@@ -485,7 +485,7 @@ fun VirtualKeysSettingsPopup(
 }
 
 /**
- * X11设置悬浮弹窗
+ * X11 settings floating popup
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -513,24 +513,24 @@ fun X11SettingsPopup(
             tonalElevation = 8.dp
         ) {
             Column {
-                // 标题栏
+                // Title bar
                 TopAppBar(
-                    title = { Text("X11显示设置") },
+                    title = { Text("X11 Display Settings") },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "关闭")
+                            Icon(Icons.Default.Close, contentDescription = "Close")
                         }
                     }
                 )
 
-                // 设置内容
+                // Settings content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // 分辨率设置
+                    // Resolution setting
                     X11Resolution(
                         text = settingVm.resolutionText,
                         onDone = settingVm::onChangeResolutionText
@@ -538,7 +538,7 @@ fun X11SettingsPopup(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 触摸方式设置
+                    // Touch mode setting
                     X11TouchMode(
                         currentMode = x11State.touchMode,
                         onModeChange = settingVm::onChangeX11TouchMode
@@ -546,7 +546,7 @@ fun X11SettingsPopup(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 屏幕方向设置
+                    // Screen orientation setting
                     X11ScreenOrientation(
                         currentOrientation = x11State.screenOrientation,
                         onOrientationChange = settingVm::onChangeX11ScreenOrientation
@@ -554,7 +554,7 @@ fun X11SettingsPopup(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 显示缩放
+                    // Display scale
                     X11DisplayScale(
                         scale = x11State.displayScale,
                         onScaleChange = settingVm::onChangeX11DisplayScale
@@ -562,7 +562,7 @@ fun X11SettingsPopup(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 保持屏幕常亮
+                    // Keep screen on
                     X11KeepScreenOn(
                         enabled = x11State.keepScreenOn,
                         onEnabledChange = settingVm::onChangeX11KeepScreenOn
