@@ -28,19 +28,30 @@ import org.github.ewt45.winemulator.inputcontrols.InputControlsManager
 import org.github.ewt45.winemulator.inputcontrols.InputControlsView
 import org.github.ewt45.winemulator.inputcontrols.X11InputSender
 import org.github.ewt45.winemulator.inputcontrols.InputEventHandler
+import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 
 /**
  * X11 Screen composable that displays X11 content with virtual controls overlay
- * 
- * This is the fixed version that properly routes input events from virtual controls
- * to the X11 session through the LorieView JNI bridge.
+ *
+ * This screen includes:
+ * - X11 rendering content from LorieView
+ * - Virtual controls overlay
+ * - Expandable floating menu with independent popup windows for:
+ *   - General settings (container language, shared folders, rootfs management)
+ *   - Virtual keys settings (enable/disable, profile selection, layout editing)
+ *   - X11 display settings (resolution, touch mode, orientation, scale)
+ *
+ * Input events from virtual controls are routed through the X11InputSender
+ * to the X11 session via the LorieView JNI bridge.
  */
 @Composable
 fun X11Screen(
     x11Content: (Context) -> View,
     onNavigateToOthers: (Destination) -> Unit,
     // Add callback to get LorieView from the X11 content view
-    onLorieViewReady: ((InputStub) -> Unit)? = null
+    onLorieViewReady: ((InputStub) -> Unit)? = null,
+    // 新增：用于悬浮弹窗的SettingViewModel
+    settingVm: SettingViewModel? = null
 ) {
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -132,6 +143,9 @@ fun X11Screen(
             factory = { inputControlsView },
             modifier = Modifier.fillMaxSize()
         )
+        // 悬浮弹窗状态管理
+        val floatingPopupState = remember { FloatingPopupState() }
+
         // 悬浮球：使用 BoxWithConstraints 获取父布局尺寸
         BoxWithConstraints(
             Modifier.fillMaxSize()
@@ -141,9 +155,17 @@ fun X11Screen(
                 parentWidth = constraints.maxWidth.toFloat(),
                 parentHeight = constraints.maxHeight.toFloat(),
                 onMainMenuClick = { onNavigateToOthers(Destination.Terminal) },
-                onGeneralSettingsClick = { onNavigateToOthers(Destination.Settings) },
-                onVirtualKeysClick = { onNavigateToOthers(Destination.Settings) },
-                onX11SettingsClick = { onNavigateToOthers(Destination.Settings) }
+                onGeneralSettingsClick = { floatingPopupState.showPopup(FloatingPopupType.GENERAL_SETTINGS) },
+                onVirtualKeysClick = { floatingPopupState.showPopup(FloatingPopupType.VIRTUAL_KEYS_SETTINGS) },
+                onX11SettingsClick = { floatingPopupState.showPopup(FloatingPopupType.X11_SETTINGS) }
+            )
+        }
+
+        // 显示悬浮弹窗
+        settingVm?.let { vm ->
+            FloatingSettingsPopups(
+                popupState = floatingPopupState,
+                settingVm = vm
             )
         }
     }
@@ -179,6 +201,7 @@ private fun findLorieView(view: View): com.termux.x11.LorieView? {
 fun X11ScreenPreview() {
     X11Screen(
         x11Content = { ctx -> FrameLayout(ctx).apply { setBackgroundColor(android.graphics.Color.GRAY) } },
-        {}
+        {},
+        settingVm = null
     )
 }
