@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets
 
 object ProotHelper {
     const val DEFAULT_FAKE_KERNEL_VERSION = "6.2.1-PRoot-Distro"
-    /** 参考proot-distro. 创建一些系统数据 */
+    /** Based on proot-distro. Creates synthetic system data. */
     fun setup_fake_data() {
         for (d in listOf("proc", "sys", "sys/.empty")) {
             val dFile = File(Consts.rootfsCurrDir, d)
@@ -224,7 +224,7 @@ object ProotHelper {
         writeIfNotExists("/proc/.sysctl_inotify_max_user_watches", "4096")
     }
 
-    /** 启动脚本，启动后执行这个 */
+    /** Startup script; executed once the session starts. */
     fun createStartSh() {
 //        Consts.rootfsCurrStartSh.takeIf { it.notExists() }?.let {
 //            FileUtils.writeStringToFile(it, """
@@ -238,8 +238,8 @@ object ProotHelper {
     }
 
     /**
-     * 如果文件不存在，则创建并写入内容
-     * @param filePath 相对于 [Consts.rootfsCurrDir] 的路径
+     * Creates the file and writes [str] to it if the file does not yet exist.
+     * @param filePath path relative to [Consts.rootfsCurrDir]
      */
     private fun writeIfNotExists(filePath: String, str: String) {
         File(rootfsCurrDir, filePath).takeIf { it.notExists() }?.let {

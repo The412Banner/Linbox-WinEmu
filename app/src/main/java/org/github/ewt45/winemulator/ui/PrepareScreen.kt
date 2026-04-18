@@ -353,10 +353,10 @@ private fun RootfsSelect(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            //显示标题和进度
+            // Show title and progress
             ProgressDisplay(reporter)
 
-            // 需要解压时显示选择按钮
+            // Show selection buttons when extraction is needed
             if (reporter.stage == ProgressStage.NOT_STARTED || reporter.stage == ProgressStage.DONE_FAILURE) {
                 // If auto-extract callback is available, offer auto-extract option
                 if (onAutoExtractStart != null) {
@@ -369,7 +369,7 @@ private fun RootfsSelect(
                 Button({ readFileLauncher.launch(arrayOf("application/x-xz", "application/gzip", "*/*")) })
                 { Text("Select Manually") }
             }
-            // 解压成功后显示完成按钮
+            // Show done button after successful extraction
             else if (reporter.stage == ProgressStage.DONE_SUCCESS) {
                 Button({
                     scope.launch {
@@ -535,7 +535,7 @@ private fun PrepareStageScreenFinishPreview() {
             }
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("下次启动app运行该容器")
+                Text("Run this container on next app launch")
                 Checkbox(true, {})
             }
         }

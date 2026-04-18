@@ -26,7 +26,7 @@ private val LightColorScheme = lightColorScheme(
     tertiary = Pink40
 )
 
-// 新增暗色主题颜色方案（用于悬浮按钮等）
+// Additional dark color scheme (used for floating buttons etc.)
 private val DarkSurfaceColorScheme = darkColorScheme(
     primary = Purple80,
     secondary = PurpleGrey80,
@@ -41,16 +41,16 @@ fun MainTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
-    // 用于从外部传入主题偏好的Flow（true = 暗色主题，false = 亮色主题，null = 跟随系统）
+    // Flow for externally injected theme preference (true = dark, false = light, null = follow system)
     externalDarkThemeFlow: Flow<Boolean?>? = null,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     
-    // 获取外部传入的主题偏好
+    // Collect externally injected theme preference
     val externalDarkTheme by externalDarkThemeFlow?.collectAsState(initial = null) ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(null) }
     
-    // 确定最终的主题：优先使用外部传入的偏好，其次使用传入的darkTheme参数（默认暗色）
+    // Resolve final theme: external preference takes priority, then darkTheme parameter (defaults to dark)
     val isDarkTheme = externalDarkTheme ?: darkTheme ?: true
     
     val colorScheme = when {

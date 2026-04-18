@@ -62,14 +62,13 @@ class RangeScroller(
     }
 
     /**
-     * 根据范围类型和索引获取对应的Binding
-     * Converts a range index to the corresponding Binding
+     * Converts a range index to the corresponding Binding.
      */
     private fun getBindingForRangeIndex(range: Range?, index: Int): Binding {
         val currentRange = range ?: Range.FROM_A_TO_Z
         return when (currentRange) {
             Range.FROM_A_TO_Z -> {
-                // A-Z: index 0-25 对应 Binding.KEY_A 到 Binding.KEY_Z
+                // A-Z: index 0-25 maps to Binding.KEY_A through Binding.KEY_Z
                 when (index) {
                     0 -> Binding.KEY_A
                     1 -> Binding.KEY_B
@@ -101,7 +100,7 @@ class RangeScroller(
                 }
             }
             Range.DIGITS -> {
-                // 0-9: index 0-9 对应 Binding.KEY_0 到 Binding.KEY_9
+                // 0-9: index 0-9 maps to Binding.KEY_0 through Binding.KEY_9
                 when (index) {
                     0 -> Binding.KEY_0
                     1 -> Binding.KEY_1
@@ -117,7 +116,7 @@ class RangeScroller(
                 }
             }
             Range.FUNCTION_KEYS -> {
-                // F1-F12: index 0-11 对应 Binding.KEY_F1 到 Binding.KEY_F12
+                // F1-F12: index 0-11 maps to Binding.KEY_F1 through Binding.KEY_F12
                 when (index) {
                     0 -> Binding.KEY_F1
                     1 -> Binding.KEY_F2
@@ -135,7 +134,7 @@ class RangeScroller(
                 }
             }
             Range.NUMPAD_DIGITS -> {
-                // NP0-NP9: index 0-9 对应 Binding.NUMPAD_0 到 Binding.NUMPAD_9
+                // NP0-NP9: index 0-9 maps to Binding.NUMPAD_0 through Binding.NUMPAD_9
                 when (index) {
                     0 -> Binding.NUMPAD_0
                     1 -> Binding.NUMPAD_1

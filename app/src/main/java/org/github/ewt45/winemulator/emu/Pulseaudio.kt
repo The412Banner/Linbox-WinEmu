@@ -9,7 +9,7 @@ import org.github.ewt45.winemulator.Utils.getPid
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
-//linux内添加环境变量 PULSE_SERVER=tcp:127.0.0.1:4713
+// Inside Linux, set env var: PULSE_SERVER=tcp:127.0.0.1:4713
 object Pulseaudio {
     private val TAG = "Pulseaudio"
 
@@ -18,8 +18,8 @@ object Pulseaudio {
             environment()["HOME"] = Consts.pulseHomeDir.absolutePath
             environment()["TMPDIR"] = Consts.tmpDir.absolutePath
             environment()["LD_LIBRARY_PATH"] = Consts.pulseDir.absolutePath
-            //模块从sles改成aaudio就没这问题了
-//                environment()["LD_PRELOAD"] = "/system/lib64/liblzma.so" //这也是三星的问题？
+            // Switching the module from sles to aaudio fixes this issue
+//                environment()["LD_PRELOAD"] = "/system/lib64/liblzma.so" // Samsung-specific issue?
 //                environment()["LD_PRELOAD"] = "/system/lib64/libskcodec.so"
 
         }
@@ -29,7 +29,7 @@ object Pulseaudio {
 
     fun stop() {
         buildProcess().command("./pulseaudio", "--kill").start().waitFor()
-        //TODO  删除残留.config文件夹和pulse-xxxx文件夹，防止pa_pid_file_create() failed.?
+        //TODO  delete leftover .config and pulse-xxxx folders to prevent pa_pid_file_create() failed
 
     }
 
@@ -43,7 +43,7 @@ object Pulseaudio {
             BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
-                    Log.d(TAG, "pulseaudio输出 $line")
+                    Log.d(TAG, "pulseaudio output: $line")
                 }
             }
         }
@@ -51,7 +51,7 @@ object Pulseaudio {
     }
 
     /**
-     * pulseaudio直接发送信号不生效。pacmd suspend 1倒是可以
+     * Sending a signal directly to pulseaudio has no effect; `pacmd suspend 1` works instead.
      */
     fun pause() {
         buildProcess()

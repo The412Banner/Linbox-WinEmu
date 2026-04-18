@@ -29,13 +29,13 @@ import org.github.ewt45.winemulator.ui.components.TextFieldOption
 import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 
 /**
- * proot设置
+ * PRoot settings panel.
  */
 @Composable
 fun ProotSettings(settingVM: SettingViewModel) {
     val proot by settingVM.prootState.collectAsState()
 
-    CollapsePanel("PRoot参数") {
+    CollapsePanel("PRoot Options") {
         ProotNoValueOptions(proot.boolOptions, settingVM::onChangeProotBoolOptions)
         ProotStartupCmd(proot.startupCmd, settingVM::onChangeProotStartupCmd)
     }
@@ -43,7 +43,7 @@ fun ProotSettings(settingVM: SettingViewModel) {
 
 
 /**
- * 一些无参数的选项
+ * Toggle options that take no value.
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -55,11 +55,11 @@ fun ProotNoValueOptions(
 
     val allOptions = listOf("-L", "--link2symlink", "--kill-on-exit", "--sysvipc", "--ashmem-memfd", "-H", "-p"/*"--root-id",*/)
     FlowRow(modifier = Modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        //--root-id 不可选但是显示，提示用户去rootfs切换那里设置
+        // --root-id is not toggleable here; shown to direct the user to the Rootfs switch screen
         val tooltipState = rememberTooltipState()
         TooltipBox(
             positionProvider = TooltipDefaults.rememberRichTooltipPositionProvider(),
-            tooltip = { PlainTooltip { Text("用户id 请在 “Rootfs切换” 处设置。") } },
+            tooltip = { PlainTooltip { Text(“User ID — configure this in the \”Rootfs Switch\” screen.”) } },
             state = tooltipState,
         ) {
             Box {
@@ -90,7 +90,7 @@ fun ProotStartupCmd(
 @Preview(widthDp = 300, heightDp = 600)
 @Composable
 fun ProotSettingsPreview() {
-    CollapsePanel("PRoot参数") {
+    CollapsePanel("PRoot Options") {
         var proot_no_value_options by remember { mutableStateOf(setOf("-L", "--link2symlink", "--sysvipc", "--kill-on-exit" /*"--root-id",*/)) }
         var proot_startup_cmd by remember { mutableStateOf("") }
         ProotNoValueOptions(proot_no_value_options, { key, checked ->
