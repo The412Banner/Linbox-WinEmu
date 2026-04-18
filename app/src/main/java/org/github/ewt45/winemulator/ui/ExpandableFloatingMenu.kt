@@ -56,49 +56,33 @@ fun ExpandableFloatingMenu(
     val density = LocalDensity.current
     val buttonSizePx = with(density) { Consts.Ui.minimizedIconSize.dp.toPx() }
     val miniButtonSizePx = with(density) { 40.dp.toPx() }
-    
-    // 拖动阈值：超过这个距离才认为是拖动
     val dragThreshold = with(density) { 30.dp.toPx() }
-    
-    // 初始位置（距离左上角 48dp，垂直方向 100dp）
     val initialX = with(density) { 48.dp.toPx() }
     val initialY = with(density) { 100.dp.toPx() }
-    
-    // 菜单是否展开
+
     var isExpanded by remember { mutableStateOf(false) }
-    
-    // 使用 rememberSaveable 持久化位置，避免重组时重置
     var offsetX by rememberSaveable { mutableStateOf(initialX) }
     var offsetY by rememberSaveable { mutableStateOf(initialY) }
-    
-    // 用于跟踪是否已经开始拖动
     var hasDragged by rememberSaveable { mutableStateOf(false) }
-    // 用于存储按下的起始位置
     var pressStartX by rememberSaveable { mutableFloatStateOf(0f) }
     var pressStartY by rememberSaveable { mutableFloatStateOf(0f) }
-    
-    // 主按钮的旋转动画
+
     val rotationAngle by animateFloatAsState(
         targetValue = if (isExpanded) 45f else 0f,
         animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
         label = "rotation"
     )
-    
-    // 当父容器尺寸变化时，确保悬浮球仍在边界内
+
     LaunchedEffect(parentWidth, parentHeight, buttonSizePx) {
         if (parentWidth > 0 && parentHeight > 0) {
             offsetX = offsetX.coerceIn(0f, parentWidth - buttonSizePx)
             offsetY = offsetY.coerceIn(0f, parentHeight - buttonSizePx)
         }
     }
-    
-    // 判断悬浮球在屏幕哪一侧（用于决定弧度方向）
+
     val isOnLeftSide = offsetX < parentWidth / 2
-    
-    Box(
-        modifier = modifier.fillMaxSize()
-    ) {
-        // 点击外部区域收起菜单
+
+    Box(modifier = modifier.fillMaxSize()) {
         if (isExpanded) {
             Box(
                 modifier = Modifier
@@ -107,49 +91,36 @@ fun ExpandableFloatingMenu(
                     .clickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
-                    ) {
-                        isExpanded = false
-                    }
+                    ) { isExpanded = false }
             )
         }
-        
-        // 展开的子菜单 - 横向弧形排列，按钮从左到右排列成弧形
+
         if (isExpanded) {
-            // 菜单项数据：图标、描述、点击回调
             val menuItems = listOf(
                 Triple(Icons.Default.Home, "主菜单", onMainMenuClick),
                 Triple(Icons.Filled.Settings, "一般设置", onGeneralSettingsClick),
                 Triple(Icons.Default.Menu, "虚拟按键设置", onVirtualKeysClick),
                 Triple(Icons.Default.Info, "X11显示设置", onX11SettingsClick)
             )
-            
-            // 横向弧线参数
-            val arcRadius = with(density) { 80.dp.toPx() } // 弧线半径
-            val arcSpread = 180f // 弧线跨越的角度（半圆）
-            
-            // 根据悬浮窗位置决定弧度方向
-            // 右侧时显示左侧半圆弧（⊃），左侧时显示右侧半圆弧（⊂）
-            val bendDirection = if (isOnLeftSide) -1f else 1f
-            
-            // 中心点在主按钮位置
-            val centerX = offsetX + buttonSizePx / 2 - miniButtonSizePx / 2
-            val centerY = offsetY
-            
+
+            val arcRadius = with(density) { 80.dp.toPx() }
+            val arcSpread = 180f
+
+            val mainCenterX = offsetX + buttonSizePx / 2
+            val mainCenterY = offsetY + buttonSizePx / 2
+            val direction = if (isOnLeftSide) 1f else -1f
+
             menuItems.forEachIndexed { index, (icon, description, onClick) ->
-                // 计算在弧线上的位置 - 横向排列
-                // 从左到右均匀分布
                 val fraction = index.toFloat() / (menuItems.size - 1)
-                
-                // 角度：中间为0度，向两边延伸（带方向）
-                val angleDeg = arcSpread * (fraction - 0.5f) * bendDirection
+                val angleDeg = arcSpread * (fraction - 0.5f)
                 val angleRad = Math.toRadians(angleDeg.toDouble()).toFloat()
-                
-                // 横向弧形位置计算
-                // x: 水平方向扩展
-                // y: 垂直方向形成弧度
-                val x = centerX + arcRadius * sin(angleRad)
-                val y = centerY - arcRadius * (1 - cos(angleRad))
-                
+
+                val offsetXFromCenter = direction * arcRadius * cos(angleRad)
+                val offsetYFromCenter = arcRadius * sin(angleRad)
+
+                val x = mainCenterX + offsetXFromCenter - miniButtonSizePx / 2
+                val y = mainCenterY + offsetYFromCenter - miniButtonSizePx / 2
+
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(x.roundToInt(), y.roundToInt()) }
@@ -176,8 +147,8 @@ fun ExpandableFloatingMenu(
                 }
             }
         }
-        
-        // 主悬浮按钮（放在最上层）
+
+        // 主按钮（代码保持不变）
         Box(
             modifier = Modifier
                 .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -200,18 +171,12 @@ fun ExpandableFloatingMenu(
                             }
                             hasDragged = false
                         },
-                        onDragCancel = {
-                            hasDragged = false
-                        },
+                        onDragCancel = { hasDragged = false },
                         onDrag = { change, dragAmount ->
                             val totalDragX = change.position.x - pressStartX
                             val totalDragY = change.position.y - pressStartY
                             val totalDistance = abs(totalDragX) + abs(totalDragY)
-                            
-                            if (totalDistance > dragThreshold) {
-                                hasDragged = true
-                            }
-                            
+                            if (totalDistance > dragThreshold) hasDragged = true
                             if (hasDragged) {
                                 change.consume()
                                 offsetX = offsetX + dragAmount.x
@@ -224,9 +189,7 @@ fun ExpandableFloatingMenu(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
-                    if (!hasDragged) {
-                        isExpanded = !isExpanded
-                    }
+                    if (!hasDragged) isExpanded = !isExpanded
                 },
             contentAlignment = Alignment.Center
         ) {
