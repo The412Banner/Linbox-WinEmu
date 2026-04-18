@@ -36,8 +36,9 @@ import com.termux.x11.input.InputStub
 import com.termux.x11.input.RenderData
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import a.io.github.ewt45.winemulator.R
 import org.github.ewt45.winemulator.Consts
-import org.github.ewt45.winemulator.R
+import org.github.ewt45.winemulator.Utils.Ui.snapToNearestEdgeHalfway
 import org.github.ewt45.winemulator.inputcontrols.InputControlsManager
 import org.github.ewt45.winemulator.inputcontrols.InputControlsView
 import org.github.ewt45.winemulator.inputcontrols.X11InputSender
