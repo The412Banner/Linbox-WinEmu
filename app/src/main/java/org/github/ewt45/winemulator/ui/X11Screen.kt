@@ -42,34 +42,26 @@ import kotlinx.coroutines.delay
 fun X11Screen(
     x11Content: (Context) -> View,
     onNavigateToOthers: (Destination) -> Unit,
-    // Add callback to get LorieView from the X11 content view
     onLorieViewReady: ((InputStub) -> Unit)? = null,
-    // 新增：用于悬浮弹窗的SettingViewModel
     settingVm: SettingViewModel? = null
 ) {
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-    // X11 Input Sender - 用于通过InputEventSender发送按键事件
-    val x11InputSender = remember { X11InputSender() }
-    // RenderData for touch events
-    val renderData = remember { RenderData() }
-    // 加载当前选中的虚拟按键配置 ID - 改为响应式状态变量
-    var currentProfileId by remember { mutableStateOf(prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)) }
-    val manager = remember { InputControlsManager(context) }
-    val profile = remember(currentProfileId) {
-        if (currentProfileId != 0) manager.getProfile(currentProfileId) else manager.getProfiles().firstOrNull()
-    }
 
-    // 用于监听show_touchscreen_controls的变化
+    val x11InputSender = remember { X11InputSender() }
+    val renderData = remember { RenderData() }
+    val manager = remember { InputControlsManager(context) }
+
+    // 状态变量
+    var currentProfileId by remember { mutableStateOf(prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)) }
     var showTouchscreenControls by remember { mutableStateOf(prefs.getBoolean("show_touchscreen_controls", false)) }
 
-    // 使用轮询方式监听SharedPreferences变化（比监听器更可靠）
+    // 轮询监听 SharedPreferences 变化（后备同步机制）
     LaunchedEffect(Unit) {
         while (true) {
             val newShowControls = prefs.getBoolean("show_touchscreen_controls", false)
             val newProfileId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
-            
-            // 只有值真正变化时才更新
+
             if (newShowControls != showTouchscreenControls) {
                 Log.d("X11Screen", "showTouchscreenControls changed: $showTouchscreenControls -> $newShowControls")
                 showTouchscreenControls = newShowControls
@@ -78,117 +70,105 @@ fun X11Screen(
                 Log.d("X11Screen", "currentProfileId changed: $currentProfileId -> $newProfileId")
                 currentProfileId = newProfileId
             }
-            
-            delay(300) // 每300ms检查一次
+            delay(300)
         }
     }
-    // Create InputEventHandler that uses X11InputSender
-    // InputEventHandler receives evdev keycodes from InputControlsView
+
+    // InputEventHandler 使用 X11InputSender
     val inputEventHandler = remember {
         object : InputEventHandler {
             override fun onKeyEvent(keycode: Int, isDown: Boolean) {
-                // keycode is evdev keycode from Binding class
-                // X11InputSender will convert it to Android keycode and send via InputEventSender
                 x11InputSender.sendEvdevKeyEvent(keycode, isDown)
             }
             override fun onPointerMove(dx: Int, dy: Int) {
-                // Send mouse motion event (relative movement)
                 x11InputSender.sendMouseMotionEvent(dx, dy)
             }
             override fun onPointerButton(button: Int, isDown: Boolean) {
-                // Send mouse button event
-                // button: 0=left, 1=right, 2=middle
                 x11InputSender.sendMouseButtonEvent(button, isDown)
             }
         }
     }
-    // Create InputControlsView with the event handler
-    val inputControlsView = remember(showTouchscreenControls, currentProfileId) {
+
+    // 只创建一次 InputControlsView，避免重建
+    val inputControlsView = remember {
         InputControlsView(context, editMode = false).apply {
-            profile?.let { setProfile(it) }
             this.inputEventHandler = inputEventHandler
-            // 根据设置决定是否显示虚拟按键，默认关闭
-            showTouchscreenControls = showTouchscreenControls
         }
     }
-    // 监听显示设置的改变
+
+    // 监听显示开关变化并实时更新视图
     LaunchedEffect(showTouchscreenControls) {
         inputControlsView.showTouchscreenControls = showTouchscreenControls
+        Log.d("X11Screen", "Updated showTouchscreenControls: $showTouchscreenControls")
     }
-    // Listen for profile changes
+
+    // 监听配置 ID 变化并实时更新视图
     LaunchedEffect(currentProfileId) {
         val newProfile = if (currentProfileId != 0) manager.getProfile(currentProfileId) else manager.getProfiles().firstOrNull()
         inputControlsView.setProfile(newProfile)
+        Log.d("X11Screen", "Updated profile to: ${newProfile?.name}")
     }
 
-    // ========== 新增：即时刷新函数，用于悬浮弹窗回调 ==========
+    // 即时刷新函数（供悬浮弹窗回调使用）
     val refreshControlsImmediately = {
         val newShowControls = prefs.getBoolean("show_touchscreen_controls", false)
         val newProfileId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
 
-        // 更新 Compose 状态
+        var needRefresh = false
         if (newShowControls != showTouchscreenControls) {
             showTouchscreenControls = newShowControls
+            needRefresh = true
         }
         if (newProfileId != currentProfileId) {
             currentProfileId = newProfileId
+            needRefresh = true
         }
 
-        // 直接操作 InputControlsView 实例，立即生效
-        inputControlsView.showTouchscreenControls = newShowControls
-        val newProfile = if (newProfileId != 0) manager.getProfile(newProfileId) else manager.getProfiles().firstOrNull()
-        inputControlsView.setProfile(newProfile)
+        // 如果状态没有变化，仍然强制刷新一次视图（保证一致性）
+        if (!needRefresh) {
+            inputControlsView.showTouchscreenControls = newShowControls
+            val newProfile = if (newProfileId != 0) manager.getProfile(newProfileId) else manager.getProfiles().firstOrNull()
+            inputControlsView.setProfile(newProfile)
+        }
     }
-    // =======================================================
 
-    // Box with X11 content and virtual controls overlay
     Box(Modifier.fillMaxSize()) {
-        // X11 rendering content
+        // X11 渲染视图
         AndroidView(
             factory = { ctx ->
                 val view = x11Content(ctx)
-                // Try to get LorieView from the X11 content view
-                // The x11Content should return a LorieView or a view that contains it
                 try {
                     val lorieView = if (view is com.termux.x11.LorieView) {
                         view
                     } else {
-                        // Try to find LorieView in the view hierarchy
                         findLorieView(view)
                     }
-                    lorieView?.let { 
-                        // Initialize X11InputSender with the LorieView (which implements InputStub)
+                    lorieView?.let {
                         x11InputSender.initialize(it)
-                        // Setup render data for touch coordinate transformation
-                        renderData.scale = android.graphics.PointF(1f, 1f) // Default scale
+                        renderData.scale = android.graphics.PointF(1f, 1f)
                         x11InputSender.renderData = renderData
-                        // Notify that LorieView is ready
                         onLorieViewReady?.invoke(it)
                         Log.d("X11Screen", "X11InputSender initialized with LorieView")
                     } ?: run {
                         Log.e("X11Screen", "Could not find LorieView in X11 content")
                     }
                 } catch (e: Exception) {
-                    // If we can't get LorieView, log the error
                     Log.e("X11Screen", "Failed to initialize X11InputSender: ${e.message}", e)
                 }
                 view
             },
             modifier = Modifier.fillMaxSize()
         )
-        // Virtual controls overlay
+
+        // 虚拟按键覆盖层
         AndroidView(
             factory = { inputControlsView },
             modifier = Modifier.fillMaxSize()
         )
-        // 悬浮弹窗状态管理
+
         val floatingPopupState = remember { FloatingPopupState() }
 
-        // 悬浮球：使用 BoxWithConstraints 获取父布局尺寸
-        BoxWithConstraints(
-            Modifier.fillMaxSize()
-        ) {
-            // 使用新的可展开悬浮菜单
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             ExpandableFloatingMenu(
                 parentWidth = constraints.maxWidth.toFloat(),
                 parentHeight = constraints.maxHeight.toFloat(),
@@ -199,16 +179,15 @@ fun X11Screen(
             )
         }
 
-        // 显示悬浮弹窗，并传递即时刷新回调
         settingVm?.let { vm ->
             FloatingSettingsPopups(
                 popupState = floatingPopupState,
                 settingVm = vm,
-                onVirtualKeysSettingsChanged = refreshControlsImmediately  // 关键：传递刷新函数
+                onVirtualKeysSettingsChanged = refreshControlsImmediately
             )
         }
     }
-    // Cleanup on dispose
+
     DisposableEffect(Unit) {
         onDispose {
             x11InputSender.release()
