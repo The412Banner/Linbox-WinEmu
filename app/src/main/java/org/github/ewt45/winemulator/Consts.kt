@@ -26,65 +26,65 @@ object Consts {
     var isDebug = true
     lateinit var cacheDir: File
 
-    /** 用于proot绑定 /tmp 的安卓路径 */
+    /** Android path used as proot's /tmp bind target */
     lateinit var tmpDir: File
 
-    /** 此文件夹内包含各种rootfs. files/rootfs */
+    /** Directory containing all rootfs installations — files/rootfs */
     lateinit var rootfsAllDir: File
 
-    /** 当前激活的rootfs, 应该为一个指向实际rootfs的软链接. files/rootfs/current */
+    /** The currently active rootfs; should be a symlink to the actual rootfs — files/rootfs/current */
     lateinit var rootfsCurrDir: File
 
-    /** tx11 需要用到的xkb文件夹， rootfs可以安装libxkbcommon包来获取. 路径：[rootfsCurrDir]/usr/share/X11/xkb */
+    /** XKB data directory required by termux-x11; can be obtained by installing libxkbcommon in the rootfs. Path: [rootfsCurrDir]/usr/share/X11/xkb */
     lateinit var rootfsCurrXkbDir: File
 
-    /** rootfs中的/tmp文件夹。启动proot前应将其变为[tmpDir]的符号链接。路径：[rootfsCurrDir]/tmp */
+    /** /tmp inside the rootfs. Should be a symlink to [tmpDir] before starting proot. Path: [rootfsCurrDir]/tmp */
     lateinit var rootfsCurrTmpDir: File
 
-    /** proot --link2symlink 时 要存放唯一真实文件的文件夹。路径：[rootfsCurrDir]/.l2s */
+    /** Directory where proot --link2symlink stores unique real files. Path: [rootfsCurrDir]/.l2s */
     lateinit var rootfsCurrL2sDir: File
 
-    /** 容器启动时执行的初始化脚本 */
+    /** Initialization script executed when the container starts */
     lateinit var rootfsCurrStartSh: File
 
-    /** 一个用于测试的alpine rootfs. files/rootfs/alpine-aarch64 */
+    /** A test alpine rootfs — files/rootfs/alpine-aarch64 */
     lateinit var alpineRootfsDir: File
 
-    /** 在一个rootfs内部，存放模拟器配置相关的文件夹的名称。 */
+    /** Name of the directory inside a rootfs that holds emulator configuration files. */
     val rootfsEmuConfDirName: String = "/.emuconf"
 
-    /** proot二进制文件. files/proot  */
+    /** proot binary — files/proot */
     lateinit var prootBin: File
 
-    /** 存储pulseaudio相关文件的文件夹 */
+    /** Directory that stores PulseAudio-related files */
     lateinit var pulseDir: File
 
-    /** 运行pulse时环境变量HOME设置为该路径，用于寻找~/.config 等 */
+    /** HOME directory set when running PulseAudio, used to locate ~/.config etc. */
     lateinit var pulseHomeDir: File
     lateinit var pulseBin: File
 
-    /** apk自身所在路径 */
+    /** Path to the installed APK file */
     lateinit var apkFilePath: String
 
-    /** 定义在assets中的默认值，此map中的值会优先于代码中的默认值生效。key为datastore的某个key, value为对应value */
+    /** Default values defined in assets. These take precedence over in-code defaults. Key = DataStore key name, value = default value. */
     private lateinit var prefInAssets: Map<String, Any>
 
     object Ui {
-        /** 最小化时的宽高dp值 */
+        /** Width/height in dp when minimized */
         val minimizedIconSize = 48
     }
 
     /**
-     * 用户偏好相关.
-     * 如果assets中指定了默认值，会覆盖这里的默认值
+     * User preference definitions.
+     * Defaults specified in assets take precedence over the in-code defaults here.
      */
     object Pref {
         data class Item<T>(val key: Preferences.Key<T>, val default: T, val flow: Flow<T>) {
-            /** 获取最新的值. 本地未存储时返回[default] */
+            /** Returns the latest stored value, or [default] if nothing is stored. */
             suspend fun get(): T = flow.first()
         }
 
-        /** 全部设置项。用于批量操作 例如导出导入，重置 */
+        /** All preference items — used for batch operations such as export, import, and reset. */
         val allItems by lazy { getAllPrefItems() }
 
         val general_resolution by item("general_resolution", "1280x720")
@@ -100,38 +100,38 @@ object Consts {
         val inputcontrols_haptics by item("inputcontrols_haptics", true)
         
         // Theme Settings
-        // 主题偏好: 0 = 跟随系统, 1 = 暗色主题, 2 = 亮色主题
+        // Theme: 0 = follow system, 1 = dark, 2 = light
         val general_theme_mode by item("general_theme_mode", 1)
 
-        // X11 Settings - 触摸方式: 0=虚拟触控板, 1=模拟触摸, 2=触摸屏
+        // X11 Settings - touch mode: 0=virtual trackpad, 1=simulated touch, 2=touchscreen
         val x11_touch_mode by item("x11_touch_mode", 0)
-        // X11 Settings - 屏幕方向: 10=跟随系统, 11=横屏, 12=竖屏, 13=反向横屏, 14=反向竖屏
+        // X11 Settings - screen orientation: 10=follow system, 11=landscape, 12=portrait, 13=reverse landscape, 14=reverse portrait
         val x11_screen_orientation by item("x11_screen_orientation", 10)
-        // X11 Settings - 显示缩放: 30-300
+        // X11 Settings - display scale: 30–300
         val x11_display_scale by item("x11_display_scale", 100)
-        // X11 Settings - 保持屏幕常亮
+        // X11 Settings - keep screen on
         val x11_keep_screen_on by item("x11_keep_screen_on", true)
-        // X11 Settings - 全屏模式
+        // X11 Settings - fullscreen mode
         val x11_fullscreen by item("x11_fullscreen", true)
-        // X11 Settings - 使用刘海屏区域
+        // X11 Settings - use display cutout area
         val x11_hide_cutout by item("x11_hide_cutout", true)
-        // X11 Settings - PIP画中画模式
+        // X11 Settings - picture-in-picture mode
         val x11_pip_mode by item("x11_pip_mode", false)
-        // X11 Settings - 分辨率: 格式为"宽x高"，如"1280x720"
+        // X11 Settings - resolution in "widthxheight" format, e.g. "1280x720"
         val x11_resolution by item("x11_resolution", "1280x720")
 
-        /** 仅在此设备存储，不应用于导出导入。 */
+        /** Stored on this device only — excluded from export/import. */
         object Local {
-            /** 当前使用的rootfs名，[Consts.rootfsAllDir]目录下的某个文件夹名，可能为空字符串或对应文件夹不存在 */
+            /** Name of the currently active rootfs (a folder inside [Consts.rootfsAllDir]). May be an empty string or point to a non-existent folder. */
             val curr_rootfs_name by item("local_curr_rootfs_name", "")
-            /** 记录当前存在的rootfs 如果要使用该rootfs, 应该登陆哪个用户。 存为json字符串。转换时应该变成一个map, key是rootfs文件夹名, value是用户名  */
+            /** JSON string mapping each rootfs name to the login user to use. Key = rootfs folder name, value = username. */
             val rootfs_login_user_json by item("local_rootfs_login_user", "{}")
-            /** 跳过权限申请 */
+            /** Skip the permission request flow */
             val skip_permissions by item("skip_permissions", false)
         }
 
         /**
-         * 初始化Item需要在读取assets之后，lazy的话 第一次用到Pref时Consts应该已经初始化好了吧。用lateinit的话还需要多写一行
+         * Item initialization must happen after assets are loaded. With lazy, Consts should already be initialized the first time Pref is accessed.
          */
         @Suppress("UNCHECKED_CAST")
         private inline fun <reified T> item(name: String, default: T): Lazy<Item<T>> = lazy {
@@ -149,7 +149,7 @@ object Consts {
             return@lazy Item(key, finalDefault, dataStore.data.map { it[key] ?: finalDefault })
         }
 
-        /** 反射获取全部设置项 */
+        /** Uses reflection to collect all preference items */
         @Suppress("UNCHECKED_CAST")
         private fun getAllPrefItems(): List<Item<Any>> {
             return Pref::class.declaredMemberProperties
@@ -158,9 +158,9 @@ object Consts {
         }
     }
 
-    //TODO 将费时操作移到异步函数中
+    //TODO Move expensive operations to async functions
     /**
-     * 初始化。使用前先调用一次
+     * Initializes Consts. Call once before first use.
      */
     fun init(ctx: Context) {
         isDebug = ctx.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -176,13 +176,13 @@ object Consts {
         rootfsAllDir.mkdirs()
 
         rootfsCurrDir = File(rootfsAllDir, "current")
-        alpineRootfsDir = File(rootfsAllDir, "alpine-aarch64") //这个等解压的时候再创建吧
+        alpineRootfsDir = File(rootfsAllDir, "alpine-aarch64") // created when extracting
         rootfsCurrXkbDir = File(rootfsCurrDir, "usr/share/X11/xkb")
         rootfsCurrTmpDir = File(rootfsCurrDir, "tmp")
         rootfsCurrL2sDir = File(rootfsCurrDir, "/.l2s")
         rootfsCurrStartSh = File(rootfsCurrDir, "/.emuconf/start.sh")
 
-        //proot从assets解压
+        // Extract proot from assets
         prootBin = File(fileDir, "proot")
         if (!prootBin.exists()) {
             Utils.streamCopy(ctx.assets.open("proot"), FileOutputStream(prootBin))
@@ -201,7 +201,7 @@ object Consts {
 
         apkFilePath = ctx.applicationInfo.sourceDir
 
-        //优先生效的用户偏好
+        // User preferences that take priority over in-code defaults
         val prefInAssetsJson = IOUtils.toString(ctx.assets.open("preferences.json"), StandardCharsets.UTF_8)
         prefInAssets = Utils.Pref.deserializeFromJsonToMap(prefInAssetsJson)
     }

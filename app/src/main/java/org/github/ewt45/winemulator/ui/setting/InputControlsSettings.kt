@@ -39,29 +39,28 @@ fun InputControlsSettings(
     var selectedProfile by remember { mutableStateOf<ControlsProfile?>(null) }
     var showProfileDialog by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(false) }
-    // 添加启用虚拟按键的状态变量，确保Switch状态正确更新
     var isControlsEnabled by remember { mutableStateOf(false) }
 
     val manager = remember { InputControlsManager(context) }
 
-    // 加载配置列表，并恢复上次选中的配置
+    // Load profiles and restore the last selected one
     LaunchedEffect(Unit) {
         manager.loadProfiles(ignoreTemplates = false)
         profiles = manager.getProfiles()
         val savedId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
-        // 只有当savedId不为0时才尝试恢复配置，否则保持null状态
+        // Only try to restore if savedId is non-zero; otherwise keep null
         selectedProfile = if (savedId != 0) manager.getProfile(savedId) else null
-        // 确保 SharedPreferences 中保存了正确的 ID
+        // Ensure SharedPreferences has the correct ID
         if (selectedProfile != null && savedId != selectedProfile!!.id) {
             prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, selectedProfile!!.id).apply()
         }
-        // 恢复虚拟按键显示状态
+        // Restore the virtual keys visibility state
         showControls = prefs.getBoolean("show_touchscreen_controls", false)
-        // 恢复启用状态 - 只有当有保存的配置时才启用
+        // Restore enabled state — only enabled when there is a saved profile
         isControlsEnabled = savedId != 0 && selectedProfile != null
     }
 
-    // 监听SharedPreferences的变化
+    // Listen for SharedPreferences changes
     LaunchedEffect(prefs) {
         prefs.registerOnSharedPreferenceChangeListener { _, key ->
             when (key) {
@@ -77,11 +76,10 @@ fun InputControlsSettings(
         }
     }
 
-    // 监听profiles列表的变化，确保配置被删除时能更新UI
+    // When the profiles list changes, disable virtual keys if the selected profile was deleted
     LaunchedEffect(profiles) {
         val savedId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
         if (savedId != 0 && selectedProfile == null) {
-            // 配置被删除了，禁用虚拟按键
             isControlsEnabled = false
         }
     }
@@ -95,7 +93,7 @@ fun InputControlsSettings(
             modifier = Modifier.padding(vertical = 8.dp)
         )
 
-        // 启用/禁用开关
+        // Enable/disable switch
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -115,14 +113,14 @@ fun InputControlsSettings(
                 checked = isControlsEnabled,
                 onCheckedChange = { enabled ->
                     if (!enabled) {
-                        // 关闭虚拟按键时，同时隐藏虚拟按键
+                        // When disabling virtual keys, also hide them
                         selectedProfile = null
                         showControls = false
                         isControlsEnabled = false
                         prefs.edit().remove(InputControlsFragment.SELECTED_PROFILE_ID).apply()
                         prefs.edit().putBoolean("show_touchscreen_controls", false).apply()
                     } else if (profiles.isEmpty()) {
-                        // 创建默认配置
+                        // Create a default profile
                         val newProfile = manager.createProfile("Default profile")
                         profiles = manager.getProfiles()
                         selectedProfile = newProfile
@@ -131,17 +129,17 @@ fun InputControlsSettings(
                         prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, newProfile.id).apply()
                         prefs.edit().putBoolean("show_touchscreen_controls", true).apply()
                     } else {
-                        // 尝试恢复之前保存的配置，而不是强制选择第一个
+                        // Try to restore the previously saved profile rather than forcing the first one
                         val savedId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
                         val restoredProfile = if (savedId != 0) manager.getProfile(savedId) else null
                         if (restoredProfile != null) {
                             selectedProfile = restoredProfile
                         } else {
-                            // 只有在无法恢复时才选择第一个配置
+                            // Only fall back to the first profile when no saved one can be restored
                             selectedProfile = profiles.first()
                             prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, selectedProfile!!.id).apply()
                         }
-                        // 开启虚拟按键时，同时显示虚拟按键
+                        // When enabling virtual keys, also show them
                         showControls = true
                         isControlsEnabled = true
                         prefs.edit().putBoolean("show_touchscreen_controls", true).apply()
@@ -150,7 +148,7 @@ fun InputControlsSettings(
             )
         }
 
-        // 显示/隐藏虚拟按键开关（仅在启用虚拟按键时显示）
+        // Show/hide virtual keys switch (only visible when virtual keys are enabled)
         if (isControlsEnabled) {
             Row(
                 modifier = Modifier
@@ -180,7 +178,7 @@ fun InputControlsSettings(
         if (isControlsEnabled) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // 配置选择器
+            // Profile selector
             Text(
                 text = "Current profile",
                 style = MaterialTheme.typography.titleMedium,
@@ -220,7 +218,7 @@ fun InputControlsSettings(
                 }
             }
 
-            // 配置操作按钮
+            // Profile action buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -276,7 +274,7 @@ fun InputControlsSettings(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // 编辑布局按钮
+            // Edit layout button
             Button(
                 onClick = {
                     selectedProfile?.let { profile ->
@@ -292,7 +290,7 @@ fun InputControlsSettings(
                 Text("Edit virtual key layout")
             }
 
-            // 快捷预设（演示用）
+            // Quick presets (demo)
             Text(
                 text = "Quick Presets",
                 style = MaterialTheme.typography.titleMedium,
@@ -304,7 +302,7 @@ fun InputControlsSettings(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val presetNames = listOf(
-                    "FPS游戏", "RPG游戏", "RTS游戏", "Racing Game", "Fighting Game"
+                    "FPS Game", "RPG Game", "RTS Game", "Racing Game", "Fighting Game"
                 )
 
                 items(presetNames) { presetName ->
@@ -314,15 +312,15 @@ fun InputControlsSettings(
                             Icon(Icons.Default.Star, contentDescription = null)
                         },
                         modifier = Modifier.clickable {
-                            dialogState.showConfirm("加载预设 '$presetName'？这将替换当前配置的按键布局。") {
-                                // 应用预设的逻辑（需根据项目实现）
+                            dialogState.showConfirm("Load preset '$presetName'? This will replace the current profile's key layout.") {
+                                // Apply preset logic (implementation depends on project)
                             }
                         }
                     )
                 }
             }
 
-            // 导出/导入
+            // Export / import
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             Row(
@@ -334,7 +332,7 @@ fun InputControlsSettings(
                         selectedProfile?.let { profile ->
                             val file = manager.exportProfile(profile)
                             if (file != null) {
-                                dialogState.showConfirm("配置已导出到: ${file.absolutePath}")
+                                dialogState.showConfirm("Profile exported to: ${file.absolutePath}")
                             } else {
                                 dialogState.showConfirm("Export failed")
                             }
@@ -349,8 +347,8 @@ fun InputControlsSettings(
 
                 OutlinedButton(
                     onClick = {
-                        // 导入逻辑需使用文件选择器，此处仅作演示
-                        dialogState.showConfirm("请选择要导入的.icp文件")
+                        // Import requires a file picker; this is a demo placeholder
+                        dialogState.showConfirm("Please select the .icp file to import")
                     },
                     modifier = Modifier.weight(1f)
                 ) {
@@ -362,7 +360,7 @@ fun InputControlsSettings(
         }
     }
 
-    // 新建配置对话框
+    // New profile dialog
     if (showProfileDialog) {
         var newProfileName by remember { mutableStateOf("") }
 
@@ -416,13 +414,13 @@ fun ControlsEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑虚拟按键 - ${profile.name}") },
+        title = { Text("Edit Virtual Keys - ${profile.name}") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "提示：点击下方按钮添加新的控件元素，长按拖动可以移动位置。",
+                    text = "Tip: Tap the buttons below to add new control elements. Long-press and drag to reposition them.",
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
@@ -437,7 +435,7 @@ fun ControlsEditorDialog(
                                 Text("${element.type.name} - ${element.getBindingAt(0).name}")
                             },
                             supportingContent = {
-                                Text("位置: (${element.x}, ${element.y})")
+                                Text("Position: (${element.x}, ${element.y})")
                             },
                             leadingContent = {
                                 Icon(
@@ -482,7 +480,7 @@ fun ControlsEditorDialog(
                     FilterChip(
                         selected = false,
                         onClick = {
-                            // 此处应调用实际的添加逻辑，但需根据项目实现
+                            // Should call the actual add logic once implemented
                             dialogState.showConfirm("Long-press the screen in-game to add a new virtual key")
                         },
                         label = { Text("Button") },
@@ -491,18 +489,14 @@ fun ControlsEditorDialog(
 
                     FilterChip(
                         selected = false,
-                        onClick = {
-                            // 添加方向键
-                        },
+                        onClick = {},
                         label = { Text("D-Pad") },
                         leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) }
                     )
 
                     FilterChip(
                         selected = false,
-                        onClick = {
-                            // 添加摇杆
-                        },
+                        onClick = {},
                         label = { Text("Joystick") },
                         leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
                     )
@@ -595,7 +589,7 @@ fun ElementSettingsDialog(
                 }
 
                 // Scale slider
-                Text("大小: ${(scale * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
+                Text("Size: ${(scale * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
                 Slider(
                     value = scale,
                     onValueChange = {
@@ -612,7 +606,7 @@ fun ElementSettingsDialog(
                         text = it
                         element.text = it
                     },
-                    label = { Text("自定义文字（可选）") },
+                    label = { Text("Custom text (optional)") },
                     singleLine = true
                 )
 
@@ -622,10 +616,10 @@ fun ElementSettingsDialog(
                     for (i in 0 until element.getBindingCount()) {
                         val binding = element.getBindingAt(i)
                         ListItem(
-                            headlineContent = { Text("绑定 ${i + 1}") },
+                            headlineContent = { Text("Binding ${i + 1}") },
                             supportingContent = { Text(binding.name) },
                             modifier = Modifier.clickable {
-                                // 弹出绑定选择器，因项目未提供，仅作演示
+                                // Binding picker would open here; not yet implemented
                             }
                         )
                     }
