@@ -88,21 +88,21 @@ fun MainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currDestination = appbarDestList.find { navBackStackEntry?.destination?.hasRoute(it.route::class) == true } ?: startDest
 
-    // 跳转到目的地。如果返回栈中有该目的地，则弹出到这个位置然后再跳转。
+    // Navigate to a destination. If it's already in the back stack, pop up to it first.
     val navigateTo: (Destination) -> Unit = { navController.navigate(it.route) { popUpTo(it.route) { inclusive = true } } }
 
-    // acitivty通过viewmodel修改目的地时，触发跳转
+    // Trigger navigation when the Activity updates the destination via the ViewModel
     LaunchedEffect(Unit) {
         mainVm.navigateToEvent.collect { dest -> navigateTo(dest) }
     }
-    // 启动时自动跳转到X11界面（如果设置了自动启动）
+    // Auto-navigate to X11 on startup when auto-start is configured
     LaunchedEffect(prepareUiState.isPrepareFinished) {
         if (prepareUiState.isPrepareFinished && startDest == Destination.X11) {
-            // 如果准备已完成且目标是X11，自动导航到X11
+            // Preparation done and target is X11 — navigate automatically
             navigateTo(Destination.X11)
         }
     }
-    // 开头或中途 需要进入准备屏幕时
+    // Navigate to the prepare screen at startup or mid-session when preparation is pending
     LaunchedEffect(prepareUiState.isPrepareFinished) {
         if (!prepareUiState.isPrepareFinished && currDestination != Destination.Prepare)
             navigateTo(Destination.Prepare)
@@ -114,8 +114,8 @@ fun MainScreen(
             MyTopAppBar(currDestination, { navigateTo(it) })
         },
     ) { innerPadding ->
-        // FIXME tx11已经处理键盘高度变更了，这里应该不用innerPadding 否则会有空白
-        //  但是使用了scaffold的topbar之后需要应用顶部padding
+        // FIXME: tx11 already handles keyboard height changes, so innerPadding shouldn't be needed here (causes blank space),
+        //  but the Scaffold topBar requires applying the top padding
 //            val ignoreSystemInsets = Modifier.padding(innerPadding)
         Box(
             modifier = Modifier
@@ -132,7 +132,7 @@ fun MainScreen(
                 composable<RoutePrepare> {
                     PrepareScreen(prepareVm, settingVm) {
                         MainEmuActivity.instance.startEmu()
-                        // 准备完成后直接跳转到X11界面
+                        // Navigate directly to X11 once preparation is complete
                         navController.navigate(Destination.X11.route) { popUpTo(Destination.Prepare.route) { inclusive = true } }
                     }
                 }
@@ -152,19 +152,19 @@ fun MainScreen(
 
 @Composable
 private fun MainDialog(uiState: MainUiState, onClose: (Boolean) -> Unit) {
-    // 对话框
+    // Dialog
     val dialogType = uiState.dialogType
     val isConfirm = uiState.dialogType == DialogType.CONFIRM
     val isBlock = uiState.dialogType == DialogType.BLOCK
     if (dialogType != DialogType.NONE) {
         AlertDialog(
-            onDismissRequest = {}, //阻止点击外部区域关闭
+            onDismissRequest = {}, // prevent dismissal on outside tap
 //                title = { Text("Loading") },
             text = {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth() // 让 Column 填充对话框宽度
-                        .wrapContentHeight(), // 根据内容调整高度
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     SelectionContainer {
@@ -192,7 +192,8 @@ private fun MainDialog(uiState: MainUiState, onClose: (Boolean) -> Unit) {
 
 
 /**
- * 顶部的AppBar，显示一个tabRow，包含一些导航目的地。如果传入当前目的地不在列表内，则不显示appbar
+ * Top AppBar with a scrollable tab row of navigation destinations.
+ * Hidden when the current destination is not in the list.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -204,7 +205,7 @@ private fun MyTopAppBar(
     if (selectIdx != null && selectIdx != -1) {
         TopAppBar(
             title = {
-                //TODO 改为 navigation  参考 https://developer.android.com/develop/ui/compose/components/tabs?hl=zh-cn
+                // TODO: convert to Navigation — see https://developer.android.com/develop/ui/compose/components/tabs
                 PrimaryScrollableTabRow(selectIdx, divider = {}) {
                     appbarDestList.forEachIndexed { idx, dest ->
                         Tab(
@@ -230,8 +231,9 @@ private fun MyTopAppBar(
 
 }
 
-/** 按钮。点击可将compose部分的视图展开或折叠。
- * 可拖动: 由于x11的acitivity是View视图，所以拖动还是要用view的layoutParam实现。
+/**
+ * Button that expands or collapses the Compose overlay.
+ * Draggable: since the X11 activity is a View, dragging is implemented via View LayoutParams.
  */
 @Composable
 private fun MinimizeButton(
@@ -242,14 +244,14 @@ private fun MinimizeButton(
     val activity = LocalActivity.current
     val miniIconPx = (Consts.Ui.minimizedIconSize * LocalDensity.current.density).toInt()
 
-    //最小化时颜色稍微变化一下吧，否则不容易看到
+    // Tint the button slightly when minimized so it remains visible
     val colorSurface = MaterialTheme.colorScheme.surfaceContainerHigh
     val colorContent = MaterialTheme.colorScheme.onSurface
     val colors =
         if (!minimize) IconButtonDefaults.iconButtonColors()
         else IconButtonColors(colorSurface, colorContent, colorSurface, colorContent)
 
-    // 记住最小化时的位置。全屏后再次最小化时恢复到上一次位置而非默认位置
+    // Remember the minimized position so it restores to the last position rather than the default
     val margin = remember { mutableListOf(0, 100) }
 
     IconButton(
@@ -292,14 +294,12 @@ private fun MinimizeButton(
     ) {
         Icon(
             painter = painterResource(if (minimize) R.drawable.ic_fullscreen else R.drawable.ic_hide),
-            contentDescription = "全屏/最小化",
+            contentDescription = "Fullscreen / Minimize",
         )
     }
 }
 
-/**
- * 按钮，点击可显示设置界面
- */
+/** Button that toggles the settings screen. */
 @Composable
 fun SettingButton(show: Boolean, onClick: () -> Unit) {
     IconButton(onClick = onClick) {

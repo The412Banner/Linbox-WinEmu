@@ -16,24 +16,22 @@ import kotlinx.coroutines.withContext
 import org.github.ewt45.winemulator.FuncOnChangeAction
 import org.github.ewt45.winemulator.ui.Destination
 
-/**
- * 用于 MainViewModel 的state
- */
+/** UI state for [MainViewModel]. */
 data class MainUiState(
-    /** 对话框类型 */
+    /** dialog type */
     val dialogType: DialogType = DialogType.NONE,
-    /** 对话框内容 */
+    /** dialog message */
     val msg: String = "",
 
 )
 
-//TODO 把这个BLOCK和CONFIRM添加数据，改成uistate,参考nowinandroid使用sealed
+// TODO: add data to BLOCK and CONFIRM, convert to sealed uiState (see nowinandroid pattern)
 sealed interface DialogType {
-    /** 阻塞，用户无法手动关闭。执行某一操作后自动关闭 */
+    /** Blocking — user cannot dismiss; closes automatically when the action completes. */
     data object BLOCK:DialogType
-    /** 确认，显示一条消息，用户可点击确认/取消按钮 */
+    /** Confirmation — shows a message with OK / Cancel buttons. */
     data object CONFIRM:DialogType
-    /** 不显示对话框 */
+    /** No dialog shown. */
     object NONE:DialogType
 }
 
@@ -44,7 +42,7 @@ class MainViewModel : ViewModel() {
     private val _navigateToEvent = MutableSharedFlow<Destination>()
     val navigateToEvent: SharedFlow<Destination> = _navigateToEvent.asSharedFlow()
 
-    //用法：起始位置赋值为CompletableDeferred()，然后执行.await()等待。 结束位置调用.complete()，然后起始位置那里.await()会返回
+    // Usage: assign CompletableDeferred() at the start, call .await() to wait; call .complete() at the end to resume .await()
     private var dialogDeferred: CompletableDeferred<Result<Boolean>>? = null
 
 
@@ -52,9 +50,7 @@ class MainViewModel : ViewModel() {
         _navigateToEvent.emit(Destination.Prepare)
     }
 
-    /**
-     * 导航到指定界面
-     */
+    /** Navigates to the given [destination]. */
     fun navigateTo(destination: Destination) {
         viewModelScope.launch {
             _navigateToEvent.emit(destination)
@@ -62,27 +58,26 @@ class MainViewModel : ViewModel() {
     }
 
     /**
-     * 显示阻塞对话框. 该对话框无法关闭，用于执行一些操作，等操作完成后自动关闭
-     * @param action 要执行的操作。在viewModelScope中运行
-     * @return 返回一个Result success代表操作执行成功，failure代表失败
+     * Shows a blocking dialog, executes [action], then closes the dialog automatically.
+     * @param action the operation to run
+     * @return Result.success if [action] succeeded, Result.failure otherwise
      */
-    suspend fun <T> showBlockDialog(msg: String = "加载中，请稍等", action: (suspend () -> T)):Result<T> {
-        //更新state,显示dialog
+    suspend fun <T> showBlockDialog(msg: String = "Loading, please wait…", action: (suspend () -> T)):Result<T> {
+        // Update state to show the dialog
         _uiState.update { it.copy(dialogType = DialogType.BLOCK, msg = msg) }
-        //执行action
+        // Execute the action
         val result = kotlin.runCatching { action() }
         _uiState.update { it.copy(dialogType = DialogType.NONE) }
         return result
     }
 
     /**
-     * 显示一个确认对话框。
-     * 该函数会一直阻塞到 用户点击确认或取消关闭对话框 为止。
-     * 对话框关闭时，返回Result为true代表点击确认，false代表点击取消。
+     * Shows a confirmation dialog and suspends until the user taps OK or Cancel.
+     * Returns Result(true) for OK, Result(false) for Cancel.
      */
-    suspend fun showConfirmDialog(msg: String = "您确定吗？"):Result<Boolean>  {
+    suspend fun showConfirmDialog(msg: String = "Are you sure?"):Result<Boolean>  {
         dialogDeferred = CompletableDeferred()
-        // 确保状态更新在主线程执行，避免首次启动时的竞态条件
+        // Ensure state update runs on the main thread to avoid a race condition on first launch
         withContext(Dispatchers.Main) {
             _uiState.update { it.copy(dialogType = DialogType.CONFIRM, msg = msg)  }
         }
@@ -94,8 +89,8 @@ class MainViewModel : ViewModel() {
     }
 
     /**
-     * 关闭确认对话框。
-     * @param confirm 为true表示用户点击了确认按钮，为false表示点击了取消按钮
+     * Closes the confirmation dialog.
+     * @param confirm true if the user tapped OK, false if they tapped Cancel
      */
     fun closeConfirmDialog(confirm:Boolean = true) {
         dialogDeferred?.complete(Result.success(confirm))
@@ -106,8 +101,8 @@ class MainViewModel : ViewModel() {
     }
 
     /**
-     * 先通过 [showBlockDialog] 显示阻塞对话框并执行操作。该操作返回一个字符串。
-     * 当字符串不为空时表示失败，会通过 [showConfirmDialog] 显示失败信息。
+     * Shows a blocking dialog via [showBlockDialog] and runs [action].
+     * [action] returns a String; a non-empty string indicates failure and is shown via [showConfirmDialog].
      */
     suspend fun showBlockDialogWithErrorConfirm(msg: String,  action: (suspend () -> String)) {
         val result = showBlockDialog(msg, action)

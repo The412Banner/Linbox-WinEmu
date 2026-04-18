@@ -41,8 +41,8 @@ import org.github.ewt45.winemulator.ui.theme.*
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 
 /**
- * PRoot终端界面 - 极简全屏终端设计
- * 深色主题 + 内置输入框 + 系统输入法
+ * PRoot terminal screen — minimal full-screen terminal.
+ * Dark theme, integrated input field, system keyboard.
  */
 @Composable
 fun ProotTerminalScreen(viewModel: TerminalViewModel) {
@@ -55,7 +55,7 @@ fun ProotTerminalScreen(viewModel: TerminalViewModel) {
             .fillMaxSize()
             .background(TerminalBackground)
     ) {
-        // 顶部状态栏 - 简洁设计
+        // Top status bar — minimal design
         TerminalHeaderBar(
             currentUser = viewModel.currentUser,
             currentHost = viewModel.currentHost,
@@ -63,7 +63,7 @@ fun ProotTerminalScreen(viewModel: TerminalViewModel) {
             isConnected = viewModel.isConnected
         )
         
-        // 终端输出区域
+        // Terminal output area
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -72,7 +72,7 @@ fun ProotTerminalScreen(viewModel: TerminalViewModel) {
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
-                    // 点击终端区域时聚焦输入框
+                    // Focus the input field when the terminal area is tapped
                     focusRequester.requestFocus()
                 }
         ) {
@@ -93,13 +93,13 @@ fun ProotTerminalScreen(viewModel: TerminalViewModel) {
                 }
             }
             
-            // 有内容更新时自动滚动到最底部
+            // Auto-scroll to bottom on new output
             LaunchedEffect(viewModel.output.value) {
                 textVScroll.animateScrollTo(textVScroll.maxValue)
             }
         }
         
-        // 内置命令输入行 - 直接集成在终端底部
+        // Built-in command input row — integrated at the bottom of the terminal
         IntegratedCommandInput(
             value = inputValue,
             onValueChange = { inputValue = it },
@@ -115,9 +115,7 @@ fun ProotTerminalScreen(viewModel: TerminalViewModel) {
     }
 }
 
-/**
- * 终端顶部状态栏 - 极简风格
- */
+/** Terminal top status bar — minimal style. */
 @Composable
 fun TerminalHeaderBar(
     currentUser: String,
@@ -132,12 +130,12 @@ fun TerminalHeaderBar(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 在线状态点
+        // Status dot
         ConnectionIndicator(isConnected = isConnected)
-        
+
         Spacer(modifier = Modifier.width(10.dp))
-        
-        // 提示符
+
+        // Prompt
         Text(
             text = buildAnnotatedString {
                 withStyle(SpanStyle(color = TerminalUserGreen, fontWeight = FontWeight.Medium)) {
@@ -162,9 +160,7 @@ fun TerminalHeaderBar(
     }
 }
 
-/**
- * 连接状态指示器 - 小圆点
- */
+/** Connection status indicator — small dot. */
 @Composable
 fun ConnectionIndicator(isConnected: Boolean) {
     val statusColor by animateColorAsState(
@@ -182,8 +178,8 @@ fun ConnectionIndicator(isConnected: Boolean) {
 }
 
 /**
- * 内置命令输入行 - 直接集成在终端底部
- * 点击后使用系统输入法
+ * Built-in command input row — integrated at the terminal bottom.
+ * Tapping opens the system keyboard.
  */
 @Composable
 fun IntegratedCommandInput(
@@ -203,7 +199,7 @@ fun IntegratedCommandInput(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 提示符前缀（灰色）
+        // Prompt prefix
         Text(
             text = "> ",
             fontFamily = FontFamily.Monospace,
@@ -212,7 +208,7 @@ fun IntegratedCommandInput(
             fontWeight = FontWeight.Bold
         )
         
-        // 可编辑的输入区域
+        // Editable input area
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -253,7 +249,7 @@ fun IntegratedCommandInput(
             }
         )
         
-        // 发送按钮（只有输入内容时显示）
+        // Send button (shown only when there is input)
         if (value.text.isNotEmpty()) {
             TextButton(
                 onClick = onSendCommand,
@@ -272,15 +268,15 @@ fun IntegratedCommandInput(
 }
 
 /**
- * 带颜色的终端输出渲染
- * 识别提示符行并使用彩色样式渲染
+ * Colored terminal output renderer.
+ * Detects prompt lines and renders them with per-segment colors.
  */
 @Composable
 fun ColoredTerminalOutput(
     output: List<String>,
     coloredPrompt: AnnotatedString
 ) {
-    // 提示符的正则表达式
+    // Regex to detect prompt lines
     val promptRegex = Regex("""([\w]+)@([\w.]+):([/~][^\s$#]*)([#$])(\s*)?$""")
     
     val annotatedOutput = buildAnnotatedString {
@@ -301,7 +297,7 @@ fun ColoredTerminalOutput(
                         append(beforePrompt)
                     }
                     
-                    // 用户名颜色
+                    // Username color
                     val userColor = if (userName == "root") TerminalRootWhite else TerminalUserGreen
                     
                     withStyle(SpanStyle(color = userColor, fontWeight = FontWeight.Medium)) {
@@ -354,9 +350,7 @@ fun ColoredTerminalOutput(
     )
 }
 
-/**
- * 终端预览函数
- */
+/** Terminal preview composable. */
 @Composable
 fun ProotTerminalScreenPreview() {
     val output = remember { mutableStateListOf(
