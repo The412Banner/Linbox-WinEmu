@@ -43,27 +43,27 @@ class ConfirmDialogState {
         this.show.value = true
     }
 
-    /** 显示一个对话框，如果用户点击确定按钮，执行 [onConfirm] 并关闭对话框。如果执行过程中抛出异常，则显示异常内容 */
+    /** Shows a dialog; if the user taps OK, executes [onConfirm] and closes. Exceptions are shown as an error message. */
     fun showConfirm(text: String, onConfirm: (suspend () -> Unit)? = null) {
         updateValuesAndShow(text, true) {
             if (onConfirm == null) return@updateValuesAndShow
             runCatching { onConfirm() }.exceptionOrNull()?.let { e ->
-                // 显示简洁的错误消息，而不是完整的堆栈跟踪
+                // Show a concise error message rather than the full stack trace
                 val errorMsg = e.message ?: e.javaClass.simpleName
-                updateValuesAndShow("操作失败：$errorMsg")
+                updateValuesAndShow("Operation failed: $errorMsg")
             }
         }
     }
 
     /**
-     * 类似 [showConfirm] 但是无需确认 显示后立刻执行
+     * Like [showConfirm] but no confirmation needed — executes immediately after showing.
      */
     fun showBlock(text: String = "", action: suspend () -> Unit) {
         updateValuesAndShow(text, false) {
             runCatching { action() }.exceptionOrNull()?.let { e ->
-                // 显示简洁的错误消息，而不是完整的堆栈跟踪
+                // Show a concise error message rather than the full stack trace
                 val errorMsg = e.message ?: e.javaClass.simpleName
-                updateValuesAndShow("操作失败：$errorMsg")
+                updateValuesAndShow("Operation failed: $errorMsg")
             }
         }
     }
@@ -87,9 +87,7 @@ fun ConfirmDialog(state: ConfirmDialogState) {
     ConfirmDialog(show, setShow, text, confirmNeeded, onConfirm = onConfirm)
 }
 
-/**
- * 若 [isBlock] 为true, 请保证 [onConfirm] 不为null
- */
+/** When [isBlock] is true, [onConfirm] must not be null. */
 @Composable
 private fun ConfirmDialog(
     show: Boolean,
@@ -99,15 +97,16 @@ private fun ConfirmDialog(
     onConfirm: (suspend () -> Unit)?
 ) {
     /*
-    点击确认按钮后，设置isBlocking为true,触发LaunchedEffect执行操作，执行后通过setShow隐藏对话框
+    After the confirm button is tapped, isBlocking is set to true, triggering the LaunchedEffect to run the action,
+    which then hides the dialog via setShow.
      */
 
     val scope = rememberCoroutineScope()
-    // 是否为阻塞。若为阻塞，则直接执行onConfirm, 否则确认后再执行
+    // isBlocking: if true, execute onConfirm immediately; otherwise wait for user confirmation
     var isBlocking by remember(show, confirmNeeded) { mutableStateOf(show && !confirmNeeded) }
 
 
-    // 当为阻塞对话框时，显示后执行某操作，执行后隐藏或显示错误
+    // When this is a blocking dialog, run the action after showing, then hide or display the error
     LaunchedEffect(isBlocking) {
         if (isBlocking) {
             if (onConfirm != null) onConfirm()
@@ -115,14 +114,14 @@ private fun ConfirmDialog(
         }
     }
 
-    // 确认按钮在阻塞状态下不显示
+    // Confirm button hidden while blocking
     val confirmButton: @Composable() (() -> Unit) = if (isBlocking) {
         { }
     } else {
         { TextButton({ isBlocking = true }) { Text(stringResource(android.R.string.ok)) } }
     }
 
-    // 取消按钮在阻塞状态或没有确认操作时不现实
+    // Cancel button hidden when blocking or when there is no confirm action
     val dismissButton: @Composable() (() -> Unit)? = if (onConfirm == null || isBlocking) {
         null
     } else {
@@ -132,8 +131,8 @@ private fun ConfirmDialog(
     val dialogContent: @Composable () -> Unit = {
         Column(
             modifier = Modifier
-                .fillMaxWidth() // 让 Column 填充对话框宽度
-                .wrapContentHeight(), // 根据内容调整高度
+                .fillMaxWidth()
+                .wrapContentHeight(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             SelectionContainer {

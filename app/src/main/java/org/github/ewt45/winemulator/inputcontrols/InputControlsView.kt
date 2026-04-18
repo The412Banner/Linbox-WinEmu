@@ -59,12 +59,12 @@ class InputControlsView(
     // Icon cache
     private val icons = arrayOfNulls<Bitmap>(17)
 
-    // 用于检测尺寸变化，重新加载元素坐标
+    // Used to detect size changes and reload element coordinates
     private var lastMaxWidth = 0
     private var lastMaxHeight = 0
 
     init {
-        // 默认可点击可聚焦，但会根据 showTouchscreenControls 动态调整
+        // Clickable and focusable by default; adjusted dynamically based on showTouchscreenControls
         setClickable(true)
         setFocusable(true)
         isFocusableInTouchMode = true
@@ -81,16 +81,16 @@ class InputControlsView(
     }
 
     /**
-     * 设置是否显示虚拟按键，同时调整视图的点击和聚焦状态
+     * Shows or hides the virtual keys and adjusts the view's clickable/focusable state accordingly.
      */
     @JvmName("setControlsVisible")
     fun setControlsVisible(show: Boolean) {
         showTouchscreenControls = show
-        // 当不显示虚拟按键时，禁用所有交互，确保不拦截触摸事件
+        // Disable all interaction when virtual keys are hidden so touch events pass through
         isClickable = false
         isFocusable = false
         isFocusableInTouchMode = false
-        // 刷新视图以更新绘制
+        // Refresh the view
         invalidate()
     }
 
@@ -98,17 +98,17 @@ class InputControlsView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        // 当视图尺寸变化时，重新加载元素以重新计算坐标
-        // 这处理了屏幕旋转和分辨率变化的情况
+        // Reload elements to recalculate coordinates when the view size changes.
+        // Handles screen rotation and resolution changes.
         if (w > 0 && h > 0 && profile != null) {
-            // 无论尺寸是否变化，都重新加载元素以确保坐标正确
+            // Always reload to ensure coordinates are correct
             reloadElements()
         }
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        // 当屏幕方向变化时，重新加载元素以重新计算坐标
+        // Reload elements to recalculate coordinates on orientation change
         if (profile != null && width > 0 && height > 0) {
             reloadElements()
         }
@@ -116,11 +116,11 @@ class InputControlsView(
 
     private fun reloadElements() {
         if (profile != null) {
-            // 保存当前选中的元素（如果有）
+            // Save the currently selected element (if any)
             val selected = selectedElement
-            // 重新加载元素（会更新所有元素的坐标）
+            // Reload elements (updates coordinates for all elements)
             profile!!.loadElements(this)
-            // 恢复选中状态
+            // Restore selection state
             if (selected != null) {
                 val newSelected = profile!!.getElements().find { it == selected }
                 selectElement(newSelected)
@@ -136,7 +136,7 @@ class InputControlsView(
     fun setProfile(profile: ControlsProfile?) {
         this.profile = profile
         deselectAllElements()
-        // 立即加载元素，但可能视图尚未测量，所以等到 onSizeChanged 再实际加载
+        // Load elements immediately if the view has been measured; otherwise wait for onSizeChanged
         if (width > 0 && height > 0) {
             reloadElements()
         }
@@ -193,7 +193,7 @@ class InputControlsView(
             binding.isMouse -> {
                 when {
                     binding.isMouseMove() -> {
-                        // 处理鼠标移动
+                        // Handle mouse movement
                         val dx = when (binding) {
                             Binding.MOUSE_MOVE_LEFT -> -10
                             Binding.MOUSE_MOVE_RIGHT -> 10
@@ -209,7 +209,7 @@ class InputControlsView(
                         }
                     }
                     else -> {
-                        // 处理鼠标按钮事件，使用 getPointerButton 方法
+                        // Handle mouse button events via getPointerButton
                         binding.getPointerButton()?.let { button ->
                             inputEventHandler?.onPointerButton(button, isDown)
                         }
@@ -376,7 +376,7 @@ class InputControlsView(
             return true
         }
 
-        // 非编辑模式下，只有当 showTouchscreenControls 为 true 时才处理触摸事件
+        // In non-edit mode, only handle touch events when showTouchscreenControls is true
         if (!editMode && profile != null && showTouchscreenControls) {
             val actionIndex = event.actionIndex
             val pointerId = event.getPointerId(actionIndex)
@@ -398,7 +398,7 @@ class InputControlsView(
                     }
 
                     if (!handled) {
-                        // 让 touchpadView 处理（如果存在），但不一定消费事件
+                        // Let touchpadView handle it if present (does not necessarily consume the event)
                         touchpadView?.onTouchEvent(event)
                     }
                 }
@@ -434,7 +434,7 @@ class InputControlsView(
             }
             return handled
         }
-        // 当 showTouchscreenControls 为 false 或 profile 为 null 时，不处理触摸事件，让事件传递给下层
+        // When showTouchscreenControls is false or profile is null, do not consume touch events — pass them to the layer below
         return false
     }
 

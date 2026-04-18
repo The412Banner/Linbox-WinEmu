@@ -33,8 +33,8 @@ import org.github.ewt45.winemulator.terminal.ViewClientImpl
 import org.github.ewt45.winemulator.viewmodel.TerminalViewModel
 
 /**
- * 使用termux的TerminalView显示终端和交互
- * 增强版：添加美观的状态栏和用户名显示
+ * Terminal screen using Termux's TerminalView.
+ * Enhanced with a styled status bar showing the current user and path.
  */
 @Composable
 fun TerminalScreen(viewModel: TerminalViewModel) {
@@ -60,7 +60,7 @@ private fun TerminalScreenImpl(
     Column(
         Modifier.fillMaxSize(),
     ) {
-        // 顶部状态栏 - 显示用户名、主机名和当前目录
+        // Top status bar — shows username, hostname, and current directory
         TerminalStatusBar(
             currentUser = currentUser,
             currentHost = currentHost,
@@ -68,7 +68,7 @@ private fun TerminalScreenImpl(
             isConnected = isConnected
         )
         
-        // 分隔线
+        // Divider
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 8.dp),
             thickness = 1.dp,
@@ -76,7 +76,7 @@ private fun TerminalScreenImpl(
         )
         
         /*
-        termux中使用TerminalView的xml布局
+        XML layout for TerminalView in Termux:
         <com.termux.view.TerminalView
             android:id="@+id/terminal_view"
             android:layout_width="match_parent"
@@ -98,8 +98,8 @@ private fun TerminalScreenImpl(
 }
 
 /**
- * 终端状态栏组件
- * 显示用户名@主机:路径 格式
+ * Terminal status bar component.
+ * Displays the prompt in user@host:path format.
  */
 @Composable
 fun TerminalStatusBar(
@@ -110,15 +110,15 @@ fun TerminalStatusBar(
     modifier: Modifier = Modifier
 ) {
     val statusColor = if (isConnected) {
-        Color(0xFF4CAF50) // 绿色 - 已连接
+        Color(0xFF4CAF50) // green — connected
     } else {
-        Color(0xFFFF9800) // 橙色 - 连接中
+        Color(0xFFFF9800) // orange — connecting
     }
     
     val userColor = if (currentUser == "root") {
-        Color(0xFFFFFFFF) // 白色 - root用户（普通颜色）
+        Color(0xFFFFFFFF) // white — root user
     } else {
-        Color(0xFF64B5F6) // 蓝色 - 普通用户（高亮）
+        Color(0xFF64B5F6) // blue — normal user
     }
     
     Row(
@@ -131,7 +131,7 @@ fun TerminalStatusBar(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 用户名@主机
+        // user@host
         Text(
             text = "$currentUser@$currentHost",
             fontSize = 14.sp,
@@ -142,7 +142,7 @@ fun TerminalStatusBar(
             overflow = TextOverflow.Ellipsis
         )
         
-        // 冒号分隔符
+        // Colon separator
         Text(
             text = ":",
             fontSize = 14.sp,
@@ -151,13 +151,13 @@ fun TerminalStatusBar(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
-        // 当前路径
+        // Current path
         Text(
             text = currentPath,
             fontSize = 14.sp,
             fontWeight = FontWeight.Normal,
             fontFamily = FontFamily.Monospace,
-            color = Color(0xFF81C784), // 浅绿色路径
+            color = Color(0xFF81C784), // light green — path
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -165,7 +165,7 @@ fun TerminalStatusBar(
         
         Spacer(modifier = Modifier.width(8.dp))
         
-        // 连接状态指示器
+        // Connection indicator
         Box(
             modifier = Modifier
                 .size(8.dp)
@@ -175,9 +175,7 @@ fun TerminalStatusBar(
     }
 }
 
-/**
- * 简化版状态栏（用于预览）- TerminalScreen专用
- */
+/** Simplified status bar for preview purposes — TerminalScreen only. */
 @Composable
 fun TerminalScreenStatusBar(
     currentUser: String = "root",

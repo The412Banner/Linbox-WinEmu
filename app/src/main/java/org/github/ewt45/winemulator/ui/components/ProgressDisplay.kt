@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-/** 返回一个[SimpleTaskReporter]实例 */
+/** Returns a [SimpleTaskReporter] instance. */
 @Composable
 fun rememberTaskReporter(
     initStage: ProgressStage = ProgressStage.NOT_STARTED,
@@ -40,7 +40,7 @@ fun rememberTaskReporter(
     return remember { SimpleTaskReporter(initStage, progress, msgTitle, msg) }
 }
 
-/** 实现了 [TaskReporter] 的类。内含MutableState可以直接使用。建议使用 [rememberTaskReporter] 获取实例 */
+/** Concrete [TaskReporter] backed by MutableState for direct use in Compose. Obtain via [rememberTaskReporter]. */
 class SimpleTaskReporter(
     initStage: ProgressStage,
     initProgress: Int,
@@ -71,21 +71,22 @@ class SimpleTaskReporter(
     fun component4() = msg
 }
 
-/** 当一个执行一个长时间操作时，传入一个此类的时候一遍在屏幕上显示进度和消息
- * @param totalValue 计算百分比时的分母 . 为负数是表示无法计算进度
+/**
+ * Pass an instance of this to a long-running operation so it can report progress and messages to the UI.
+ * @param totalValue denominator for percentage calculation; negative means progress is indeterminate
  */
 abstract class TaskReporter(var totalValue: Long = -1) {
 
-    /** 更新进度。若为负数代表应显示无限加载条 */
+    /** Updates progress. A negative value means indeterminate (show an infinite progress bar). */
     abstract fun progress(percent: Float)
 
-    /** 同[progress] 区别为传入参数不是 当前值/总值，而仅仅是 当前值。因为有时候调用环境不知道总值。 */
+    /** Like [progress] but takes the raw current value instead of a fraction, for callers that don't know the total. */
     fun progressValue(value: Long) = progress(value.toFloat() / totalValue)
 
-    /** 执行此函数表示任务结束. 若 [error] 不为null, 说明失败了。 */
+    /** Call to signal task completion. A non-null [error] indicates failure. */
     abstract fun done(error: Exception? = null)
 
-    /** 需要显示的文字. 当本次[title]为null时 应该显示上一次不为null的title. */
+    /** Sets the display text. When [title] is null, the last non-null title should remain visible. */
     abstract fun msg(text: String? = null, title: String? = null)
 
     companion object {
@@ -129,13 +130,13 @@ fun ProgressDisplay(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 标题
+            // Title
             Text(msgTitle, style = MaterialTheme.typography.titleMedium)
 
             when (stage) {
                 ProgressStage.NOT_STARTED -> Unit
                 ProgressStage.PROCESSING ->
-                    // 处理过程中显示进度条
+                    // Show progress bar while processing
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         LinearProgressIndicator(progress = { progress / 100F })
                         Text("$progress%")
@@ -149,11 +150,12 @@ fun ProgressDisplay(
             }
 
 
-            // 处理时或处理后显示日志。解压成功后折叠
+            // Show log during and after processing; collapsed after successful extraction
             var msgExpanded by remember(stage) { mutableStateOf(stage == ProgressStage.PROCESSING) }
             if (stage != ProgressStage.NOT_STARTED) {
-                // weight 占据剩余空间，保证优先满足按钮的高度。否则会把按钮挤没。然后高度过高时可滚动。这俩modifier要加到包裹column上，加到text自身没用
-                // 但是weight会在内容没那么高的时候还是占据所有剩余空间 导致空出来一大块。
+                // weight fills remaining space so buttons are not pushed off screen; scrollable when content is tall.
+                // Both modifiers must go on the wrapping column, not on the Text itself.
+                // Caveat: weight still fills all remaining space even when content is short, leaving a blank gap.
                 Text(
                     msg,
                     Modifier

@@ -2,7 +2,7 @@ package org.github.ewt45.winemulator.inputcontrols
 
 /**
  * Binding types for control elements
- * 按键绑定类型 - 参考 winlator 实现
+ * Key binding types — based on the Winlator implementation
  */
 enum class Binding(
     val keycode: Int = 0,
@@ -14,7 +14,7 @@ enum class Binding(
     NONE,
 
     // Keyboard bindings - Main keys
-    // 常用按键 - 与配置文件兼容的名称
+    // Common keys — names compatible with the config file
     KEY_ESC(1, true),
     KEY_ESCAPE(1, true),
     KEY_F1(59, true),
@@ -91,7 +91,7 @@ enum class Binding(
     KEY_PERIOD(52, true),
     KEY_SLASH(53, true),
 
-    // Control keys - 兼容多种命名方式
+    // Control keys — supports multiple naming variants
     KEY_CTRL_L(29, true),
     KEY_LCTRL(29, true),
     KEY_LCONTROL(29, true),
@@ -128,7 +128,7 @@ enum class Binding(
     KEY_SCROLL_LOCK(70, true),
     KEY_PAUSE(197, true),
 
-    // Numpad - 兼容多种命名方式
+    // Numpad — supports multiple naming variants
     NUMPAD_0(82, true),
     KEY_KP_0(82, true),
     NUMPAD_1(79, true),
@@ -167,7 +167,7 @@ enum class Binding(
     KEY_NUMLOCK(69, true),
     KEY_SCROLL(151, true),
 
-    // Mouse bindings - 鼠标绑定
+    // Mouse bindings
     MOUSE_LEFT_BUTTON(0, false, true),
     MOUSE_RIGHT_BUTTON(0, false, true),
     MOUSE_MIDDLE_BUTTON(0, false, true),
@@ -180,7 +180,7 @@ enum class Binding(
     MOUSE_LEFT_RIGHT(0, false, true),
     MOUSE_TOUCHMODE_SWITCH(0, false, true),
 
-    // Gamepad bindings - 手柄绑定
+    // Gamepad bindings
     GAMEPAD_BUTTON_A(0, false, false, true),
     GAMEPAD_BUTTON_B(0, false, false, true),
     GAMEPAD_BUTTON_X(0, false, false, true),
@@ -207,9 +207,7 @@ enum class Binding(
     GAMEPAD_RIGHT_THUMB_LEFT(0, false, false, true),
     GAMEPAD_RIGHT_THUMB_RIGHT(0, false, false, true);
 
-    /**
-     * 返回用于显示的字符串，参考 winlator 的实现
-     */
+    /** Returns the display string for this binding, based on the Winlator implementation. */
     override fun toString(): String {
         return when (this) {
             NONE -> "NONE"
@@ -301,15 +299,13 @@ enum class Binding(
     }
 
     companion object {
-        /**
-         * 从字符串解析Binding，支持多种命名变体
-         */
+        /** Parses a [Binding] from a string, supporting multiple naming variants. */
         fun fromString(name: String): Binding {
             return try {
-                // 直接匹配
+                // Direct match
                 valueOf(name)
             } catch (e: IllegalArgumentException) {
-                // 尝试常见的别名映射
+                // Try common alias mappings
                 when (name) {
                     "KEY_ESC" -> KEY_ESC
                     "KEY_BKSP", "KEY_BACKSPACE" -> KEY_BKSP
@@ -369,9 +365,8 @@ enum class Binding(
     fun isMouseMove(): Boolean = this in listOf(MOUSE_MOVE_UP, MOUSE_MOVE_DOWN, MOUSE_MOVE_LEFT, MOUSE_MOVE_RIGHT)
 
     /**
-     * 获取鼠标按钮对应的指针按钮值
-     * 用于将鼠标绑定转换为实际的鼠标事件
-     * @return X11按钮值 (1=左键, 2=中键, 3=右键, 4=滚轮上, 5=滚轮下)，如果不是鼠标按钮则返回 null
+     * Returns the X11 pointer button value for this binding.
+     * @return X11 button value (1=left, 2=middle, 3=right, 4=scroll up, 5=scroll down), or null if not a mouse button
      */
     fun getPointerButton(): Int? {
         return when (this) {
