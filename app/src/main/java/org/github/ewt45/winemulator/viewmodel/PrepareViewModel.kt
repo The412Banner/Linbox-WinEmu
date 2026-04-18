@@ -25,7 +25,7 @@ data class PrepareUiState(
     val forceNoRootfs: Boolean = false,
     val shouldRestart: Boolean = false,
 ) {
-    /** 准备完成。若返回true则应离开prepareScreen 进入主界面 */
+    /** Preparation is done. When true, the app should leave PrepareScreen and enter the main UI. */
     val isPrepareFinished:Boolean
         get() = !loading
                 && (skipPermissions || unGrantedPermissions.isEmpty())
@@ -36,7 +36,7 @@ class PrepareViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(PrepareUiState(loading = true))
     val uiState: StateFlow<PrepareUiState> = _uiState.asStateFlow()
 
-    /** 进入preparescreen之后执行此函数 检查是否有必要显示 */
+    /** Call after entering PrepareScreen to check whether it should be shown. */
     suspend fun updateState() = withContext(Dispatchers.IO) {
         _uiState.update { it.copy(loading = true) }
         val unGrantedList = RequiredPermissions.getUnGrantedList()
@@ -50,28 +50,28 @@ class PrepareViewModel : ViewModel() {
         }
     }
 
-    /** 用户授权某个权限后，修改未授予权限列表 */
+    /** Called when the user grants a permission; removes it from the ungranted list. */
     fun onGrantedPermission(permission: RequiredPermissions) {
         _uiState.update { it.copy(unGrantedPermissions = it.unGrantedPermissions.minus(permission)) }
     }
 
-    /** 用户跳过权限申请 */
+    /** Called when the user skips the permission request. */
     fun onSkipPermissions() {
         editDateStoreAsync(Consts.Pref.Local.skip_permissions.key, true)
         _uiState.update { it.copy(skipPermissions = true) }
     }
 
-    /** 添加rootfs时调用。会将 [PrepareUiState.forceNoRootfs] 设为true, 以跳转到PrepareScreen */
+    /** Call when adding a rootfs. Sets [PrepareUiState.forceNoRootfs] to true to navigate to PrepareScreen. */
     fun setForceNoRootfs() {
         _uiState.update { it.copy(forceNoRootfs = true) }
     }
 
-    /** 取消新建容器，将 [PrepareUiState.forceNoRootfs] 设为false */
+    /** Cancels new-container creation; sets [PrepareUiState.forceNoRootfs] back to false. */
     fun onCancelForceNoRootfs() {
         _uiState.update { it.copy(forceNoRootfs = false) }
     }
 
-    /** rootfs自动提取成功后调用，用于更新状态 */
+    /** Called after a rootfs is extracted automatically; updates state accordingly. */
     fun onRootfsExtracted(rootfsName: String) {
         _uiState.update { it.copy(forceNoRootfs = false, noRootfs = false) }
     }

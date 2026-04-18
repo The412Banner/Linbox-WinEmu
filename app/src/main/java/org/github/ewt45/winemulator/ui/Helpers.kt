@@ -28,8 +28,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 /**
- * 为一个interactionSource 添加 点击监听。
- * 可以用于TextField（因为modifier.clickable 不生效）
+ * Attaches a click listener to an [interactionSource].
+ * Useful for TextField where modifier.clickable does not fire.
  */
 @Composable
 fun InteractionSourceOnClick(interactionSource: MutableInteractionSource, onClick:  /*suspend CoroutineScope.*/() -> Unit) {
@@ -43,7 +43,7 @@ fun InteractionSourceOnClick(interactionSource: MutableInteractionSource, onClic
 }
 
 /**
- * 从中心放大缩小
+ * Animated expand/collapse from the center of the composable.
  */
 @Composable
 fun AnimatedSizeInCenter(visible: Boolean, modifier: Modifier = Modifier, content: @Composable AnimatedVisibilityScope.() -> Unit) {
@@ -73,11 +73,11 @@ fun AnimatedVertical(
 }
 
 /**
- * 显示一个对话框。
- * @param onDismiss 对话框关闭时的回调，应该在此时将visible改为false
- * @param onConfirm 点击确定按钮时的回调
- * @param onCancel  点击取消按钮时的回调
- * @param hideBtns 是否隐藏按钮以防止关闭, 为true时传入的onDismiss不会被执行
+ * Shows an alert dialog.
+ * @param onDismiss called when the dialog is dismissed; set visible to false here
+ * @param onConfirm called when the OK button is tapped
+ * @param onCancel  called when the Cancel button is tapped
+ * @param hideBtns  when true, hides buttons to prevent dismissal; [onDismiss] will not fire
  */
 @Composable
 fun MyDialog(
@@ -95,8 +95,8 @@ fun MyDialog(
             text = {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth() // 让 Column 填充对话框宽度
-                        .wrapContentHeight(), // 根据内容调整高度
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(text)

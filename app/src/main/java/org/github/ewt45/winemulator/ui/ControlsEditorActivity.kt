@@ -46,10 +46,10 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
         hideSystemUI()
         setContentView(R.layout.controls_editor_activity)
         
-        // 处理屏幕方向变化
+        // Handle screen orientation
         val orientation = resources.configuration.orientation
         if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
-            // 横屏时旋转90度
+            // Lock to landscape
             window.attributes.screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         } else {
             window.attributes.screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
@@ -81,7 +81,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        // 当屏幕方向变化时，重新加载profile以更新布局
+        // Reload profile on orientation change to update layout
         if (profile != null) {
             inputControlsView.setProfile(profile)
         }
@@ -118,7 +118,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
                         showControlElementSettings(v, selectedElement)
                     } catch (e: Exception) {
                         e.printStackTrace()
-                        Toast.makeText(this, "无法打开设置界面: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Unable to open settings: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     Toast.makeText(this, R.string.no_control_element_selected, Toast.LENGTH_SHORT).show()
@@ -331,7 +331,7 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
         val sBindingType = bindingView.findViewById<Spinner>(R.id.SBindingType)
         val sBinding = bindingView.findViewById<Spinner>(R.id.SBinding)
 
-        // 设置SBindingType的适配器（keyboard、mouse、gamepad选项）
+        // Set up SBindingType adapter (keyboard / mouse / gamepad options)
         sBindingType.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, 
             resources.getStringArray(R.array.binding_type_entries))
 
@@ -423,17 +423,17 @@ class ControlsEditorActivity : AppCompatActivity(), View.OnClickListener {
             imageView.tag = id
             imageView.isSelected = id == selectedId
             
-            // 选中时的缩放动画效果
+            // Scale animation on selection
             imageView.setOnClickListener {
                 for (i in 0 until parent.childCount) {
                     val child = parent.getChildAt(i)
                     child.isSelected = false
-                    // 重置所有图标的缩放
+                    // Reset scale for all icons
                     child.scaleX = 1.0f
                     child.scaleY = 1.0f
                 }
                 imageView.isSelected = true
-                // 选中图标放大显示
+                // Enlarge selected icon
                 imageView.scaleX = 1.2f
                 imageView.scaleY = 1.2f
             }

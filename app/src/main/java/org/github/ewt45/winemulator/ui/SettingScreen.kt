@@ -56,13 +56,13 @@ fun SettingScreen(
 ) {
     val TAG = "SettingScreen"
     val scope = rememberCoroutineScope()
-    //进入设置时手动更新一些可能过期的数据，比如文件列表。
+    // Manually refresh potentially stale data (e.g. file lists) when entering settings.
     SideEffect {
-        Log.e(TAG, "SettingScreen: 如果在SettingScreen内部刷新的话会重复执行吗")
+        Log.e(TAG, "SettingScreen: does refreshing inside SettingScreen cause repeated execution?")
         settingVm.updateValuesWhenEnterSettings()
     }
     
-    // 获取主题模式状态
+    // Observe theme mode state
     val themeState by settingVm.themeState.collectAsState()
     
     Column(
@@ -76,7 +76,7 @@ fun SettingScreen(
         }
         GeneralSettings(settingVm, prepareVm, navigateTo)
         HorizontalDivider()
-        // 添加主题设置选项
+        // Theme settings
         GeneralThemeMode(
             themeMode = themeState,
             onThemeModeChange = settingVm::onChangeThemeMode
@@ -95,7 +95,7 @@ fun SettingScreen(
 
 
 /**
- * 顶部操作按钮
+ * Top action buttons (import/export settings).
  */
 @Composable
 fun TopBarActions(
@@ -105,7 +105,7 @@ fun TopBarActions(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val dialogState = rememberConfirmDialogState()
-    //导出时 保存为文件
+    // Export: save to file
     val saveFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
@@ -115,7 +115,7 @@ fun TopBarActions(
         }
 
     }
-    //导入时 选择文件
+    // Import: pick file
     val readFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {

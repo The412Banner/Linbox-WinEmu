@@ -121,9 +121,9 @@ private fun compareRootfsDirDialog(): MutableState<Boolean> {
                             val in1ButNotIn2List = list1.subtract(list2)
                             val in2ButNotIn1List = list2.subtract(list1)
                             infoText = "Comparison result:" +
-                                    "\n\n$rootfs1 中独有的文件：\n" +
+                                    "\n\nFiles only in $rootfs1:\n" +
                                     in1ButNotIn2List.joinToString("\n") +
-                                    "\n\n$rootfs2 中独有的文件： \n" +
+                                    "\n\nFiles only in $rootfs2:\n" +
                                     in2ButNotIn1List.joinToString("\n")
                             finished = true
                         }
@@ -142,7 +142,7 @@ private fun compareRootfsDirDialog(): MutableState<Boolean> {
 
 
     }
-//    //显示dialog之后，开始检查
+//    // Start checking after the dialog is shown
 //    LaunchedEffect(finished) {
 //        if (!finished) {
 //            withContext(Dispatchers.IO) {
@@ -151,9 +151,9 @@ private fun compareRootfsDirDialog(): MutableState<Boolean> {
 //                val in1ButNotIn2List = list1.subtract(list2)
 //                val in2ButNotIn1List = list2.subtract(list1)
 //                infoText = "Comparison result:" +
-//                        "\n\n$rootfs1 中独有的文件：\n" +
+//                        "\n\nFiles only in $rootfs1:\n" +
 //                        in1ButNotIn2List.joinToString("\n") +
-//                        "\n\n$rootfs2 中独有的文件： \n" +
+//                        "\n\nFiles only in $rootfs2:\n" +
 //                        in2ButNotIn1List.joinToString("\n")
 //                finished = true
 //            }
@@ -181,7 +181,7 @@ private fun filterSymlinkDialog(): MutableState<Boolean> {
             }
         )
     }
-    //显示dialog之后，开始检查
+    // Start checking after the dialog is shown
     LaunchedEffect(visibility.value) {
         if (visibility.value) {
             withContext(Dispatchers.IO) {
@@ -191,7 +191,7 @@ private fun filterSymlinkDialog(): MutableState<Boolean> {
                 val l2sNotInL2sDirList = mutableListOf<String>()
                 for (file in Consts.rootfsCurrDir.walkTopDown()) {
                     infoText = file.absolutePath.let { if (it.length > prefixLen) it.substring(prefixLen) else it }
-                    //1. 任何符号链接，指向/data/data/com.termux 的
+                    // 1. Symlinks pointing to /data/data/com.termux
                     try {
                         file.toPath().takeIf { Files.isSymbolicLink(it) }?.let { Files.readSymbolicLink(it) }
                             ?.pathString?.takeIf { it.startsWith("/data/data/com.termux") || it.contains("/com.termux/") }
@@ -199,7 +199,7 @@ private fun filterSymlinkDialog(): MutableState<Boolean> {
                     } catch (e: Exception) {
                         linkPointToTermuxList.add(e.stackTraceToString())
                     }
-                    //2. .l2s. 开头文件 不在 .l2s 文件夹内的
+                    // 2. Files starting with .l2s. that are not inside the .l2s folder
                     try {
                         file.takeIf { it.name.startsWith(".l2s.") && it.parentFile!!.name != ".l2s" }?.let { l2sNotInL2sDirList.add(it.absolutePath) }
                     } catch (e: Exception) {

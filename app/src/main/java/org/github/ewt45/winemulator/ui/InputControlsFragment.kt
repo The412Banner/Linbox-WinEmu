@@ -70,7 +70,7 @@ class InputControlsFragment : Fragment() {
         val context = requireContext()
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
 
-        // 从 SharedPreferences 加载上次选中的配置 ID
+        // Load the last selected profile ID from SharedPreferences
         val savedProfileId = preferences.getInt(SELECTED_PROFILE_ID, 0)
         currentProfile = if (savedProfileId > 0) manager.getProfile(savedProfileId) else null
 
@@ -116,7 +116,7 @@ class InputControlsFragment : Fragment() {
         val overlayOpacity = preferences.getFloat("overlay_opacity", 0.4f)
         sbUiOpacity.progress = (overlayOpacity * 100).toInt()
 
-        // 新建配置
+        // Create new profile
         view.findViewById<Button>(R.id.BTAddProfile).setOnClickListener {
             showInputDialog(R.string.profile_name, null) { name ->
                 currentProfile = manager.createProfile(name)
@@ -126,7 +126,7 @@ class InputControlsFragment : Fragment() {
             }
         }
 
-        // 编辑配置名称
+        // Edit profile name
         view.findViewById<Button>(R.id.BTEditProfile).setOnClickListener {
             if (currentProfile != null) {
                 showInputDialog(R.string.profile_name, currentProfile!!.name) { name ->
@@ -139,7 +139,7 @@ class InputControlsFragment : Fragment() {
             }
         }
 
-        // 复制配置
+        // Duplicate profile
         view.findViewById<Button>(R.id.BTDuplicateProfile).setOnClickListener {
             if (currentProfile != null) {
                 currentProfile = manager.duplicateProfile(currentProfile!!)
@@ -151,7 +151,7 @@ class InputControlsFragment : Fragment() {
             }
         }
 
-        // 删除配置
+        // Delete profile
         view.findViewById<Button>(R.id.BTRemoveProfile).setOnClickListener {
             if (currentProfile != null) {
                 manager.removeProfile(currentProfile!!)
@@ -167,7 +167,7 @@ class InputControlsFragment : Fragment() {
             }
         }
 
-        // 导入配置
+        // Import profile
         view.findViewById<Button>(R.id.BTImportProfile).setOnClickListener {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
@@ -183,7 +183,7 @@ class InputControlsFragment : Fragment() {
             startActivityForResult(intent, 1)
         }
 
-        // 导出配置
+        // Export profile
         view.findViewById<Button>(R.id.BTExportProfile).setOnClickListener {
             if (currentProfile != null) {
                 val exportedFile = manager.exportProfile(currentProfile!!)
@@ -195,7 +195,7 @@ class InputControlsFragment : Fragment() {
             }
         }
 
-        // 打开编辑器
+        // Open editor
         view.findViewById<Button>(R.id.BTControlsEditor).setOnClickListener {
             if (currentProfile != null) {
                 val intent = Intent(context, ControlsEditorActivity::class.java)

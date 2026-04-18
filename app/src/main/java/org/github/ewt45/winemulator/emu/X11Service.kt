@@ -75,18 +75,18 @@ class X11Service : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        Log.d(TAG, "onStartCommand: 被调用")
+        Log.d(TAG, "onStartCommand: called")
 
-        // 启动前台服务，防止被杀
+        // Start foreground service to prevent it from being killed
         startForeground(NOTIFICATION_ID, createNotification())
 
-        // service中如果要获取设置，最好只从传过来的intent中读取数据。其他位置的可能不可靠
+        // Read settings only from the incoming Intent; other sources may be unreliable inside a service
         if (!started) {
             val timestamp = intent?.getLongExtra("timestamp", -1)
             val xkbDir = Consts.rootfsCurrXkbDir
             val tmpDir = Consts.tmpDir
             if (!xkbDir.exists() || !tmpDir.exists()) {
-                Log.e(TAG, "onStartCommand: 缺少必要文件夹(xkb或tmp)，不启动xserver。")
+                Log.e(TAG, "onStartCommand: required directories (xkb or tmp) missing — not starting xserver")
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_STICKY
@@ -99,9 +99,9 @@ class X11Service : LifecycleService() {
 
             started = true
             job = lifecycleScope.launch(Dispatchers.IO) {
-                Looper.prepare() //不知为何还要调用prepare()
-                CmdEntryPoint.main(arrayOf(":13")) //,"-xstartup", "touch ${Consts.getX11StartedValidateFile(timestamp)}" 不行，-xstartup执行完毕就会退出
-                Log.d(TAG, "onStartCommand: x11进程结束。停止service")
+                Looper.prepare() // required for some reason
+                CmdEntryPoint.main(arrayOf(":13")) // -xstartup exits as soon as the command finishes, so it can't be used here
+                Log.d(TAG, "onStartCommand: x11 process ended — stopping service")
                 started = false
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -112,7 +112,7 @@ class X11Service : LifecycleService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        job?.cancel("service onDestroy, 停止xserver")
+        job?.cancel("service onDestroy: stopping xserver")
         started = false
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
