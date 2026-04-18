@@ -31,79 +31,56 @@ class TerminalViewModel : ViewModel() {
     private val terminal: Proot = Proot()
     private var process: Process? = null
 
-    /** 输入 */
+    /** stdin writer */
     private var processWriter: OutputStreamWriter? = null
 
-    /** 输出行。每个字符串代表一行，换行字符包括在字符串结尾，拼接时不应再添加 */
+    /** Output lines. Each string represents one line; newline characters are included at the end — do not append additional newlines when joining. */
     private val _output = mutableStateOf<List<String>>(emptyList())
     val output get() = _output
 
-    private val outputMutex = Mutex() //锁，修改output相关内容时应该使用
+    private val outputMutex = Mutex() // lock for all output-related mutations
 
-    /** 当前用户名 */
     var currentUser by mutableStateOf("root")
         private set
 
-    /** 当前主机名 */
     var currentHost by mutableStateOf("localhost")
         private set
 
-    /** 当前路径 */
     var currentPath by mutableStateOf("~")
         private set
 
-    /** 连接状态 */
     var isConnected by mutableStateOf(false)
         private set
 
-    /** root用户的颜色（白色） */
-    private val rootUserColor = Color(0xFFE0E0E0)
-    
-    /** 普通用户的颜色（蓝色） */
-    private val normalUserColor = Color(0xFF64B5F6)
-    
-    /** 主机名颜色（青色） */
-    private val hostColor = Color(0xFF4DD0E1)
-    
-    /** 路径颜色（绿色） */
-    private val pathColor = Color(0xFF81C784)
-    
-    /** 符号颜色（黄色） */
-    private val symbolColor = Color(0xFFFFD54F)
+    private val rootUserColor = Color(0xFFE0E0E0)   // root user: white
+    private val normalUserColor = Color(0xFF64B5F6) // normal user: blue
+    private val hostColor = Color(0xFF4DD0E1)        // hostname: cyan
+    private val pathColor = Color(0xFF81C784)        // path: green
+    private val symbolColor = Color(0xFFFFD54F)      // symbols: yellow
 
-    /** 美化的命令提示符格式: 用户名@主机:路径$ */
+    /** Formatted prompt: user@host:path$ */
     val promptPrefix: String
         get() = "$currentUser@$currentHost:$currentPath$ "
     
     /**
-     * 获取带颜色的命令提示符 (AnnotatedString)
-     * root用户显示为白色，其他用户显示为蓝色
+     * Returns a colored prompt as an AnnotatedString.
+     * Root is shown in white; all other users in blue.
      */
     fun getColoredPrompt(): AnnotatedString {
         val userColor = if (currentUser == "root") rootUserColor else normalUserColor
-        
+
         return buildAnnotatedString {
-            // 用户名
             withStyle(SpanStyle(color = userColor, fontWeight = FontWeight.Bold)) {
                 append(currentUser)
             }
-            // @ 符号
-            withStyle(SpanStyle(color = symbolColor)) {
-                append("@")
-            }
-            // 主机名
+            withStyle(SpanStyle(color = symbolColor)) { append("@") }
             withStyle(SpanStyle(color = hostColor, fontWeight = FontWeight.Bold)) {
                 append(currentHost)
             }
-            // : 符号
-            withStyle(SpanStyle(color = symbolColor)) {
-                append(":")
-            }
-            // 路径
+            withStyle(SpanStyle(color = symbolColor)) { append(":") }
             withStyle(SpanStyle(color = pathColor, fontWeight = FontWeight.Bold)) {
                 append(currentPath)
             }
-            // $ 或 # 符号
             withStyle(SpanStyle(color = symbolColor)) {
                 append(if (currentUser == "root") "# " else "$ ")
             }
@@ -111,7 +88,7 @@ class TerminalViewModel : ViewModel() {
     }
 
     /**
-     * 启动终端
+     * Starts the terminal process.
      */
     suspend fun startTerminal() {
         if (process != null) return
@@ -121,12 +98,10 @@ class TerminalViewModel : ViewModel() {
             terminal.attach().start()
         }
 
-        //绑定输入输出
         processWriter = OutputStreamWriter(process!!.outputStream)
 
-        //另起协程获取输出以及等待关闭
+        // Launch a coroutine to read output and wait for the process to exit
         viewModelScope.launch(Dispatchers.IO) {
-            // 简洁的启动提示
             updateOutput("Terminal connected")
             updateOutput("---")
             try {
@@ -134,16 +109,16 @@ class TerminalViewModel : ViewModel() {
                     val builder = StringBuilder()
                     var readInt: Int
                     var charRead: Char
-                    var lastReadCharTime = 0L //上次读取到新输出字符的时间。即使不完成整行 也会更新
-                    //builder lastUpdateTime output 应该在锁下进行
+                    var lastReadCharTime = 0L // time the last char was read; updated on every char even without a full line
+                    // builder, lastReadCharTime, and output must be accessed under the lock
 
-                    // FIXME adduser 最后一条确认没显示出来？
+                    // FIXME last adduser confirmation line not showing up?
                     val updateInlineOutputJob = launch {
                         var lastReadCharTimeCopy = 0L
                         while (process?.isAlive == true) {
                             delay(500)
                             outputMutex.withLock {
-                                // 如果500ms内字符输出没有更新过，则将当前缓存的无换行字符串显示出来。
+                                // If no new output arrived in the last 500 ms, flush the buffered partial line to screen.
                                 if (lastReadCharTime == lastReadCharTimeCopy && lastReadCharTimeCopy != 0L && builder.isNotEmpty()) {
                                     val currentList = _output.value
                                     val lastLine = if (currentList.isNotEmpty()) currentList[currentList.lastIndex] else null
@@ -160,21 +135,18 @@ class TerminalViewModel : ViewModel() {
                         var charRead = readInt.toChar()
                         var skipChar = false
                         
-                        // 处理回车符：将 \r\n 或 \r 视为换行
+                        // Normalize CR: treat \r\n or lone \r as a newline
                         if (charRead == '\r') {
-                            // 看看下一个字符是否是 \n
                             val nextInt = reader.read()
                             if (nextInt != -1) {
                                 val nextChar = nextInt.toChar()
                                 if (nextChar == '\n') {
-                                    // 如果是 \r\n，跳过这个 \r，\n 会在下一次循环中处理
+                                    // \r\n — discard the \r and let \n be handled normally next iteration
                                     charRead = nextChar
                                 } else {
-                                    // 如果下一个字符不是 \n，把 \r 当作换行处理
+                                    // lone \r — treat as newline
                                     val line = builder.toString()
-                                    // 检测用户名变化
                                     detectUserChange(line)
-                                    // 添加当前行
                                     val currentList = _output.value.toMutableList()
                                     if (currentList.size > 800) {
                                         currentList.removeAt(0)
@@ -182,7 +154,7 @@ class TerminalViewModel : ViewModel() {
                                     currentList.add(line)
                                     _output.value = currentList
                                     builder.clear()
-                                    // 把下一个非 \n 字符加入新的行
+                                    // Start the next line with the char we already read
                                     builder.append(nextChar)
                                     skipChar = true
                                 }
@@ -194,7 +166,7 @@ class TerminalViewModel : ViewModel() {
                                 lastReadCharTime = System.currentTimeMillis()
                                 builder.append(charRead)
 
-                                // 尝试解析路径（简单的启发式方法）
+                                // Attempt to parse the current path (simple heuristic)
                                 if (charRead == ':' && builder.length > 2) {
                                     val potentialPath = builder.toString().takeLast(50)
                                     if (potentialPath.matches(Regex(""".*:[/~][/\w.-]*\$?"""))) {
@@ -204,10 +176,9 @@ class TerminalViewModel : ViewModel() {
 
                                 if (charRead == '\n') {
                                     val line = builder.toString()
-                                    // 检测用户名变化
                                     detectUserChange(line)
 
-                                    // 限制输出数量
+                                    // Cap output lines
                                     val currentList = _output.value.toMutableList()
                                     if (currentList.size > 800) {
                                         currentList.removeAt(0)
@@ -239,30 +210,30 @@ class TerminalViewModel : ViewModel() {
     }
 
     /**
-     * 从提示符行中提取路径
+     * Extracts the current path from a prompt line.
      */
     private fun extractPath(text: String): String {
-        // 尝试匹配 ~ 或 / 开头的路径
+        // Match a path starting with ~ or /
         val pathMatch = Regex(""":([/~][/\w.-]*)[\$#]""").find(text)
         return pathMatch?.groupValues?.get(1) ?: "~"
     }
 
     /**
-     * 检测用户名是否变化
+     * Detects whether the current user has changed based on output lines.
      */
     private fun detectUserChange(line: String) {
-        // 检测 su - username 或 sudo -i 等命令后的用户变化
+        // Detect user switch after commands like `su - username` or `sudo -i`
         if (line.contains("su -") || line.contains("sudo -i")) {
             val userMatch = Regex("""su\s+-\s*(\w+)""").find(line)
                 ?: Regex("""sudo\s+-i""").find(line)
-            // 简化处理：假设切换到root
+            // Simplified: assume switch to root
             if (userMatch != null) {
                 currentUser = "root"
             }
         }
-        // 检测 whoami 输出
+        // Detect `whoami` output
         if (line.contains("root") && _output.value.size > 5) {
-            // 检查前几行是否有 whoami 命令
+            // Check if a recent line contained the `whoami` command
             val recentLines = _output.value.takeLast(5)
             if (recentLines.any { it.contains("whoami") }) {
                 currentUser = "root"
@@ -270,18 +241,14 @@ class TerminalViewModel : ViewModel() {
         }
     }
 
-    /**
-     * 更新输出
-     */
+    /** Appends a line to the output list. */
     private fun updateOutput(line: String) {
         val currentList = _output.value.toMutableList()
         currentList.add(line)
         _output.value = currentList
     }
 
-    /**
-     * 在最后一行追加内容
-     */
+    /** Appends [additional] to the last line of the output list. */
     private fun updateOutputAtLast(additional: String) {
         val currentList = _output.value.toMutableList()
         if (currentList.isNotEmpty()) {
@@ -295,8 +262,8 @@ class TerminalViewModel : ViewModel() {
     }
 
     /**
-     * 执行某个命令
-     * @param display 为false时不显示在屏幕上
+     * Sends [command] to the terminal process.
+     * @param display if false, the command is not echoed to the output view
      */
     fun runCommand(command: String, display: Boolean = true) = viewModelScope.launch(Dispatchers.IO) {
 
@@ -307,38 +274,31 @@ class TerminalViewModel : ViewModel() {
         }
 
         if (display) {
-            // 使用美化的提示符
             updateOutput(promptPrefix + command)
         }
 
         try {
-            // 添加回车，否则不会执行
-            processWriter?.write(command + "\n")
-            // 确保命令立刻发送
-            processWriter?.flush()
+            processWriter?.write(command + "\n") // newline required to execute
+            processWriter?.flush()               // send immediately
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     /**
-     * 更新提示符信息（从设置读取）
+     * Updates the prompt's username (read from settings).
      */
     fun updatePromptFromSettings(userName: String) {
         currentUser = userName.ifBlank { "root" }
     }
 
-    /**
-     * 结束终端
-     */
+    /** Stops the terminal process. */
     fun stopTerminal() {
         isConnected = false
         closeResources()
     }
 
-    /**
-     * 清理资源
-     */
+    /** Closes all process streams and releases resources. */
     private fun closeResources() {
         try {
             processWriter?.close()
@@ -359,9 +319,7 @@ class TerminalViewModel : ViewModel() {
     }
 
 
-    /**
-     * viewModel销毁时结束终端
-     */
+    /** Stops the terminal when the ViewModel is destroyed. */
     override fun onCleared() {
         super.onCleared()
         stopTerminal()

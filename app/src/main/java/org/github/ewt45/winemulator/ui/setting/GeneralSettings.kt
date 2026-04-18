@@ -99,7 +99,7 @@ fun GeneralSettings(
 
 
     CollapsePanel("General Options", vPadding = 32.dp) {
-        // 分辨率设置已移动到X11显示设置中
+        // Resolution setting has been moved to X11 Display Settings
         // GeneralResolution(settingVM.resolutionText, settingVM::onChangeResolutionText)
         GeneralRootfsLang(state.rootfsLang, listOf("en_US.utf8", "zh_CN.utf8"), settingVM::onChangeRootfsLang)
         GeneralShareDir(state.sharedExtPath, settingVM::onChangeShareExtPath)
@@ -121,8 +121,8 @@ fun GeneralSettings(
 }
 
 /**
- * 主题模式选择
- * 0 = 跟随系统, 1 = 暗色主题, 2 = 亮色主题
+ * Theme mode selector.
+ * 0 = Follow System, 1 = Dark Theme, 2 = Light Theme
  */
 @Composable
 fun GeneralThemeMode(
@@ -133,7 +133,7 @@ fun GeneralThemeMode(
     val themeModeNames = mapOf(0 to "Follow System", 1 to "Dark Theme", 2 to "Light Theme")
     val currentThemeName = themeModeNames[themeMode] ?: "Dark Theme"
     
-    TitleAndContent("Theme Mode", "选择界面主题。默认使用暗色主题。") {
+    TitleAndContent("Theme Mode", "Select the UI theme. Dark theme is used by default.") {
         ComposeSpinner(currentThemeName, themeOptions, modifier = Modifier.fillMaxWidth()) { _, new ->
             val newMode = themeOptions.indexOf(new)
             if (newMode >= 0) {
@@ -150,21 +150,21 @@ fun GeneralRootfsLang(
     langOptions: List<String>,
     onLangChange: (String) -> Unit,
 ) {
-    TitleAndContent("Container Language", "启动容器时作为环境变量 LANG 的值。") {
+    TitleAndContent("Container Language", "Value of the LANG environment variable when starting the container.") {
         ComposeSpinner(currLang, langOptions, modifier = Modifier.fillMaxWidth()) { _, new -> onLangChange(new) }
     }
 }
 
 
 /**
- * Rootfs切换，删除，重命名，添加
- * @param currRootfs 当前正在运行的rootfs名，rootfsList中的一项，为 [Consts.rootfsCurrDir] 指向的真实路径，应该将此项禁用禁止编辑
- * @param onRootfsNameChange 文件夹重命名/删除时
- * @param rootfsToLoginUserMap 每个rootfs及其当前选择的登陆用户名。参考：[Consts.Pref.Local.rootfs_login_user_json]。请传入前确保每个rootfs都在其中有key，且对应value 的user符合 [ProotRootfs.getPreferredUser]
- * @param loginUsersOptions 每个rootfs及其对应的全部可使用用户名。 请传入前确保rootfs不包含[Consts.rootfsCurrDir]
- * @param rootfsAliasMap rootfs 别名映射，key 为文件夹名，value 为别名
- * @param onRootfsSelectChange 当前使用的rootfs变更时
- * @param onUserSelectChange 某个rootfs的登陆用户变化时。参数1是rootfs名，参数2是用户名
+ * Rootfs switcher, delete, rename, and add.
+ * @param currRootfs Name of the currently running rootfs (an entry in rootfsList, the real path pointed to by [Consts.rootfsCurrDir]). This entry should be disabled.
+ * @param onRootfsNameChange Called when a folder is renamed or deleted
+ * @param rootfsToLoginUserMap Login username for each rootfs. See [Consts.Pref.Local.rootfs_login_user_json]. Ensure every rootfs has a key and its value satisfies [ProotRootfs.getPreferredUser].
+ * @param loginUsersOptions All available usernames for each rootfs. Ensure the list excludes [Consts.rootfsCurrDir].
+ * @param rootfsAliasMap Alias map: key = folder name, value = alias
+ * @param onRootfsSelectChange Called when the active rootfs changes
+ * @param onUserSelectChange Called when a rootfs's login user changes. Param 1 = rootfs name, param 2 = username
  */
 @Composable
 fun GeneralRootfsSelect(
@@ -180,19 +180,19 @@ fun GeneralRootfsSelect(
 ) {
 
     val scope = rememberCoroutineScope()
-//    TODO 排一下序之后没问题了，之前重命名用list.minus.plus 然后重命名之后rootfs名往上挪了一位，user名还没变。出错原理是什么？
+//    TODO After sorting, it works fine. Previously, renaming with list.minus.plus shifted the rootfs entry up by one position while the username stayed — what was the root cause?
     val sortedRootfsList = loginUsersOptions.keys.sortedWith(compareBy<String> { it != currRootfs }.thenBy { it })
     val dialogState = rememberConfirmDialogState()
 
-    val TYPE_SEL = 0 // 切换
-    val TYPE_DEL = 1 // 删除
+    val TYPE_SEL = 0 // switch
+    val TYPE_DEL = 1 // delete
     fun onClickBtn(type: Int, rootfsName: String, rootfsAlias: String, isCurr: Boolean, newRootfsName: String? = null) = scope.launch {
         if (type == TYPE_SEL && !isCurr) {
             dialogState.showConfirm("Set this folder as the rootfs for Proot?\nThe app will exit after confirming. Please restart manually.\n\n$rootfsAlias") {
                 onRootfsSelectChange(rootfsName)
             }
         } else if (type == TYPE_DEL) {
-            // 如果是当前正在运行的rootfs，直接显示提示，不执行删除
+            // If this is the currently running rootfs, just show a message and skip deletion
             if (isCurr) {
                 dialogState.showConfirm("This rootfs is currently running and cannot be deleted.\n\n$rootfsAlias")
             } else {
@@ -205,13 +205,12 @@ fun GeneralRootfsSelect(
 
     ConfirmDialog(dialogState)
 
-    TitleAndContent("Rootfs切换", "切换Proot使用的rootfs，添加/重命名/删除。修改后需要重启app生效。") {
+    TitleAndContent("Rootfs Manager", "Switch, add, rename, or delete the rootfs used by PRoot. Changes take effect after restarting the app.") {
         Column(
             Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            //添加
             FilledTonalIconButton(onClick = navigateToNewRootfs) { Icon(Icons.Filled.Add, null) }
 
             for (rootfsName in sortedRootfsList) {
@@ -220,17 +219,17 @@ fun GeneralRootfsSelect(
                 val userNameOptions = loginUsersOptions[rootfsName]
                 val userName = rootfsToLoginUserMap[rootfsName]
                 if (userNameOptions == null || userName == null) {
-                    //TODO 目前没有实现等待加载机制（sealed interface），所以初次传入的值可能不准确，直接忽略即可。稍后应该会更新传入准确的数据
+                    //TODO No loading-state mechanism yet (sealed interface), so initial values may be stale — skip for now; accurate data should arrive shortly.
                     continue
                 }
                 if (!userNameOptions.contains(userName)) {
-                    throw RuntimeException("请确保传入的loginUsersOptions包含userName！loginUsersOptions=$userNameOptions, rootfsName=$rootfsName, username=$userName")
+                    throw RuntimeException("loginUsersOptions must contain userName! loginUsersOptions=$userNameOptions, rootfsName=$rootfsName, username=$userName")
                 }
 
                 Box {
                     Row(Modifier.padding(0.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1F)) {
-                            // 设置页面：只修改别名，不修改容器文件夹名
+                            // Settings page: only update the alias, not the container folder name
                             GeneralRootfsSelect_RootfsName(rootfsName, rootfsAlias, isCurr, dialogState, onAliasChange)
                             Spacer(Modifier.height(8.dp))
                             GeneralRootfsSelect_LoginUserSelect(rootfsName, userName, userNameOptions, onUserSelectChange)
@@ -263,7 +262,7 @@ fun GeneralRootfsSelect(
 }
 
 /**
- * [GeneralRootfsSelect] 的子布局。导出某rootfs为压缩包
+ * Sub-layout of [GeneralRootfsSelect] — exports a rootfs as a compressed archive.
  */
 @Composable
 fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: String) {
@@ -289,14 +288,14 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
         )
         val ctx = LocalContext.current
         val scope = rememberCoroutineScope()
-        val reporter = rememberTaskReporter(msgTitle = "将Rootfs: $rootfsName 导出为压缩包。以便日后恢复或在其他地方使用。")
+        val reporter = rememberTaskReporter(msgTitle = "Export Rootfs: $rootfsName to an archive for future restore or use elsewhere.")
 
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(compMimeTypes[currCompType]!!)) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
             reporter.stage = ProgressStage.PROCESSING
             reporter.progress = 0
             reporter.msgTitle = "Compressing"
-            reporter.msg = "日志："
+            reporter.msg = "Log:"
             scope.launch {
                 try {
                     Utils.Rootfs.exportRootfsArchive(ctx, uri, File(Consts.rootfsAllDir, rootfsName), currCompType, reporter)
@@ -321,19 +320,19 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
                 ) {
                     ProgressDisplay(reporter)
                     Spacer(Modifier.height(16.dp))
-                    // 只有在最初的时候可以设置并导出
+                    // Export settings are only available before the operation starts
                     if (reporter.stage == ProgressStage.NOT_STARTED) {
                         ComposeSpinner(currCompType, compSuffix.keys.toList(), compSuffix.values.toList(), label = "Compression Format")
                         { _, new -> currCompType = new }
                         Spacer(Modifier.height(24.dp))
                         Button({
-                            // 添加时间防止文件名冲突，因为冲突后序号会被默认放在中间 .tar(1).gz 这种
+                            // Append timestamp to avoid filename conflicts (Android inserts the counter mid-name: .tar(1).gz)
                             val timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy-MM-dd_HH-mm-ss"))
                             launcher.launch("${rootfsName}_$timeStr${compSuffix[currCompType]!!}")
                         }) { Text("Export to...") }
                         TextButton({ showDialog = false }) { Text("Cancel") }
                     }
-                    // 压缩结束后 显示关闭按钮
+                    // Show close button when compression finishes
                     if (reporter.stage == ProgressStage.DONE_SUCCESS || reporter.stage == ProgressStage.DONE_FAILURE) {
                         Button({ showDialog = false }) { Text("Close") }
                     }
@@ -345,7 +344,7 @@ fun GeneralRootfsSelect_ExportRootfs(modifier: Modifier = Modifier, rootfsName: 
 }
 
 /**
- * [GeneralRootfsSelect] 的子布局。选择该rootfs的登陆用户
+ * Sub-layout of [GeneralRootfsSelect] — selects the login user for a rootfs.
  */
 @Composable
 fun GeneralRootfsSelect_LoginUserSelect(
@@ -360,17 +359,11 @@ fun GeneralRootfsSelect_LoginUserSelect(
 }
 
 /**
- * [GeneralRootfsSelect] 的子布局。编辑该rootfs的别名
- * @param rootfsName rootfs 文件夹名
- * @param rootfsAlias 当前别名
- * @param onAliasChange 别名修改回调
- */
-/**
- * 显示容器名称编辑框
- * @param rootfsName rootfs 文件夹名
- * @param rootfsAlias 当前别名
- * @param onAliasChange 别名修改回调。如果不需要修改别名（如导入后界面），传入空lambda
- * @param onRootfsNameChange 容器名修改回调。在导入后界面使用，用于重命名容器文件夹
+ * Sub-layout of [GeneralRootfsSelect] — edits the alias for a rootfs.
+ * @param rootfsName rootfs folder name
+ * @param rootfsAlias current alias
+ * @param onAliasChange called when the alias changes; pass an empty lambda if alias editing is not needed (e.g. post-import screen)
+ * @param onRootfsNameChange called when the container folder name changes; used on the post-import screen
  */
 @Composable
 fun GeneralRootfsSelect_RootfsName(
@@ -383,15 +376,15 @@ fun GeneralRootfsSelect_RootfsName(
 ) {
     val scope = rememberCoroutineScope()
     
-    TextFieldOption(rootfsAlias, title = "Rootfs名称", outlined = true) {
+    TextFieldOption(rootfsAlias, title = "Rootfs Name", outlined = true) {
         val newName = it.trim()
         if (newName.isBlank() || newName == rootfsAlias) return@TextFieldOption
         
-        // 修改别名（设置页面使用）
+        // Update alias (settings page)
         onAliasChange(rootfsName, newName)
-        
-        // 修改容器名（导入后界面使用）
-        // 当 onRootfsNameChange 不是默认实现时调用
+
+        // Update container folder name (post-import screen)
+        // Only called when onRootfsNameChange is not the default no-op
         scope.launch {
             onRootfsNameChange(rootfsName, newName)
         }
@@ -399,10 +392,10 @@ fun GeneralRootfsSelect_RootfsName(
 }
 
 /**
- * 显示一个 “更多” 按钮， 点击展开更多内容
+ * Shows a “More...” button that expands additional content when clicked.
  */
 @Composable
-fun MoreContent(modifier: Modifier = Modifier, btnText: String = "更多...", content: @Composable AnimatedVisibilityScope.() -> Unit) {
+fun MoreContent(modifier: Modifier = Modifier, btnText: String = “More...”, content: @Composable AnimatedVisibilityScope.() -> Unit) {
     var isShowContent by remember { mutableStateOf(false) }
     Box(modifier.fillMaxWidth()) {
         AnimatedVertical(isShowContent, content = content)
@@ -414,10 +407,10 @@ fun MoreContent(modifier: Modifier = Modifier, btnText: String = "更多...", co
     }
 }
 
-//FIXME 如果有一个共享目录是另一个共享目录的子目录，那么会无法创建符号链接
+//FIXME If one shared directory is a subdirectory of another, the symlink cannot be created
 /**
- * 绑定外部共享文件夹
- * @param onPathChange 参数：路径和是否为删除
+ * Binds external shared folders.
+ * @param onPathChange parameters: path and whether it is a delete operation
  */
 @Composable
 fun GeneralShareDir(
@@ -429,7 +422,7 @@ fun GeneralShareDir(
     val dialogState = rememberConfirmDialogState()
     val selectFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        Log.d(TAG, "GeneralShareDir: 获取到uri $uri \npath=${uri.path}")
+        Log.d(TAG, "GeneralShareDir: got uri $uri \npath=${uri.path}")
         val path = uri.path?.split(":", limit = 2)?.get(1)
         val fullPath = if (path != null) "/storage/emulated/0/$path" else ""
         scope.launch {
@@ -445,13 +438,12 @@ fun GeneralShareDir(
 
     ConfirmDialog(dialogState)
 
-    TitleAndContent("Shared Folder", "在此处添加安卓上的文件夹。模拟器启动后可在容器内部访问这些文件夹。") {
+    TitleAndContent("Shared Folder", "Add Android folders here. They will be accessible inside the container after the emulator starts.") {
         Column(
             Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            //添加
             FilledTonalIconButton(onClick = { selectFolder.launch(null) }) {
                 Icon(Icons.Filled.Add, null)
             }
@@ -483,7 +475,7 @@ fun GeneralShareDir(
 
 }
 
-/** 分辨率 */
+/** Resolution picker */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeneralResolution(
@@ -492,16 +484,16 @@ fun GeneralResolution(
 ) {
     val options = listOf("800x600", "1024x768", "1280x720", "1600x900", "1920x1080")
     val textInOptions = options.contains(text)
-    // isCustom初始根据 分辨率是否在给定列表中 设定。后续可以手动修改用于表示用户点击了 该选项
+    // isCustom starts based on whether the resolution is in the preset list; can be toggled manually afterward
     var isCustom by remember { mutableStateOf(!textInOptions) }
     val realText = if (isCustom) "Custom" else text
     var expanded by remember { mutableStateOf(false) }
 
-    // 用户点击菜单项“自定义” -> 回调中设置isCustom为true -> 这种情况下不调用onDone？
-    // TextField显示文字在isCustom时为 “自定义” 否则为传进来的分辨率。
-    // TextField onValueChange啥也不做吧，通知viewmodel都放到点击选项时的回调里
+    // User taps “Custom” -> callback sets isCustom=true -> onDone is not called in that case
+    // TextField shows “Custom” when isCustom, otherwise shows the incoming resolution
+    // TextField onValueChange is a no-op; ViewModel updates happen in the option-click callbacks
 
-    TitleAndContent("Resolution", "格式：宽x高，x为字母。编辑自定义分辨率后点击末尾对号图标或输入法回车保存。") {
+    TitleAndContent("Resolution", "Format: widthxheight (x is the letter). After editing a custom resolution, tap the checkmark icon or press Enter to save.") {
         ExposedDropdownMenuBox(
             modifier = Modifier.fillMaxWidth(),
             expanded = expanded,
@@ -525,7 +517,7 @@ fun GeneralResolution(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
             ) {
-                //TODO 添加宽高比选择
+                //TODO Add aspect-ratio selection
 //            Row(modifier = Modifier
 //                .padding(contentPadding)
 //                .horizontalScroll(ScrollState(0))
@@ -556,7 +548,7 @@ fun GeneralResolution(
             }
         }
 
-        //自定义时手动输入的文本框
+        // Text field shown for custom resolution input
         AnimatedVertical(isCustom) {
             TextFieldOption(text = text, onDone = { onDone(it, true) })
         }
