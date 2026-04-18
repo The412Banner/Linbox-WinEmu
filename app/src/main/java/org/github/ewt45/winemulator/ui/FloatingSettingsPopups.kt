@@ -313,7 +313,7 @@ fun VirtualKeysSettingsPopup(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Eye,
+                                imageVector = Icons.Default.Settings,
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 8.dp)
                             )
