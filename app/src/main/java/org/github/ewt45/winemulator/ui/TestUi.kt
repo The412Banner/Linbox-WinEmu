@@ -32,7 +32,7 @@ fun Test1() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConditionalTextFieldDropdown() {
-    val options = listOf("Editable Options", "只读选项 1", "只读选项 2")
+    val options = listOf("Editable Options", "Read-only Option 1", "Read-only Option 2")
     var expanded by remember { mutableStateOf(false) }
     var selectedOptionText by remember { mutableStateOf(options[0]) }
     val isTextFieldEditable = remember(selectedOptionText) { selectedOptionText == options[0] }
@@ -48,7 +48,7 @@ fun ConditionalTextFieldDropdown() {
             onValueChange = {
                 if (isTextFieldEditable) {
                     textFieldValue = it
-                    selectedOptionText = it // 同步下拉菜单的显示
+                    selectedOptionText = it // sync dropdown display
                 }
             },
             label = { Text("Select or Input") },

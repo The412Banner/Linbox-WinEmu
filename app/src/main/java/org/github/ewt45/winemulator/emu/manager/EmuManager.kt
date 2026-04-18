@@ -10,9 +10,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.MainEmuActivity
 import org.github.ewt45.winemulator.emu.Pulseaudio
-// TODO 要考虑到 用户会切换某个内容的实现
+// TODO account for the case where the user switches an active component
 /**
- * 启动子组件时，在协程中同步依次执行，子组件应该保证函数返回时必要项已经启动，但长久运行的应该另起一个协程，否则永远返回不了了
+ * Sub-components are started sequentially in a coroutine. Each must guarantee that its required
+ * services are ready before returning; long-running work should be launched in a new coroutine.
  */
 class EmuManager(private val scope: CoroutineScope) : DefaultLifecycleObserver {
     private val TAG = "EmuManager"
@@ -23,7 +24,7 @@ class EmuManager(private val scope: CoroutineScope) : DefaultLifecycleObserver {
         scope.launch {
             display.onCreate()
             sound.onCreate()
-            // TODO 应该先启动终端，然后启动显示和声音，最后运行 初始执行命令
+            // TODO start terminal first, then display and audio, then run the initial command
         }
     }
 

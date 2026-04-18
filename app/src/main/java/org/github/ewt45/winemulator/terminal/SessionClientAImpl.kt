@@ -5,7 +5,7 @@ import com.termux.terminal.TerminalEmulator
 import org.github.ewt45.winemulator.MainEmuActivity
 
 /**
- * activity的session client
+ * Session client for the main activity.
  */
 class SessionClientAImpl(
     val activity: MainEmuActivity,

@@ -24,7 +24,7 @@ enum class RequiredPermissions(
     ), ;
 
     companion object {
-        /** 检查当前权限情况 并返回未授予的权限列表*/
+        /** Checks current permission state and returns the list of ungranted permissions. */
         fun getUnGrantedList() =
             RequiredPermissions.entries.mapNotNull {
                 it.takeUnless { Utils.Permissions.isGranted(MainEmuApplication.i, it.permission) }

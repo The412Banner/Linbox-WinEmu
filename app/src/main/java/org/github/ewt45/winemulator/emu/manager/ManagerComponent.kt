@@ -8,12 +8,12 @@ abstract class ManagerComponent(
     val parent: EmuManager,
 ) {
     /**
-     * 因为启动时可能一个依赖另一个， 所以函数返回时 必要项应该已经启动完成
+     * Components may depend on each other, so all required services must be ready before this returns.
      */
     abstract suspend fun onCreate()
 
     /**
-     * destroy别用协程了吧，不然可能来不及执行完就退出了？
+     * Avoid coroutines here — the process may exit before a coroutine completes.
      */
     open fun onDestroy() {}
 

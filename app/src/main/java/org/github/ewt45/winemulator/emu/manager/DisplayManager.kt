@@ -23,7 +23,7 @@ class DisplayManager(scope: CoroutineScope, parent: EmuManager) : ManagerCompone
 
 
     private suspend fun unused() {
-        Log.d(TAG, "onCreate: 启动xserver apkfilePath=${Consts.apkFilePath}")
+        Log.d(TAG, "onCreate: starting xserver apkfilePath=${Consts.apkFilePath}")
 
         val cmdLine = "/system/bin/app_process -Xnoimage-dex2oat / --nice-name=\"xserver-termux-x11\" ${X11Loader::class.jvmName} :13"
 
@@ -48,7 +48,7 @@ class DisplayManager(scope: CoroutineScope, parent: EmuManager) : ManagerCompone
                 BufferedReader(InputStreamReader(process!!.inputStream)).use { reader ->
                     var line: String?
                     while (reader.readLine().also { line = it } != null) {
-                        Log.d(TAG, "tx11输出 $line")
+                        Log.d(TAG, "tx11 output: $line")
                     }
                 }
             } catch (e: Exception) {

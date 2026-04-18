@@ -14,7 +14,7 @@ class SoundManager(scope: CoroutineScope, parent: EmuManager) : ManagerComponent
     var pid: Int = -1
     override suspend fun onCreate() {
         pid = Pulseaudio.start()
-        Log.d(TAG, "onCreate: 声音pid为$pid")
+        Log.d(TAG, "onCreate: audio pid=$pid")
     }
 
     override fun onDestroy() {

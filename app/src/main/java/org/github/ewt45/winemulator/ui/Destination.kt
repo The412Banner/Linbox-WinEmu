@@ -42,5 +42,5 @@ enum class Destination(
     )
 }
 
-/** 显示在appbar中的tab */
+/** Tabs displayed in the app bar. */
 val appbarDestList = listOf(Destination.Terminal, Destination.Settings)

@@ -54,7 +54,7 @@ class ControlElement(
         companion object {
             fun names(): Array<String> = entries.map { it.name.replace("_", " ") }.toTypedArray()
             
-            // 处理配置文件中的旧名称映射
+            // Handle legacy name mappings from older profile files
             fun fromString(name: String): Range? {
                 return when (name) {
                     "FROM_A_TO_Z", "A-Z" -> FROM_A_TO_Z

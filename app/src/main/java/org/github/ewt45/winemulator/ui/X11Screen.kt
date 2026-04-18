@@ -182,7 +182,7 @@ fun X11Screen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // 虚拟按键覆盖层
+        // Virtual controls overlay
         AndroidView(
             factory = { inputControlsView },
             modifier = Modifier.fillMaxSize()

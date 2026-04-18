@@ -10,7 +10,7 @@ import java.util.List;
 public class X11Loader {
     public static void main(String[] args) {
         String apkPath = getenv("XSERVER_APK_PATH");
-        System.out.println("X11Loader 测试输出 接受参数=" + Arrays.toString(args) +"   apkpath=" + apkPath);
+        System.out.println("X11Loader test output: args=" + Arrays.toString(args) + "   apkpath=" + apkPath);
 
         try {
             Class<?> targetClass = Class.forName("com.termux.x11.CmdEntryPoint", true,
