@@ -58,17 +58,15 @@ import org.github.ewt45.winemulator.ui.AnimatedSizeInCenter
 import org.github.ewt45.winemulator.ui.AnimatedVertical
 
 
-/**
- * 返回一个状态 控制显示一个对话框提示尚未实现
- */
+/** Returns a state that controls showing a "not yet implemented" dialog. */
 @Composable
 fun rememberNotImplDialog(): MutableState<Boolean> {
-    return rememberSimpleDialog("尚未实现！")
+    return rememberSimpleDialog("Not yet implemented!")
 }
 
 /**
- * 返回一个状态 控制一个[SimpleDialog]显隐。
- * @param onDismiss dialog关闭时的回调。无需在这里处理显隐状态。
+ * Returns a state that controls the visibility of a [SimpleDialog].
+ * @param onDismiss called when the dialog is dismissed; no need to handle visibility here
  */
 @Composable
 fun rememberSimpleDialog(text: String, title: String? = null, onDismiss: (() -> Unit)? = null): MutableState<Boolean> {
@@ -80,18 +78,18 @@ fun rememberSimpleDialog(text: String, title: String? = null, onDismiss: (() -> 
     return visibleState
 }
 
-/** 简易dialog */
+/** Simple alert dialog. */
 @Composable
 fun SimpleDialog(visible: Boolean, text: String, title: String? = null, onDismiss: (Boolean) -> Unit) {
     if (visible) {
         AlertDialog(
-            onDismissRequest = {}, //阻止点击外部区域关闭
+            onDismissRequest = {}, // prevent dismissal on outside tap
             title = title?.let { { Text(it) } },
             text = {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth() // 让 Column 填充对话框宽度
-                        .wrapContentHeight(), // 根据内容调整高度
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     SelectionContainer {
@@ -112,12 +110,12 @@ fun SimpleDialog(visible: Boolean, text: String, title: String? = null, onDismis
 
 
 /**
- * ExposedDropdownMenuBox。显示一个TextField, 点击显示下拉菜单，可切换选项
- * @param T 传入key的数据类型。
- * @param currKey 当前选中的选项的key
- * @param keyList 全部可选的key
- * @param nameList 请确保元素顺序与[keyList]一一对应 默认为key.toString()
- * @param onSelectedChange 当用户点击了另一个选项时的回调。参数1为oldValue 参数2 为 newValue
+ * An ExposedDropdownMenuBox that shows a TextField; tapping opens a dropdown to switch options.
+ * @param T key data type
+ * @param currKey the currently selected key
+ * @param keyList all selectable keys
+ * @param nameList display names — must be in the same order as [keyList]; defaults to key.toString()
+ * @param onSelectedChange callback when the user picks a different option; param 1 = oldValue, param 2 = newValue
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +130,7 @@ fun <T> ComposeSpinner(
     var expanded by remember { mutableStateOf(false) }
     var currIdx = keyList.indexOf(currKey)
     if (currIdx == -1) {
-        Log.e("TAG", "ComposeSpinner: 当前选项不在列表中！$currKey, $keyList")
+        Log.e("TAG", "ComposeSpinner: current selection not in list! $currKey, $keyList")
         currIdx = 0
     }
     ExposedDropdownMenuBox(
@@ -183,10 +181,10 @@ fun TitleAndContent(title: String, subTitle: String = "", modifier: Modifier = M
 }
 
 /**
- * @param state 当前是否选中
- * @param key 一个key, 调用onCheck时被传入
- * @param label 显示文字，默认等于key
- * @param onCheck 点击chip时的回调，第一个参数为 [key], 第二个参数为 是否选中，true为选中否则为取消选中。
+ * @param state whether the chip is currently selected
+ * @param key a key passed to [onCheck] when clicked
+ * @param label display text; defaults to [key]
+ * @param onCheck callback on chip click; param 1 = [key], param 2 = new selected state (true = selected)
  */
 @Composable
 fun ChipOption(
@@ -205,10 +203,9 @@ fun ChipOption(
 }
 
 /**
- * TextField.
- * 输入（获取焦点）时，右侧显示对号图标，
- * 点击图标或输入法回车时失去焦点并执行onDone回调
- * @param onDone 用户修改文本并确认后调用，传入新文本，可以做一些保存操作。如果用户确认时当前文本和初始文本相同，该函数不会被调用
+ * TextField that shows a checkmark icon on the right while focused.
+ * Tapping the icon or pressing the IME Done action clears focus and fires [onDone].
+ * @param onDone called with the new text when the user confirms a change; not called if the text is unchanged
  */
 @Composable
 fun TextFieldOption(
@@ -222,11 +219,11 @@ fun TextFieldOption(
     maxLines: Int = Int.MAX_VALUE,
     onDone: (String) -> Unit
 ) {
-    //用户编辑内容时，先存到这里
+    // Holds the in-progress edit before confirmation
     var tempValue by remember(text) { mutableStateOf(text) }
 //    LaunchedEffect(text) { tempValue = text }
-    LaunchedEffect(text) { Log.d("TAG", "TextFieldOption: 文本变化：text=$text, tempValue=$tempValue") }
-    //管理焦点，当编辑完成（点击回车/按钮）时退出焦点
+    LaunchedEffect(text) { Log.d("TAG", "TextFieldOption: text changed: text=$text, tempValue=$tempValue") }
+    // Clear focus when editing is confirmed
     val focusManager = LocalFocusManager.current
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -278,9 +275,7 @@ fun TextFieldOption(
     }
 }
 
-/**
- * 折叠面板
- */
+/** Collapsible panel. */
 @Composable
 fun CollapsePanel(
     title: String,
@@ -291,7 +286,7 @@ fun CollapsePanel(
     var expanded by remember { mutableStateOf(initExpanded) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // 标题
+        // Title row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -306,7 +301,7 @@ fun CollapsePanel(
                 contentDescription = if (expanded) "Collapse" else "Expand"
             )
         }
-        // 展开内容
+        // Expandable content
         AnimatedVertical(expanded) {
             Column(
                 modifier = Modifier

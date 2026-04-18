@@ -17,9 +17,9 @@ import org.github.ewt45.winemulator.viewmodel.SettingViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
- * X11分辨率设置
- * 支持预设分辨率和自定义分辨率输入
- * 使用general_resolution保持与原有逻辑一致
+ * X11 resolution setting.
+ * Supports preset resolutions and custom text input.
+ * Uses general_resolution to stay consistent with the existing logic.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +29,7 @@ fun X11Resolution(
 ) {
     val options = listOf("800x600", "1024x768", "1280x720", "1600x900", "1920x1080")
     val textInOptions = options.contains(text)
-    // isCustom初始根据分辨率是否在给定列表中设定。后续可以手动修改用于表示用户点击了该选项
+    // isCustom is initialised based on whether the resolution is in the preset list; the user can toggle it manually
     var isCustom by remember { mutableStateOf(!textInOptions) }
     val realText = if (isCustom) "Custom" else text
     var expanded by remember { mutableStateOf(false) }
@@ -82,7 +82,7 @@ fun X11Resolution(
             }
         }
 
-        // 自定义时手动输入的文本框
+        // Text field for manual input when Custom is selected
         AnimatedVisibility(visible = isCustom) {
             TextFieldOption(text = text, onDone = { onDone(it, true) })
         }
@@ -90,8 +90,8 @@ fun X11Resolution(
 }
 
 /**
- * X11设置面板
- * 包含分辨率、触摸方式、屏幕方向、显示缩放、保持屏幕常亮等选项
+ * X11 settings panel.
+ * Includes resolution, touch mode, screen orientation, display scale, and keep-screen-on options.
  */
 @Composable
 fun X11Settings(
@@ -100,32 +100,32 @@ fun X11Settings(
     val x11State by settingVm.x11State.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    CollapsePanel("X11显示设置", vPadding = 32.dp) {
-        // 分辨率设置 - 使用原有general_resolution
+    CollapsePanel("X11 Display Settings", vPadding = 32.dp) {
+        // Resolution — uses the existing general_resolution preference
         X11Resolution(
             text = settingVm.resolutionText,
             onDone = settingVm::onChangeResolutionText
         )
 
-        // 触摸方式设置
+        // Touch mode
         X11TouchMode(
             currentMode = x11State.touchMode,
             onModeChange = settingVm::onChangeX11TouchMode
         )
 
-        // 屏幕方向设置
+        // Screen orientation
         X11ScreenOrientation(
             currentOrientation = x11State.screenOrientation,
             onOrientationChange = settingVm::onChangeX11ScreenOrientation
         )
 
-        // 显示缩放
+        // Display scale
         X11DisplayScale(
             scale = x11State.displayScale,
             onScaleChange = settingVm::onChangeX11DisplayScale
         )
 
-        // 保持屏幕常亮
+        // Keep screen on
         X11KeepScreenOn(
             enabled = x11State.keepScreenOn,
             onEnabledChange = settingVm::onChangeX11KeepScreenOn
@@ -134,10 +134,8 @@ fun X11Settings(
 }
 
 /**
- * 触摸方式设置
- * 0 = 虚拟触控板(Trackpad)
- * 1 = 模拟触摸(直接点击)
- * 2 = 触摸屏模式
+ * Touch mode setting.
+ * 0 = Virtual Touchpad, 1 = Simulated Touch (direct tap), 2 = Touchscreen mode
  */
 @Composable
 fun X11TouchMode(
@@ -147,8 +145,8 @@ fun X11TouchMode(
     val touchModeOptions = listOf(0, 1, 2)
     val touchModeNames = listOf("Virtual Touchpad", "Simulated Touch", "Touchscreen")
     val touchModeDescriptions = listOf(
-        "单指移动光标，点击模拟鼠标",
-        "单指点击移动光标，长按模拟右键",
+        "Move cursor with one finger; tap to click",
+        "Tap to move cursor; long-press for right-click",
         "Direct touchscreen input"
     )
     val currentModeName = touchModeNames.getOrElse(currentMode) { touchModeNames[0] }
@@ -156,7 +154,7 @@ fun X11TouchMode(
 
     TitleAndContent(
         title = "Touch Mode",
-        subTitle = "选择触摸屏的操作方式。\n当前: $currentModeName\n$currentDescription"
+        subTitle = "Choose how the touchscreen operates.\nCurrent: $currentModeName\n$currentDescription"
     ) {
         ComposeSpinner(
             currKey = currentMode,
@@ -170,8 +168,8 @@ fun X11TouchMode(
 }
 
 /**
- * 屏幕方向设置
- * 使用与系统自带不同的值避免冲突: 10=自动, 11=横屏, 12=竖屏, 13=反向横屏, 14=反向竖屏
+ * Screen orientation setting.
+ * Uses distinct values to avoid conflicts with system constants: 10=auto, 11=landscape, 12=portrait, 13=reverse landscape, 14=reverse portrait
  */
 @Composable
 fun X11ScreenOrientation(
@@ -179,11 +177,11 @@ fun X11ScreenOrientation(
     onOrientationChange: (Int) -> Unit,
 ) {
     val orientationOptions = listOf(10, 11, 12, 13, 14)
-    val orientationNames = listOf("Follow System", "横屏(固定)", "竖屏(固定)", "Reverse Landscape", "Reverse Portrait")
+    val orientationNames = listOf("Follow System", "Landscape (fixed)", "Portrait (fixed)", "Reverse Landscape", "Reverse Portrait")
 
     TitleAndContent(
         title = "Screen Orientation",
-        subTitle = "控制X11显示的屏幕方向。注意: 此设置为X11专用，不影响系统方向设置。"
+        subTitle = "Controls the screen orientation for X11. Note: this is X11-specific and does not affect the system orientation."
     ) {
         ComposeSpinner(
             currKey = currentOrientation,
@@ -196,9 +194,7 @@ fun X11ScreenOrientation(
     }
 }
 
-/**
- * 显示缩放设置
- */
+/** Display scale setting. */
 @Composable
 fun X11DisplayScale(
     scale: Int,
@@ -206,7 +202,7 @@ fun X11DisplayScale(
 ) {
     TitleAndContent(
         title = "Display Scale",
-        subTitle = "调整X11显示的缩放比例。当前: ${scale}%"
+        subTitle = "Adjust the X11 display scale. Current: ${scale}%"
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Slider(
@@ -228,9 +224,7 @@ fun X11DisplayScale(
     }
 }
 
-/**
- * 保持屏幕常亮
- */
+/** Keep screen on setting. */
 @Composable
 fun X11KeepScreenOn(
     enabled: Boolean,
@@ -238,7 +232,7 @@ fun X11KeepScreenOn(
 ) {
     TitleAndContent(
         title = "Keep screen on during runtime",
-        subTitle = "启用后，X11运行时防止屏幕自动熄灭。"
+        subTitle = "When enabled, prevents the screen from sleeping while X11 is running."
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -253,9 +247,7 @@ fun X11KeepScreenOn(
     }
 }
 
-/**
- * X11设置预览
- */
+/** X11 settings preview. */
 @Composable
 fun X11SettingsPreview() {
     var resolution by remember { mutableStateOf("1280x720") }
@@ -264,7 +256,7 @@ fun X11SettingsPreview() {
     var displayScale by remember { mutableIntStateOf(100) }
     var keepScreenOn by remember { mutableStateOf(true) }
 
-    CollapsePanel("X11设置预览") {
+    CollapsePanel("X11 Settings Preview") {
         X11Resolution(resolution) { newValue, _ -> resolution = newValue }
         X11TouchMode(touchMode, { touchMode = it })
         X11ScreenOrientation(screenOrientation, { screenOrientation = it })

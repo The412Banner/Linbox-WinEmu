@@ -72,36 +72,36 @@ class MainEmuActivity : MainActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.activityRecreate = true
-        Log.d(TAG, "进入onSaveInstanceState1, 保存数据")
+        Log.d(TAG, "onSaveInstanceState: saving state")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (savedInstanceState?.activityRecreate == true) {
-            Log.e(TAG, "进入onCreate 本次为重启。或许应该特殊处理。")
+            Log.e(TAG, "onCreate: activity is being recreated — may need special handling")
         }
 
-        //设置包名
+        // Set package name
         MainActivity.HOST_PKG_NAME = packageName
         startX11Intent = createStartX11Intent()
         super.onCreate(savedInstanceState)
 
-        // 初始化X11设置SharedPreferences同步
+        // Initialize X11 settings SharedPreferences sync
         settingViewModel.initSharedPreferences(this)
 
-        // 启动时同步所有X11设置到SharedPreferences
+        // Sync all X11 settings to SharedPreferences on startup
         settingViewModel.syncX11SettingsToSharedPrefs()
 
-        //偏好设置
+        // Preferences
         prefs.displayResolutionMode.put("custom")
         runBlocking { prefs.displayResolutionCustom.put(Consts.Pref.general_resolution.get()) }
-        prefs.showAdditionalKbd.put(false) // 不显示底部按键
-        // 全屏设置
+        prefs.showAdditionalKbd.put(false) // hide the bottom keyboard
+        // Fullscreen setting
         runBlocking { prefs.fullscreen.put(Consts.Pref.x11_fullscreen.get()) }
-        // 刘海屏设置 - 使用刘海屏区域
+        // Notch/cutout setting
         prefs.hideCutout.put(false)
 
 
-//        //将composeView添加到原视图布局中
+//        // Add ComposeView to the original layout
 //        val composeView = ComposeView(this).apply {
 //            id = R.id.compose_view
 //            setContent {
@@ -113,11 +113,11 @@ class MainEmuActivity : MainActivity() {
 //        val frame = findViewById<FrameLayout>(com.termux.x11.R.id.frame)
 //        frame.addView(composeView, FrameLayout.LayoutParams(-2, -2))
 
-        // 将原视图放到compose中
+        // Embed the original view inside Compose
         setContent {
-            // 获取主题设置并应用
+            // Fetch and apply theme setting
             val themeMode by settingViewModel.themeState.collectAsState()
-            val isDarkTheme = themeMode != 0 // 0 = 跟随系统
+            val isDarkTheme = themeMode != 0 // 0 = follow system
 
             MainTheme(darkTheme = isDarkTheme) {
                 MainScreen(
@@ -127,12 +127,12 @@ class MainEmuActivity : MainActivity() {
             }
         }
 
-        // 在准备完成时自动启动模拟器
+        // Auto-start emulator once preparation finishes
         lifecycleScope.launch {
-            // 监听准备状态变化
+            // Observe preparation state
             prepareViewModel.uiState.collect { state ->
                 if (state.isPrepareFinished && !emuStarted) {
-                    // 准备完成且模拟器未启动，自动启动
+                    // Preparation done and emulator not yet started — launch it
                     lifecycleScope.launch {
                         startEmu()
                     }
@@ -144,54 +144,54 @@ class MainEmuActivity : MainActivity() {
 
 //            startEmu()
 //
-//            //尝试termux终端
+//            // try termux terminal
     }
 
     suspend fun startEmu() = withContext(Dispatchers.Default) {
         if (emuStarted) {
-            Log.w(TAG, "prepareAndStart: emuStarted为true, 模拟器已经启动。不再执行逻辑")
+            Log.w(TAG, "startEmu: emuStarted is true — emulator already running, skipping")
             return@withContext
         }
-        // TODO 这里launch切换到IO协程会不会好一点？
+        // TODO: would switching to an IO coroutine here be better?
 //        lifecycleScope.launch {
-//            Log.d(TAG, "prepareAndStart: 测试process输出？${Utils.readLinesProcessOutput(Runtime.getRuntime().exec(arrayOf("sh",
+//            Log.d(TAG, "prepareAndStart: test process output? ${Utils.readLinesProcessOutput(Runtime.getRuntime().exec(arrayOf("sh",
 //                "-c",
-//                "umask 0022 ; ls /storage/emulated/0",//sh -c 之后应该用一个字符串 不应再分割了
+//                "umask 0022 ; ls /storage/emulated/0", // sh -c expects a single string — do not split
 //                )))}")
 
         val selectedRootfs = Utils.Rootfs.getSelectedRootfs()!!
-        //rootfs处理（目前绑定外部存储路径在Proot里执行）
+        // rootfs setup (external storage binding is handled inside Proot)
         Utils.Rootfs.makeCurrent(selectedRootfs)
 
         emuStarted = true
 
-        // 启动终端前，从设置中获取用户名并更新到TerminalViewModel
-        // 使用runBlocking确保在startTerminal之前获取用户名
+        // Fetch the login username from settings and update TerminalViewModel before starting the terminal.
+        // runBlocking ensures the username is set before startTerminal is called.
         runBlocking {
             val userName = settingViewModel.getCurrentLoginUser()
             terminalViewModel.updatePromptFromSettings(userName)
-            Log.d(TAG, "startEmu: 已从设置获取用户名: $userName")
+            Log.d(TAG, "startEmu: fetched login user: $userName")
         }
 
-        //启动xserver
+        // Start xserver
         if (Consts.rootfsCurrXkbDir.exists()) {
             startService(startX11Intent)
-            waitForXStartedWithDialog() // 等待x11启动完成
+            waitForXStartedWithDialog() // wait for X11 to finish starting
         } else {
             mainViewModel.showConfirmDialog("Missing xkb folder in rootfs — x11 will not start. Install a package like libxkbcommon-x11 to fix this.")
         }
 
         terminalViewModel.startTerminal()
-        // TODO 全部移到emuManager后，改为在init添加观察者，但是onCreate不启动，而是在startEmu中手动启动
-        //添加observer时会立刻发送一遍从头到现在的状态，所以onCreate会触发
+        // TODO: once everything is moved into EmuManager, add the observer in init but start manually in startEmu rather than in onCreate
+        // Adding an observer immediately replays all states from the beginning, so onCreate fires immediately
         withContext(Dispatchers.Main) {
             lifecycle.addObserver(EmuManager(lifecycleScope))
         }
         val LANG = general_rootfs_lang.get()
-        // 检查目标 locale 是否已生成，未生成则执行 locale-gen
-        val langBase = LANG.substringBefore('.')  // "zh_CN.utf8" -> "zh_CN"
+        // Run locale-gen if the target locale has not been generated yet
+        val langBase = LANG.substringBefore('.')  // e.g. "zh_CN.utf8" -> "zh_CN"
         terminalViewModel.runCommand("""if ! locale -a | grep -qi "$langBase"; then locale-gen $LANG; fi; export LANG=$LANG""")
-        //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
+        // Can't use state here yet: the first value from state is the default, not the DataStore value
         proot_startup_cmd.get().takeIf { it.isNotBlank() }?.let {
             terminalViewModel.runCommand("$it &")
         }
@@ -204,10 +204,10 @@ class MainEmuActivity : MainActivity() {
         super.onDestroy()
         terminalViewModel.stopTerminal()
         stopService(startX11Intent)
-        // FIXME 目前release构建 finish 无法结束 service 进程 导致下次启动 xserver启动失败。需要手动强制结束进程
+        // FIXME: in release builds, finish() does not kill the service process, causing xserver to fail on next launch — kill it manually
         android.os.Process.killProcess(getX11ServicePid())
 
-        // 删除通知 从onPause改到onDestroy
+        // Cancel notification (moved from onPause to onDestroy)
         val notificationManager = getSystemService(NotificationManager::class.java)
         val mNotificationId = 7892
         for (notification in notificationManager.activeNotifications)
@@ -215,9 +215,7 @@ class MainEmuActivity : MainActivity() {
                 notificationManager.cancel(mNotificationId)
     }
 
-    /**
-     * 等待xserver启动完成。最多等待5秒
-     */
+    /** Waits for xserver to start, up to 5 seconds. */
     suspend fun waitForXStarted() {
         val startTime = System.currentTimeMillis()
         while (System.currentTimeMillis() - startTime < 5000) {
@@ -248,11 +246,7 @@ class MainEmuActivity : MainActivity() {
         return builder.build()
     }
 
-    /**
-     * 创建一个intent用于启动X11Service. 在intent放入数据：
-     * timestamp：时间戳
-     *
-     */
+    /** Creates an Intent for starting X11Service with a timestamp extra. */
     private fun createStartX11Intent(): Intent {
         return Intent(this, X11Service::class.java).apply {
             putExtra("timestamp", System.currentTimeMillis())
