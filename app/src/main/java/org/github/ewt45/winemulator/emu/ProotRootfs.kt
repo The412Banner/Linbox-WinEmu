@@ -22,7 +22,7 @@ class ProotRootfs {
 
 
     companion object {
-        /** 获取一个rootfs文件夹内/etc/passwd 中存储的用户信息。按用户名字母顺序排序 */
+        /** Reads user entries from /etc/passwd inside a rootfs directory, sorted alphabetically by username. */
         fun getUserInfos(rootfs: File): List<UserInfo> {
             var returnValue:List<UserInfo>
             try {
@@ -40,32 +40,30 @@ class ProotRootfs {
             }
             if (returnValue.find { it.name == "root" } == null)
                 returnValue += (UserInfo.ROOT)
-            //proot-distro 把termux作为用户加进去了。在别的app里用不了所以不显示
+            // proot-distro adds Termux as a user; it's unusable in other apps so we hide it
             return returnValue.filter { !it.name.startsWith("aid_") }.sortedBy { it.name }
         }
 
-        /**
-         * 从/.emuconf 获取当前选择的文件夹名称
-         */
+        /** Returns the currently selected user folder name from /.emuconf. */
         fun getCurrentSelectUser(name:String) {
-            TODO("目前是写在了datastore里（json存储）")
+            TODO("Currently stored in DataStore (JSON)")
         }
 
         /**
-         * 同 [getPreferredUser](String?, List)
-         * @param rootfsName 作为 [Consts.Pref.Local.rootfs_login_user_json] 的map的key 获取存储的user名。不能为current
+         * Like [getPreferredUser](String?, List) but looks up the stored username via [rootfsName].
+         * @param rootfsName key in [Consts.Pref.Local.rootfs_login_user_json]; must not be "current"
          */
         suspend fun getPreferredUser(rootfsName: String):UserInfo  {
-            if (rootfsName == Consts.rootfsCurrDir.name) throw IllegalArgumentException("用于搜索的 rootfsName 不能为 'current'")
+            if (rootfsName == Consts.rootfsCurrDir.name) throw IllegalArgumentException("rootfsName used for lookup must not be 'current'")
             val userMap: Map<String, String> = Json.decodeFromString(Consts.Pref.Local.rootfs_login_user_json.get())
             return getPreferredUser(userMap[rootfsName], getUserInfos(File(Consts.rootfsAllDir,rootfsName)))
         }
 
         /**
-         * 获取某rootfs的应该使用的登陆用户名。
-         * 首先从本地json中读取，如果没有，则优先返回非root用户。最后选项是root用户
-         * @param lastSelectedUserName 本地存储的该rootfs对应的默认用户名，可能为null（若没存过）
-         * @param allUsers 该rootfs全部可选的用户列表
+         * Returns the preferred login user for a rootfs.
+         * Reads from the locally stored JSON first; falls back to the first non-root user, then root.
+         * @param lastSelectedUserName locally stored default username for this rootfs; may be null if never set
+         * @param allUsers all available users in this rootfs
          */
         fun getPreferredUser(lastSelectedUserName: String?, allUsers: List<UserInfo>): UserInfo = allUsers.run {
             var foundInfo = find { info -> info.name == lastSelectedUserName }

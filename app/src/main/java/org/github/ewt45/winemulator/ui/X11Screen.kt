@@ -74,11 +74,11 @@ fun X11Screen(
     val renderData = remember { RenderData() }
     val manager = remember { InputControlsManager(context) }
 
-    // 状态变量
+    // State variables
     var currentProfileId by remember { mutableStateOf(prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)) }
     var showTouchscreenControls by remember { mutableStateOf(prefs.getBoolean("show_touchscreen_controls", false)) }
 
-    // 轮询监听 SharedPreferences 变化（后备同步机制）
+    // Poll for SharedPreferences changes (fallback sync mechanism)
     LaunchedEffect(Unit) {
         while (true) {
             val newShowControls = prefs.getBoolean("show_touchscreen_controls", false)
@@ -96,7 +96,7 @@ fun X11Screen(
         }
     }
 
-    // InputEventHandler 使用 X11InputSender
+    // InputEventHandler backed by X11InputSender
     val inputEventHandler = remember {
         object : InputEventHandler {
             override fun onKeyEvent(keycode: Int, isDown: Boolean) {
@@ -111,27 +111,27 @@ fun X11Screen(
         }
     }
 
-    // 只创建一次 InputControlsView，避免重建
+    // Create InputControlsView once to avoid recreation
     val inputControlsView = remember {
         InputControlsView(context, editMode = false).apply {
             this.inputEventHandler = inputEventHandler
         }
     }
 
-    // 监听显示开关变化并实时更新视图
+    // Observe show-controls toggle and update the view immediately
     LaunchedEffect(showTouchscreenControls) {
         inputControlsView.showTouchscreenControls = showTouchscreenControls
         Log.d("X11Screen", "Updated showTouchscreenControls: $showTouchscreenControls")
     }
 
-    // 监听配置 ID 变化并实时更新视图
+    // Observe profile ID changes and update the view immediately
     LaunchedEffect(currentProfileId) {
         val newProfile = if (currentProfileId != 0) manager.getProfile(currentProfileId) else manager.getProfiles().firstOrNull()
         inputControlsView.setProfile(newProfile)
         Log.d("X11Screen", "Updated profile to: ${newProfile?.name}")
     }
 
-    // 即时刷新函数（供悬浮弹窗回调使用）
+    // Immediate refresh function used by floating popup callbacks
     val refreshControlsImmediately = {
         val newShowControls = prefs.getBoolean("show_touchscreen_controls", false)
         val newProfileId = prefs.getInt(InputControlsFragment.SELECTED_PROFILE_ID, 0)
@@ -146,7 +146,7 @@ fun X11Screen(
             needRefresh = true
         }
 
-        // 如果状态没有变化，仍然强制刷新一次视图（保证一致性）
+        // Even when state is unchanged, force a view refresh for consistency
         if (!needRefresh) {
             inputControlsView.showTouchscreenControls = newShowControls
             val newProfile = if (newProfileId != 0) manager.getProfile(newProfileId) else manager.getProfiles().firstOrNull()
@@ -155,7 +155,7 @@ fun X11Screen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        // X11 渲染视图
+        // X11 render view
         AndroidView(
             factory = { ctx ->
                 val view = x11Content(ctx)
