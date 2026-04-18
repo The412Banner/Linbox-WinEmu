@@ -68,6 +68,7 @@ class FloatingPopupState {
 fun FloatingSettingsPopups(
     popupState: FloatingPopupState,
     settingVm: SettingViewModel,
+    onVirtualKeysSettingsChanged: () -> Unit = {},  // 新增：虚拟按键设置变更回调，用于即时刷新
     modifier: Modifier = Modifier
 ) {
     when (popupState.currentPopup) {
@@ -80,7 +81,8 @@ fun FloatingSettingsPopups(
         }
         FloatingPopupType.VIRTUAL_KEYS_SETTINGS -> {
             VirtualKeysSettingsPopup(
-                onDismiss = { popupState.dismissPopup() }
+                onDismiss = { popupState.dismissPopup() },
+                onSettingsChanged = onVirtualKeysSettingsChanged  // 传递回调
             )
         }
         FloatingPopupType.X11_SETTINGS -> {
@@ -187,11 +189,13 @@ fun GeneralSettingsPopup(
 
 /**
  * 虚拟按键设置悬浮弹窗
+ * @param onSettingsChanged 设置变更回调，用于通知外部立即刷新虚拟按键视图
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VirtualKeysSettingsPopup(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onSettingsChanged: () -> Unit = {}  // 新增回调参数
 ) {
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -300,6 +304,7 @@ fun VirtualKeysSettingsPopup(
                                     isControlsEnabled = true
                                     prefs.edit().putBoolean("show_touchscreen_controls", true).apply()
                                 }
+                                onSettingsChanged()  // 通知外部刷新
                             }
                         )
                     }
@@ -326,6 +331,7 @@ fun VirtualKeysSettingsPopup(
                                 onCheckedChange = { show ->
                                     showControls = show
                                     prefs.edit().putBoolean("show_touchscreen_controls", show).apply()
+                                    onSettingsChanged()  // 通知外部刷新
                                 }
                             )
                         }
@@ -368,6 +374,7 @@ fun VirtualKeysSettingsPopup(
                                             selectedProfile = profile
                                             prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, profile.id).apply()
                                             expanded = false
+                                            onSettingsChanged()  // 通知外部刷新
                                         }
                                     )
                                 }
@@ -402,6 +409,7 @@ fun VirtualKeysSettingsPopup(
                                             } else {
                                                 prefs.edit().remove(InputControlsFragment.SELECTED_PROFILE_ID).apply()
                                             }
+                                            onSettingsChanged()  // 通知外部刷新
                                         }
                                     },
                                     modifier = Modifier.weight(1f)
@@ -460,6 +468,7 @@ fun VirtualKeysSettingsPopup(
                             selectedProfile = newProfile
                             prefs.edit().putInt(InputControlsFragment.SELECTED_PROFILE_ID, newProfile.id).apply()
                             showProfileDialog = false
+                            onSettingsChanged()  // 通知外部刷新
                         }
                     }
                 ) {
