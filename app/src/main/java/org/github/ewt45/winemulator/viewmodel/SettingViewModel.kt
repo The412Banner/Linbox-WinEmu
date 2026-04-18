@@ -58,41 +58,41 @@ private val TAG = "SettingViewModel"
 
 
 /**
- * 修改数据逻辑： 用户编辑 -> 调用viewModel函数 -> 修改dataStore(editDateStore) -> 触发 flow 的emit -> 传递到state -> 触发compose重组
+ * Data modification flow: user edits -> calls ViewModel function -> modifies DataStore (editDateStore) -> triggers flow emit -> propagates to state -> triggers Compose recomposition
  *
- * 添加一个属性时，记得修改对应flow的map中的新建实例的传参
+ * When adding a new property, remember to update the corresponding flow's map to pass it in the new instance constructor
  */
 class SettingViewModel : ViewModel() {
 
-    // SharedPreferences，用于同步X11设置到termux-x11可读的格式
+    // SharedPreferences used to sync X11 settings into a format readable by termux-x11
     private var sharedPrefs: SharedPreferences? = null
 
-    /** 初始化SharedPreferences，需要在Activity中调用 */
+    /** Initialize SharedPreferences — must be called from the Activity */
     fun initSharedPreferences(context: Context) {
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(context)
     }
 
-    /** 将当前X11设置同步到SharedPreferences - 使用DataStore直接获取值避免闪退 */
+    /** Sync current X11 settings to SharedPreferences — reads from DataStore directly to avoid crashes */
     fun syncX11SettingsToSharedPrefs() {
         val prefs = sharedPrefs ?: return
         viewModelScope.launch {
             try {
                 val data = dataStore.data.first()
                 prefs.edit().apply {
-                    // 触摸模式: 0=虚拟触控板(1), 1=模拟触摸(2), 2=触摸屏(3)
+                    // Touch mode: 0=virtual touchpad(1), 1=simulated touch(2), 2=touchscreen(3)
                     val touchMode = data[x11_touch_mode.key] ?: x11_touch_mode.default
                     putString("touchMode", (touchMode + 1).toString())
-                    // 屏幕方向: 10=auto, 11=landscape, 12=portrait, 13=reverseLandscape, 14=reversePortrait
+                    // Screen orientation: 10=auto, 11=landscape, 12=portrait, 13=reverseLandscape, 14=reversePortrait
                     val orientationMap = mapOf(10 to "auto", 11 to "landscape", 12 to "portrait", 13 to "reverseLandscape", 14 to "reversePortrait")
                     val orientation = data[x11_screen_orientation.key] ?: x11_screen_orientation.default
                     putString("forceOrientation", orientationMap[orientation] ?: "auto")
-                    // 显示缩放
+                    // Display scale
                     val scale = data[x11_display_scale.key] ?: x11_display_scale.default
                     putInt("displayScale", scale)
-                    // 保持屏幕常亮
+                    // Keep screen on
                     val keepScreenOn = data[x11_keep_screen_on.key] ?: x11_keep_screen_on.default
                     putBoolean("keepScreenOn", keepScreenOn)
-                    // 分辨率: 使用general_resolution保持与原有逻辑一致
+                    // Resolution: use general_resolution to stay consistent with existing logic
                     val resolution = data[general_resolution.key] ?: general_resolution.default
                     if (resolution.contains("x")) {
                         putString("displayResolutionMode", "custom")
@@ -106,15 +106,15 @@ class SettingViewModel : ViewModel() {
         }
     }
 
-    // 一般设置
+    // General settings
     var resolutionText by mutableStateOf("")
         private set
 
-    /** key为[Consts.rootfsAllDir]下的的rootfs列表，value为对应rootfs的全部可用的用户。
-     * rootfs不包含 包括[Consts.rootfsCurrDir] 暂时先用这个替代rootfsList。后续可以改成一个包含rootfs信息的列表（不对 不是字符串的话没法存datastore了） */
+    /** Keys are the rootfs list under [Consts.rootfsAllDir], values are all available users for each rootfs.
+     * Does not include [Consts.rootfsCurrDir]. Currently used as a substitute for rootfsList. Could later be changed to a list of rootfs info objects (though non-strings can't be stored in DataStore). */
     val rootfsUsersOptions = mutableStateOf(mapOf<String, List<ProotRootfs.UserInfo>>())
 
-    /** rootfs 别名映射，key 为文件夹名，value 为别名 */
+    /** Rootfs alias map — key is folder name, value is alias */
     val rootfsAliasMap = mutableStateOf(mapOf<String, String>())
 
     val generalFLow = dataStore.data.map { pref ->
@@ -127,7 +127,7 @@ class SettingViewModel : ViewModel() {
     }
     val generalState = stateInSimple(PrefGeneral_DEFAULT, generalFLow)
 
-    // proot设置
+    // PRoot settings
     val prootFlow = dataStore.data.map { pref ->
         PrefProot(
             proot_bool_options.run { pref[key] ?: default },
@@ -136,7 +136,7 @@ class SettingViewModel : ViewModel() {
     }
     val prootState = stateInSimple(PrefProot_DEFAULT, prootFlow)
 
-    // InputControls设置
+    // InputControls settings
     val inputControlsFlow = dataStore.data.map { pref ->
         PrefInputControls(
             inputcontrols_enabled.run { pref[key] ?: default },
@@ -147,13 +147,13 @@ class SettingViewModel : ViewModel() {
     }
     val inputControlsState = stateInSimple(PrefInputControls_DEFAULT, inputControlsFlow)
     
-    // Theme设置
+    // Theme settings
     val themeFlow = dataStore.data.map { pref ->
         general_theme_mode.run { pref[key] ?: default }
     }
     val themeState = stateInSimple(1, themeFlow)
 
-    // X11设置
+    // X11 settings
     val x11Flow = dataStore.data.map { pref ->
         PrefX11(
             x11_touch_mode.run { pref[key] ?: default },
@@ -169,30 +169,30 @@ class SettingViewModel : ViewModel() {
     val x11State = stateInSimple(PrefX11_DEFAULT, x11Flow)
 
     init {
-        //部分数据不会自动更新，请在 [updateValuesWhenEnterSettings] 中更新，确保进入设置界面时会获取一次最新的值
+        // Some data won't auto-update — refresh it in [updateValuesWhenEnterSettings] to ensure the latest values are fetched when entering the settings screen
     }
 
     /**
-     * 当进入设置界面时，某些数据（例如本地文件列表）可能已经发生变化，但内存中的数据不会更改。所以需要在此时更新这些数据
+     * When entering the settings screen, some data (e.g. local file lists) may have changed but the in-memory data won't reflect that. Refresh it here.
      */
     fun updateValuesWhenEnterSettings() {
-        Log.e(TAG, "updateValuesWhenEnterSettings: 测试一下不执行这个函数的时候是不是不更新")
+        Log.e(TAG, "updateValuesWhenEnterSettings: testing whether skipping this function causes stale data")
         viewModelScope.launch(IO) {
-            resolutionText = general_resolution.get() //resolutionText不随flow更改，初始化先读取一下
+            resolutionText = general_resolution.get() // resolutionText doesn't update via flow, read it once on init
             rootfsUsersOptions.value = getRootfsUsersOptions()
-            // 更新别名映射
+            // Update alias map
             rootfsAliasMap.value = getRootfsList().associateWith { Utils.Rootfs.getAlias(File(rootfsAllDir, it)) }
-            // 目前 localRootfsLoginUsersMap 依赖 rootfsUsersOptions 才能正常工作。所以也要手动刷新
+            // localRootfsLoginUsersMap currently depends on rootfsUsersOptions to work correctly, so also refresh manually
             onChangeRootfsLoginUser("", "")
         }
     }
 
-    /** 点击重置按钮 */
+    /** Reset button tapped */
     suspend fun resetSettings() = withContext(IO) {
         dataStore.edit { pref -> Pref.allItems.forEach { item -> pref[item.key] = item.default } }
     }
 
-    /** 点击导入按钮，从本地文件读取json转为用户偏好 */
+    /** Import button tapped — reads JSON from a local file and applies it as user preferences */
     suspend fun importSettings(ctx: Context, uri: Uri) = withContext(IO) {
         return@withContext kotlin.runCatching {
             val readResult = Utils.Files.readFromUri(ctx, uri)
@@ -209,12 +209,12 @@ class SettingViewModel : ViewModel() {
         }
     }
 
-    /** 点击导出按钮. 将当前用户偏好转为json并写入本地文件 */
+    /** Export button tapped — serializes current user preferences to JSON and writes it to a local file */
     suspend fun exportSettings(ctx: Context, uri: Uri) = withContext(Dispatchers.IO) {
         return@withContext kotlin.runCatching {
             val map = dataStore.data.map { preference ->
                 val map = mutableMapOf<String, Any>()
-                // 导出所有选项的值，如果没有修改过，就返回当前的默认值
+                // Export all option values; if a value was never changed, return its current default
                 Pref.allItems.forEach { item -> map[item.key.name] = preference[item.key] ?: item.default }
                 return@map map
             }.first()
@@ -230,14 +230,14 @@ class SettingViewModel : ViewModel() {
     }
 
     fun onChangeProotStartupCmd(cmdRaw: String) {
-        //换行 -> 空格， 去掉结尾 &, 去掉首尾空格
+        // newline -> space, strip trailing &, trim whitespace
         editDateStoreAsync(proot_startup_cmd.key, cmdRaw.replace("\n", " ").trim().trimEnd('&').trim())
     }
 
     private val resolutionRegex = Regex("^(\\d+)(\\D+)(\\d+)$")
     private val resolutionRateLimiter = RateLimiter()
 
-    /** 格式化分辨率。如果格式不对返回null */
+    /** Format resolution string. Returns null if the format is invalid. */
     fun formatResolution(text: String): String? = resolutionRegex.matchEntire(text.trim())?.let { matchResult ->
         val (_, w, _, h) = matchResult.groupValues
         if (w.isNotEmpty() && h.isNotEmpty()) "${w}x${h}"
@@ -245,28 +245,28 @@ class SettingViewModel : ViewModel() {
     }
 
     /**
-     * 分辨率TextField内容变更时的回调。
-     * @param forceFormat 如果为 true, 则当传入text不符合格式规范时，将其改为一个符合规范的值并保存
+     * Callback when the resolution TextField content changes.
+     * @param forceFormat If true, when the text doesn't match the expected format it will be replaced with a valid value and saved
      */
     fun onChangeResolutionText(text: String, forceFormat: Boolean) {
-        Log.d(TAG, "onChangeResolutionText: 分辨率更改")
+        Log.d(TAG, "onChangeResolutionText: resolution changed")
         resolutionText = text
 
         var formatted = formatResolution(text)
         if (forceFormat && formatted == null) {
             formatted = Pref.general_resolution.default
         }
-        //如果符合格式，保存到本地
+        // If format is valid, save to local storage
         if (formatted != null) {
-            resolutionText = formatted //这个独立于flow之外所以要手动赋值
-            Log.d(TAG, "onChangeResolutionText: 分辨率更改 - 格式正确，保存到本地")
+            resolutionText = formatted // This lives outside the flow, so assign manually
+            Log.d(TAG, "onChangeResolutionText: resolution changed - format valid, saving to storage")
             editDateStoreAsync(general_resolution.key, formatted)
             MainEmuActivity.instance.getPref().displayResolutionCustom.put(formatted)
         }
     }
 
     /**
-     * 添加或删除外部共享目录
+     * Add or remove an external shared directory
      */
     suspend fun onChangeShareExtPath(oldPath: String, newPath: String, action: FuncOnChangeAction) = withContext(Dispatchers.IO) {
         val newList = general_shared_ext_path.get().run {
@@ -279,41 +279,42 @@ class SettingViewModel : ViewModel() {
         editDateStore(general_shared_ext_path.key, newList)
     }
 
-    /** 获取当前rootfs列表，不包含[rootfsCurrDir] */
+    /** Returns the current rootfs list, excluding [rootfsCurrDir] */
     fun getRootfsList(): List<String> = rootfsAllDir.list()?.toMutableList()?.minus(rootfsCurrDir.name) ?: listOf()
 
     /**
-     * 修改某rootfs文件夹名，或删除
-     * 确保：重命名时，新名称不为 [Consts.rootfsCurrDir] 或其他已有名称。 删除时：[rootfsCurrDir] 链接不指向该rootfs
-     * @throws Exception 失败时抛出异常
+     * Rename or delete a rootfs directory.
+     * On rename: the new name must not equal [Consts.rootfsCurrDir] or any existing name.
+     * On delete: [rootfsCurrDir] must not point to the rootfs being deleted.
+     * @throws Exception on failure
      */
     @Throws(Exception::class)
     suspend fun onChangeRootfsName(oldName: String, newName: String, action: FuncOnChangeAction) = withContext(IO) {
         when (action) {
             FuncOnChangeAction.EDIT -> {
                 if (newName == rootfsCurrDir.name || File(rootfsAllDir, newName).exists())
-                    throw RuntimeException("该文件已存在，无法重命名")
+                    throw RuntimeException("A file with that name already exists, cannot rename")
                 File(rootfsAllDir, oldName).renameTo(File(rootfsAllDir, newName))
-                // rootfs重命名后，登陆用户map中的rootfs键也要重命名
+                // After renaming the rootfs, also rename its key in the login user map
                 onChangeRootfsLoginUser(newName, ProotRootfs.getPreferredUser(newName).name)
             }
 
             FuncOnChangeAction.ADD -> Unit
             FuncOnChangeAction.DEL -> {
-                // 检查是否为当前正在运行的rootfs（current符号链接指向的rootfs）
+                // Check if this is the currently running rootfs (the one the 'current' symlink points to)
                 if (rootfsCurrDir.exists() && newName == rootfsCurrDir.canonicalFile.name)
-                    throw RuntimeException("该Rootfs当前正在运行，无法删除")
-                //不知为绑定的那些（dev, proc）文件夹用java方法无法删除。用rm -r 倒是可以
+                    throw RuntimeException("This rootfs is currently running and cannot be deleted")
+                // Bound directories (dev, proc) cannot be deleted with Java APIs; rm -r works fine
                 val output = Utils.readLinesProcessOutput(ProcessBuilder(listOf("sh","-c", "rm -r ${File(rootfsAllDir, oldName).absolutePath}"))
                     .redirectErrorStream(true).start())
                 if (output.isNotBlank()) throw RuntimeException(output)
-                // rootfs删除后，登陆用户map中的rootfs键也要删除 随便给一个不存在userName 会被删掉
+                // After deleting the rootfs, also remove its key from the login user map (a non-existent userName gets pruned)
                 onChangeRootfsLoginUser(newName, "stub")
             }
         }
     }
 
-    /** 使用[ProotRootfs.getUserInfos]从本地读取rootfs全部可用的用户列表. rootfs 不包含 [rootfsCurrDir] */
+    /** Reads the full list of available users for each rootfs using [ProotRootfs.getUserInfos]. Excludes [rootfsCurrDir]. */
     private fun getRootfsUsersOptions(): Map<String, List<ProotRootfs.UserInfo>> =
         getRootfsList().associateWith { rootfs -> ProotRootfs.getUserInfos(File(rootfsAllDir, rootfs)) }
 
@@ -323,12 +324,12 @@ class SettingViewModel : ViewModel() {
         MainEmuActivity.instance.finish()
     }
 
-    /** 改变某rootfs的默认登陆用户。 该函数内部会调用[getRootfsUsersOptions]自动将 [rootfsUsersOptions] 更新到最新 */
+    /** Change the default login user for a rootfs. Internally calls [getRootfsUsersOptions] to refresh [rootfsUsersOptions]. */
     suspend fun onChangeRootfsLoginUser(rootfsName: String, userName: String) {
         rootfsUsersOptions.value = getRootfsUsersOptions()
         val unfilteredMap = generalState.value.localRootfsLoginUsersMap.plus(rootfsName to userName)
         val newMap = mutableMapOf<String, String>()
-        //保证newMap的keys包含全部rootfs，且每个rootfs都对应一个有效值
+        // Ensure newMap contains all rootfs keys, each mapped to a valid value
         rootfsUsersOptions.value.forEach { (k, v) ->
             newMap[k] = ProotRootfs.getPreferredUser(unfilteredMap[k], v).name
         }
@@ -337,57 +338,57 @@ class SettingViewModel : ViewModel() {
 
     fun onChangeRootfsLang(lang: String) = editDateStoreAsync(general_rootfs_lang.key, lang)
 
-    /** 修改某rootfs的别名 */
+    /** Update the display alias for a rootfs */
     fun onChangeRootfsAlias(rootfsName: String, newAlias: String) {
         Utils.Rootfs.setAlias(File(rootfsAllDir, rootfsName), newAlias)
-        // 更新内存中的别名映射
+        // Update the in-memory alias map
         rootfsAliasMap.value = rootfsAliasMap.value.toMutableMap().apply { this[rootfsName] = newAlias }
     }
 
-    // InputControls设置相关
+    // InputControls settings
     fun onChangeInputControlsEnabled(enabled: Boolean) = editDateStoreAsync(inputcontrols_enabled.key, enabled)
     fun onChangeInputControlsProfileId(profileId: Int) = editDateStoreAsync(inputcontrols_profile_id.key, profileId)
     fun onChangeInputControlsOpacity(opacity: Float) = editDateStoreAsync(inputcontrols_opacity.key, opacity)
     fun onChangeInputControlsHaptics(haptics: Boolean) = editDateStoreAsync(inputcontrols_haptics.key, haptics)
     
-    // Theme设置相关
+    // Theme settings
     fun onChangeThemeMode(mode: Int) = editDateStoreAsync(general_theme_mode.key, mode)
 
-    // X11设置相关 - 直接写入SharedPreferences确保立即生效
+    // X11 settings — write directly to SharedPreferences for immediate effect
     fun onChangeX11TouchMode(mode: Int) {
-        // 直接写入SharedPreferences，确保立即生效
+        // Write directly to SharedPreferences so the change takes effect immediately
         sharedPrefs?.edit()?.putString("touchMode", (mode + 1).toString())?.apply()
-        // 同时保存到DataStore
+        // Also persist to DataStore
         editDateStoreAsync(x11_touch_mode.key, mode)
     }
     fun onChangeX11ScreenOrientation(orientation: Int) {
-        // 直接写入SharedPreferences，确保立即生效
+        // Write directly to SharedPreferences so the change takes effect immediately
         val orientationMap = mapOf(10 to "auto", 11 to "landscape", 12 to "portrait", 13 to "reverseLandscape", 14 to "reversePortrait")
         sharedPrefs?.edit()?.putString("forceOrientation", orientationMap[orientation] ?: "auto")?.apply()
-        // 同时保存到DataStore
+        // Also persist to DataStore
         editDateStoreAsync(x11_screen_orientation.key, orientation)
     }
     fun onChangeX11DisplayScale(scale: Int) {
-        // 直接写入SharedPreferences，确保立即生效
+        // Write directly to SharedPreferences so the change takes effect immediately
         sharedPrefs?.edit()?.putInt("displayScale", scale)?.apply()
-        // 同时保存到DataStore
+        // Also persist to DataStore
         editDateStoreAsync(x11_display_scale.key, scale)
     }
     fun onChangeX11KeepScreenOn(enabled: Boolean) {
-        // 直接写入SharedPreferences，确保立即生效
+        // Write directly to SharedPreferences so the change takes effect immediately
         sharedPrefs?.edit()?.putBoolean("keepScreenOn", enabled)?.apply()
-        // 同时保存到DataStore
+        // Also persist to DataStore
         editDateStoreAsync(x11_keep_screen_on.key, enabled)
     }
 
     /**
-     * 获取当前选择的登录用户名
-     * 从rootfs_login_user_json中读取当前rootfs对应的用户名
+     * Returns the login username for the currently selected rootfs.
+     * Reads from rootfs_login_user_json for the current rootfs entry.
      */
     suspend fun getCurrentLoginUser(): String {
         try {
             val currentRootfsName = Consts.rootfsCurrDir.canonicalFile.name
-            // 直接从DataStore读取最新数据，而不是使用可能未更新的缓存状态
+            // Read fresh data directly from DataStore rather than potentially stale cached state
             val jsonString = dataStore.data.first()[rootfs_login_user_json.key] ?: "{}"
             val loginUsersMap: Map<String, String> = Json.decodeFromString(jsonString)
             return loginUsersMap[currentRootfsName] ?: "root"
@@ -400,7 +401,7 @@ class SettingViewModel : ViewModel() {
 }
 
 data class PrefProot(
-    /** 只会出现一次且没有附加参数的选项。有全名就尽量使用全名 */
+    /** Flags that appear at most once with no additional arguments. Use the long form whenever available. */
     val boolOptions: Set<String>,
     val startupCmd: String,
 )
@@ -414,7 +415,7 @@ data class PrefGeneral(
     val resolution: String,
     val sharedExtPath: Set<String>,
     val rootfsLang: String,
-    /** 当前全部rootfs对应的登陆用户。 key为rootfs名，value为用户名  */
+    /** Login user for every rootfs. Key = rootfs name, value = username. */
     val localRootfsLoginUsersMap: Map<String, String>,
 )
 
@@ -461,7 +462,7 @@ private val PrefX11_DEFAULT = PrefX11(
     x11_resolution.default,
 )
 
-/** 顶部操作按钮类型 */
+/** Top action button types */
 sealed interface SettingAction {
     data object RESET : SettingAction
     data object IMPORT : SettingAction
