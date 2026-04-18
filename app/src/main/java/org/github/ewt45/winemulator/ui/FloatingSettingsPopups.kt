@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -94,6 +95,7 @@ fun FloatingSettingsPopups(
 /**
  * 一般设置悬浮弹窗
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeneralSettingsPopup(
     settingVm: SettingViewModel,
@@ -186,6 +188,7 @@ fun GeneralSettingsPopup(
 /**
  * 虚拟按键设置悬浮弹窗
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VirtualKeysSettingsPopup(
     onDismiss: () -> Unit
@@ -310,7 +313,7 @@ fun VirtualKeysSettingsPopup(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Visibility,
+                                imageVector = Icons.Filled.Visibility,
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 8.dp)
                             )
@@ -475,6 +478,7 @@ fun VirtualKeysSettingsPopup(
 /**
  * X11设置悬浮弹窗
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun X11SettingsPopup(
     settingVm: SettingViewModel,
