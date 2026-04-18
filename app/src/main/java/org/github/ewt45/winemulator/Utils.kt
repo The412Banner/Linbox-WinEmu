@@ -191,7 +191,7 @@ object Utils {
     }
 
     /**
-     * chmod wrapper with try/catch. Pass mode as an octal string, e.g. “755”.
+     * chmod wrapper with try/catch. Pass mode as an octal string, e.g. "755".
      */
     fun chmod(file: File, mode: String) {
         try {

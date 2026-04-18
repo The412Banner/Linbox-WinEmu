@@ -392,10 +392,10 @@ fun GeneralRootfsSelect_RootfsName(
 }
 
 /**
- * Shows a “More...” button that expands additional content when clicked.
+ * Shows a "More..." button that expands additional content when clicked.
  */
 @Composable
-fun MoreContent(modifier: Modifier = Modifier, btnText: String = “More...”, content: @Composable AnimatedVisibilityScope.() -> Unit) {
+fun MoreContent(modifier: Modifier = Modifier, btnText: String = "More...", content: @Composable AnimatedVisibilityScope.() -> Unit) {
     var isShowContent by remember { mutableStateOf(false) }
     Box(modifier.fillMaxWidth()) {
         AnimatedVertical(isShowContent, content = content)
@@ -489,8 +489,8 @@ fun GeneralResolution(
     val realText = if (isCustom) "Custom" else text
     var expanded by remember { mutableStateOf(false) }
 
-    // User taps “Custom” -> callback sets isCustom=true -> onDone is not called in that case
-    // TextField shows “Custom” when isCustom, otherwise shows the incoming resolution
+    // User taps "Custom" -> callback sets isCustom=true -> onDone is not called in that case
+    // TextField shows "Custom" when isCustom, otherwise shows the incoming resolution
     // TextField onValueChange is a no-op; ViewModel updates happen in the option-click callbacks
 
     TitleAndContent("Resolution", "Format: widthxheight (x is the letter). After editing a custom resolution, tap the checkmark icon or press Enter to save.") {

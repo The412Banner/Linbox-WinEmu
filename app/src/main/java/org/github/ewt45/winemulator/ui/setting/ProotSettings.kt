@@ -59,7 +59,7 @@ fun ProotNoValueOptions(
         val tooltipState = rememberTooltipState()
         TooltipBox(
             positionProvider = TooltipDefaults.rememberRichTooltipPositionProvider(),
-            tooltip = { PlainTooltip { Text(“User ID — configure this in the \”Rootfs Switch\” screen.”) } },
+            tooltip = { PlainTooltip { Text("User ID — configure this in the \"Rootfs Switch\" screen.") } },
             state = tooltipState,
         ) {
             Box {

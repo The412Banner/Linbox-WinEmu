@@ -250,7 +250,7 @@ private fun PermissionGrant(
     )
     Spacer(Modifier.height(16.dp))
     Column(Modifier.padding(16.dp)) {
-        Text(“To ensure the app works correctly, please grant the following permissions. Or tap \”Skip\” to proceed without granting them.”)
+        Text("To ensure the app works correctly, please grant the following permissions. Or tap \"Skip\" to proceed without granting them.")
         Spacer(Modifier.height(32.dp))
         permissions.forEach { item ->
             Row(
