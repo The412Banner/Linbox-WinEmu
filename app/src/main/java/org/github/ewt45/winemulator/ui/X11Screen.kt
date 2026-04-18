@@ -3,7 +3,10 @@ package org.github.ewt45.winemulator.ui
 import android.content.Context
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.MarginLayoutParams
 import android.widget.FrameLayout
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -34,6 +37,7 @@ import com.termux.x11.input.RenderData
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.github.ewt45.winemulator.Consts
+import org.github.ewt45.winemulator.R
 import org.github.ewt45.winemulator.inputcontrols.InputControlsManager
 import org.github.ewt45.winemulator.inputcontrols.InputControlsView
 import org.github.ewt45.winemulator.inputcontrols.X11InputSender
