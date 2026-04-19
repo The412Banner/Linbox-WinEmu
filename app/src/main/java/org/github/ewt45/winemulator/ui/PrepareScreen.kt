@@ -75,6 +75,7 @@ private val TAG = "PrepareScreen"
  * Distro selection card shown before rootfs extraction.
  * The user picks a preset (Linbox or ROCKNIX) which determines the startup command.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DistroSelect(
     selected: DistroPreset,
