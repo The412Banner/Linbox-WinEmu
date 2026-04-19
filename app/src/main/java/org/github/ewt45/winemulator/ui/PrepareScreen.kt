@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.material3.RadioButton
+import org.github.ewt45.winemulator.DistroPreset
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -67,6 +71,67 @@ import java.io.File
 
 private val TAG = "PrepareScreen"
 
+/**
+ * Distro selection card shown before rootfs extraction.
+ * The user picks a preset (Linbox or ROCKNIX) which determines the startup command.
+ */
+@Composable
+private fun DistroSelect(
+    selected: DistroPreset,
+    onSelect: (DistroPreset) -> Unit,
+    onConfirm: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CenterAlignedTopAppBar(title = { Text("Choose Environment") })
+        Text(
+            "Select the environment to install. You can add more later.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        DistroPreset.entries.forEach { preset ->
+            val isSelected = preset == selected
+            ElevatedCard(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(preset) }
+                    .then(
+                        if (isSelected) Modifier.border(
+                            2.dp,
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.shapes.medium
+                        ) else Modifier
+                    )
+            ) {
+                Row(
+                    Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = isSelected, onClick = { onSelect(preset) })
+                    Spacer(Modifier.height(8.dp))
+                    Column(Modifier.padding(start = 8.dp)) {
+                        Text(preset.displayName, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            preset.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onConfirm, Modifier.fillMaxWidth()) {
+            Text("Continue")
+        }
+    }
+}
+
 @Composable
 fun PrepareScreen(prepareVm: PrepareViewModel, settingVm: SettingViewModel, navigateToMainScreen: suspend () -> Unit) {
     // Refresh state on first entry
@@ -82,9 +147,10 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
     val state by prepareVm.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    // Title will be set dynamically based on context
     val reporter = rememberTaskReporter(msgTitle = "")
-    var autoExtractStarted by remember { mutableStateOf(false) } // Track whether auto-extraction has started
+    var autoExtractStarted by remember { mutableStateOf(false) }
+    var selectedDistro by remember { mutableStateOf(DistroPreset.LINBOX) }
+    var distroConfirmed by remember { mutableStateOf(false) }
 
     // Set reporter title based on context
     LaunchedEffect(state.forceNoRootfs, state.noRootfs) {
@@ -121,8 +187,7 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                     reporter.msg("Auto-extracted rootfs successfully:${extractedRootfs.name}", "Auto-extraction successful!\n(Click logs to expand)")
                     reporter.stage = ProgressStage.DONE_SUCCESS
                     
-                    // Auto-set startup command to linbox
-                    settingVm.onChangeProotStartupCmd("linbox")
+                    settingVm.onChangeProotStartupCmd(selectedDistro.startupCommand)
                     reporter.msg("Startup command set to: linbox")
                     
                     // Auto-set current rootfs (set symlink directly, avoid calling onChangeRootfsSelect to prevent triggering finish)
@@ -203,23 +268,34 @@ fun PrepareScreenImpl(prepareVm: PrepareViewModel, settingVm: SettingViewModel, 
                     }
                 }
             } else if (state.noRootfs || state.forceNoRootfs) {
+                // Show distro picker first, then rootfs selection
+                if (!distroConfirmed) {
+                    DistroSelect(
+                        selected = selectedDistro,
+                        onSelect = { selectedDistro = it },
+                        onConfirm = { distroConfirmed = true }
+                    )
+                }
                 // On first launch with auto-extract, show progress (autoExtractStarted distinguishes auto vs manual)
-                if (state.noRootfs && !state.forceNoRootfs && autoExtractStarted &&
+                else if (state.noRootfs && !state.forceNoRootfs && autoExtractStarted &&
                     (reporter.stage == ProgressStage.PROCESSING || 
                      reporter.stage == ProgressStage.DONE_SUCCESS)) {
                     RootfsAutoExtractProgress(reporter)
                 }
                 // Other cases (new container, auto-extract failed, manual select) show manual selection UI
-                else if (state.forceNoRootfs || !autoExtractStarted || reporter.stage == ProgressStage.DONE_FAILURE) {
+                else if (distroConfirmed && (state.forceNoRootfs || !autoExtractStarted || reporter.stage == ProgressStage.DONE_FAILURE)) {
                     RootfsSelect(
                         getAvailableUsers = { rootfs: String -> ProotRootfs.getUserInfos(File(Consts.rootfsAllDir, rootfs)).map { it.name } },
                         settingVm::onChangeRootfsLoginUser, settingVm::onChangeRootfsName,
                         initReporter = reporter,
                         onAutoExtractStart = { autoExtractStarted = true },
-                        onRootfsExtracted = { rootfsName -> prepareVm.onRootfsExtracted(rootfsName) },
+                        onRootfsExtracted = { rootfsName ->
+                            prepareVm.onRootfsExtracted(rootfsName)
+                            scope.launch { settingVm.onChangeProotStartupCmd(selectedDistro.startupCommand) }
+                        },
                         onSetCurrentRootfs = { rootfsName -> Utils.Rootfs.makeCurrent(File(Consts.rootfsAllDir, rootfsName)) },
                         onCancel = if (state.forceNoRootfs) { { prepareVm.onCancelForceNoRootfs() } } else null,
-                        defaultIsSetCurrent = !state.forceNoRootfs // Checked by default on first launch, unchecked for new container
+                        defaultIsSetCurrent = !state.forceNoRootfs
                     )
                 } else {
                     // Wait for auto-extraction to complete
