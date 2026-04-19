@@ -12,6 +12,7 @@ on:
           - onlyXfce4
           - All
           - both
+          - rocknix
 
 env:
   JAVA_VERSION: '17'
@@ -208,5 +209,83 @@ jobs:
           name: "Nightly Build"
           prerelease: true
           files: Linbox-WinEmu-All.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-rocknix:
+    name: Build ROCKNIX APK
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_type == 'rocknix' }}
+
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc || true
+          sudo rm -rf /usr/local/lib/android/sdk/ndk || true
+          sudo rm -rf /usr/local/lib/android/sdk/system-images || true
+          sudo chmod -R 777 /usr/local/lib/android || true
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Build ROCKNIX APK (no bundled rootfs)
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -PminSdk=26 \
+            -PtargetSdk=28 \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=512m" \
+            --no-daemon \
+            --stacktrace
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore debug.keystore -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Debug,OU=Debug,O=Debug,L=Debug,ST=Debug,C=US" 2>/dev/null
+          $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -1)/apksigner sign \
+            --ks debug.keystore \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out Linbox-WinEmu-ROCKNIX.apk \
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          ls -lh Linbox-WinEmu-ROCKNIX.apk
+
+      - name: Upload ROCKNIX APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linbox-WinEmu-ROCKNIX
+          path: Linbox-WinEmu-ROCKNIX.apk
+          retention-days: 30
+
+      - name: Publish to GitHub Release (nightly)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: "Nightly Build"
+          prerelease: true
+          files: Linbox-WinEmu-ROCKNIX.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
