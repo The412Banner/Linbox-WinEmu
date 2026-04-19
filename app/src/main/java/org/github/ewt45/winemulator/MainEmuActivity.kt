@@ -33,6 +33,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.github.ewt45.winemulator.Consts.Pref.general_rootfs_lang
 import org.github.ewt45.winemulator.Consts.Pref.proot_startup_cmd
+import org.github.ewt45.winemulator.Utils
 import org.github.ewt45.winemulator.Utils.activityRecreate
 import org.github.ewt45.winemulator.Utils.getX11ServicePid
 import org.github.ewt45.winemulator.emu.X11Service
@@ -174,7 +175,8 @@ class MainEmuActivity : MainActivity() {
         }
 
         // Start xserver
-        if (Consts.rootfsCurrXkbDir.exists()) {
+        val resolvedXkbDir = Utils.resolveInRootfs(Consts.rootfsCurrXkbDir, Consts.rootfsCurrDir)
+        if (resolvedXkbDir.exists()) {
             startService(startX11Intent)
             waitForXStartedWithDialog() // wait for X11 to finish starting
         } else {

@@ -22,6 +22,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.MainEmuActivity
+import org.github.ewt45.winemulator.Utils
 import a.io.github.ewt45.winemulator.R
 
 class X11Service : LifecycleService() {
@@ -83,7 +84,7 @@ class X11Service : LifecycleService() {
         // Read settings only from the incoming Intent; other sources may be unreliable inside a service
         if (!started) {
             val timestamp = intent?.getLongExtra("timestamp", -1)
-            val xkbDir = Consts.rootfsCurrXkbDir
+            val xkbDir = Utils.resolveInRootfs(Consts.rootfsCurrXkbDir, Consts.rootfsCurrDir)
             val tmpDir = Consts.tmpDir
             if (!xkbDir.exists() || !tmpDir.exists()) {
                 Log.e(TAG, "onStartCommand: required directories (xkb or tmp) missing — not starting xserver")

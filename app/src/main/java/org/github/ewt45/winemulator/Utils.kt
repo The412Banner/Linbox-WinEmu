@@ -203,6 +203,18 @@ object Utils {
 
     fun File.notExists(): Boolean = !this.exists()
 
+    /**
+     * Resolves [file] relative to [rootfsDir], following one level of symlinks.
+     * Needed because rootfs symlinks may point to absolute paths (e.g. /usr/share/X11/xkb ->
+     * /usr/share/xkeyboard-config-2) which don't exist on the Android host — only inside PRoot.
+     */
+    fun resolveInRootfs(file: File, rootfsDir: File): File {
+        if (!java.nio.file.Files.isSymbolicLink(file.toPath())) return file
+        val target = java.nio.file.Files.readSymbolicLink(file.toPath())
+        if (!target.isAbsolute) return file.resolveSibling(target.toString())
+        return File(rootfsDir, target.toString().trimStart('/'))
+    }
+
     /** Returns true if this stream begins with the zstd magic bytes */
     fun InputStream.isZstd(): Boolean = checkStreamHeaderMagic(byteArrayOf(0x28.toByte(), 0xB5.toByte(), 0x2F.toByte(), 0xFD.toByte()))
 
