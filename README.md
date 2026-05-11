@@ -1,4 +1,6 @@
 # Linbox-WinEmu
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white)](https://discord.gg/n8S4G2WZQ4)
+
 
 <p align="center">
     <img src="ic_launcher-playstore.png" width="220" height="220" alt="Linbox Logo" />
@@ -216,3 +218,8 @@ Download the latest APK from the [GitHub Releases](../../releases) page. For bug
 ---
 
 *Linbox-WinEmu is distributed under the GPL v3 open source license.*
+
+
+## Community
+
+Join our Discord: https://discord.gg/n8S4G2WZQ4
